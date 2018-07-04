@@ -96,94 +96,103 @@
 #endif
 #endif
 
-#pragma warning(push)
-#pragma warning(disable : 4996) // we don't want to see warnings in our own code
-
 namespace c4 {
     namespace simd {
-        struct int8x16_t {
+        struct int8x16 {
             typedef int8_t base_t;
-            int8x16_t() = default;
+            int8x16() = default;
 #ifdef USE_ARM_NEON
-            ::int8x16_t v;
-            int8x16_t(int8_t x) : v(vdupq_n_s8(x)) {}
-            int8x16_t(::int8x16_t v) : v(v) {}
+            int8x16_t v;
+            int8x16(int8_t x) : v(vdupq_n_s8(x)) {}
+            int8x16(int8x16_t v) : v(v) {}
 #else
             __m128i v;
-            int8x16_t(int8_t x) : v(_mm_set1_epi8(x)) {}
-            int8x16_t(__m128i v) : v(v) {}
+            int8x16(int8_t x) : v(_mm_set1_epi8(x)) {}
+            int8x16(__m128i v) : v(v) {}
 #endif
         };
 
-        struct uint8x16_t {
+        struct uint8x16 {
             typedef uint8_t base_t;
-            uint8x16_t() = default;
+            uint8x16() = default;
 #ifdef USE_ARM_NEON
-            ::uint8x16_t v;
+            uint8x16_t v;
+            uint8x16(uint8_t x) : v(vdupq_n_u8(x)) {}
+            uint8x16(uint8x16_t v) : v(v) {}
 #else
             __m128i v;
-            uint8x16_t(uint8_t x) : v(_mm_set1_epi8(x)) {}
-            uint8x16_t(__m128i v) : v(v) {}
+            uint8x16(uint8_t x) : v(_mm_set1_epi8(x)) {}
+            uint8x16(__m128i v) : v(v) {}
 #endif
         };
 
-        struct int16x8_t {
+        struct int16x8 {
             typedef int16_t base_t;
-            int16x8_t() = default;
+            int16x8() = default;
 #if defined(USE_ARM_NEON)
-            ::int16x8_t v;
+            int16x8_t v;
+            int16x8(int16_t x) : v(vdupq_n_s16(x)) {}
+            int16x8(int16x8_t v) : v(v) {}
 #else
             __m128i v;
-            int16x8_t(uint16_t x) : v(_mm_set1_epi16(x)) {}
-            int16x8_t(__m128i v) : v(v) {}
+            int16x8(uint16_t x) : v(_mm_set1_epi16(x)) {}
+            int16x8(__m128i v) : v(v) {}
 #endif
         };
 
-        struct uint16x8_t {
+        struct uint16x8 {
             typedef uint16_t base_t;
-            uint16x8_t() = default;
+            uint16x8() = default;
 #if defined(USE_ARM_NEON)
-            ::uint16x8_t v;
+            uint16x8_t v;
+            uint16x8(uint16_t x) : v(vdupq_n_u16(x)) {}
+            uint16x8(uint16x8_t v) : v(v) {}
 #else
             __m128i v;
-            uint16x8_t(uint16_t x) : v(_mm_set1_epi16(x)) {}
-            uint16x8_t(__m128i v) : v(v) {}
+            uint16x8(uint16_t x) : v(_mm_set1_epi16(x)) {}
+            uint16x8(__m128i v) : v(v) {}
 #endif
         };
 
-        struct int32x4_t {
+        struct int32x4 {
             typedef int32_t base_t;
-            int32x4_t() = default;
+            int32x4() = default;
 #ifdef USE_ARM_NEON
-            ::int32x4_t v;
+            int32x4_t v;
+            int32x4(int32_t x) : v(vdupq_n_s32(x)) {}
+            int32x4(int32x4_t v) : v(v) {}
 #else
             __m128i v;
-            int32x4_t(int32_t x) : v(_mm_set1_epi32(x)) {}
-            int32x4_t(__m128i v) : v(v) {}
+            int32x4(int32_t x) : v(_mm_set1_epi32(x)) {}
+            int32x4(__m128i v) : v(v) {}
 #endif
         };
 
-        struct uint32x4_t {
+        struct uint32x4 {
             typedef uint32_t base_t;
-            uint32x4_t() = default;
+            uint32x4() = default;
 #ifdef USE_ARM_NEON
-            ::uint32x4_t v;
+            uint32x4_t v;
+            uint32x4(uint32_t x) : v(vdupq_n_u32(x)) {}
+            uint32x4(uint32x4_t v) : v(v) {}
 #else
             __m128i v;
-            uint32x4_t(uint32_t x) : v(_mm_set1_epi32(x)) {}
-            uint32x4_t(__m128i v) : v(v) {}
+            uint32x4(uint32_t x) : v(_mm_set1_epi32(x)) {}
+            uint32x4(__m128i v) : v(v) {}
 #endif
         };
 
-        struct float32x4_t {
+        struct float32x4 {
             typedef float base_t;
-            float32x4_t() = default;
+            float32x4() = default;
 #ifdef USE_ARM_NEON
-            ::float32x4_t v;
+            float32x4_t v;
+            float32x4(float x) : v(vdupq_n_f32(x)) {}
+            float32x4(float32x4_t v) : v(v) {}
 #else
             __m128 v;
-            float32x4_t(float x) : v(_mm_set1_ps(x)) {}
-            float32x4_t(__m128 v) : v(v) {}
+            float32x4(float x) : v(_mm_set1_ps(x)) {}
+            float32x4(__m128 v) : v(v) {}
 #endif
         };
 
@@ -191,115 +200,264 @@ namespace c4 {
             template<class T>
             struct is_simd : std::false_type {};
             template<>
-            struct is_simd<int8x16_t> : std::true_type {};
+            struct is_simd<int8x16> : std::true_type {};
             template<>
-            struct is_simd<uint8x16_t> : std::true_type {};
+            struct is_simd<uint8x16> : std::true_type {};
             template<>
-            struct is_simd<int16x8_t> : std::true_type {};
+            struct is_simd<int16x8> : std::true_type {};
             template<>
-            struct is_simd<uint16x8_t> : std::true_type {};
+            struct is_simd<uint16x8> : std::true_type {};
             template<>
-            struct is_simd<int32x4_t> : std::true_type {};
+            struct is_simd<int32x4> : std::true_type {};
             template<>
-            struct is_simd<uint32x4_t> : std::true_type {};
+            struct is_simd<uint32x4> : std::true_type {};
             template<>
-            struct is_simd<float32x4_t> : std::true_type {};
+            struct is_simd<float32x4> : std::true_type {};
 
             template<class T>
             struct is_integral : std::false_type {};
             template<>
-            struct is_integral<int8x16_t> : std::true_type {};
+            struct is_integral<int8x16> : std::true_type {};
             template<>
-            struct is_integral<uint8x16_t> : std::true_type {};
+            struct is_integral<uint8x16> : std::true_type {};
             template<>
-            struct is_integral<int16x8_t> : std::true_type {};
+            struct is_integral<int16x8> : std::true_type {};
             template<>
-            struct is_integral<uint16x8_t> : std::true_type {};
+            struct is_integral<uint16x8> : std::true_type {};
             template<>
-            struct is_integral<int32x4_t> : std::true_type {};
+            struct is_integral<int32x4> : std::true_type {};
             template<>
-            struct is_integral<uint32x4_t> : std::true_type {};
+            struct is_integral<uint32x4> : std::true_type {};
 
             template<class T>
             struct is_signed : std::false_type {};
             template<>
-            struct is_signed<int8x16_t> : std::true_type {};
+            struct is_signed<int8x16> : std::true_type {};
             template<>
-            struct is_signed<uint8x16_t> : std::false_type {};
+            struct is_signed<uint8x16> : std::false_type {};
             template<>
-            struct is_signed<int16x8_t> : std::true_type {};
+            struct is_signed<int16x8> : std::true_type {};
             template<>
-            struct is_signed<uint16x8_t> : std::false_type {};
+            struct is_signed<uint16x8> : std::false_type {};
             template<>
-            struct is_signed<int32x4_t> : std::true_type {};
+            struct is_signed<int32x4> : std::true_type {};
             template<>
-            struct is_signed<uint32x4_t> : std::false_type {};
+            struct is_signed<uint32x4> : std::false_type {};
             template<>
-            struct is_signed<float32x4_t> : std::true_type {};
+            struct is_signed<float32x4> : std::true_type {};
 
             template<class T>
-            struct is_unsigned : std::negation<is_signed<T> > {};
+            using is_unsigned = typename std::conditional<is_signed<T>::value, std::false_type, std::true_type>::type;
 
             template<class T, class = typename std::enable_if<is_simd<T>::value>::type>
             constexpr size_t length() {
-                return sizeof(T) / sizeof(T::base_t);
+                return sizeof(T) / sizeof(typename T::base_t);
             }
         };
 
-#ifdef USE_ARM_NEON
-        struct int8x16x2_t : public int8x16x2_t;
-        struct uint8x16x2_t : public uint8x16x2_t;
-        struct int16x8x2_t : public int16x8x2_t;
-        struct uint16x8x2_t : public uint16x8x2_t;
-        struct int32x4x2_t : public int32x4x2_t;
-        struct uint32x4x2_t : public uint32x4x2_t;
-        struct float32x4x2_t : public float32x4x2_t;
-
-        struct int8x16x4_t : public int8x16x4_t;
-        struct uint8x16x4_t : public uint8x16x4_t;
-        struct int16x8x4_t : public int16x8x4_t;
-        struct uint16x8x4_t : public uint16x8x4_t;
-        struct int32x4x4_t : public int32x4x4_t;
-        struct uint32x4x4_t : public uint32x4x4_t;
-        struct float32x4x4_t : public float32x4x4_t;
-#else
         template<class T, int n, class = typename std::enable_if<traits::is_simd<T>::value>::type>
         struct tuple {
-            typedef T simd_t;
             T val[n];
         };
 
-        typedef tuple<int8x16_t, 2> int8x16x2_t;
-        typedef tuple<uint8x16_t, 2> uint8x16x2_t;
-        typedef tuple<int16x8_t, 2> int16x8x2_t;
-        typedef tuple<uint16x8_t, 2> uint16x8x2_t;
-        typedef tuple<int32x4_t, 2> int32x4x2_t;
-        typedef tuple<uint32x4_t, 2> uint32x4x2_t;
-        typedef tuple<float32x4_t, 2> float32x4x2_t;
+        typedef tuple<int8x16, 2> int8x16x2;
+        typedef tuple<uint8x16, 2> uint8x16x2;
+        typedef tuple<int16x8, 2> int16x8x2;
+        typedef tuple<uint16x8, 2> uint16x8x2;
+        typedef tuple<int32x4, 2> int32x4x2;
+        typedef tuple<uint32x4, 2> uint32x4x2;
+        typedef tuple<float32x4, 2> float32x4x2;
 
-        typedef tuple<int8x16_t, 3> int8x16x3_t;
-        typedef tuple<uint8x16_t, 3> uint8x16x3_t;
-        typedef tuple<int16x8_t, 3> int16x8x3_t;
-        typedef tuple<uint16x8_t, 3> uint16x8x3_t;
-        typedef tuple<int32x4_t, 3> int32x4x3_t;
-        typedef tuple<uint32x4_t, 3> uint32x4x3_t;
-        typedef tuple<float32x4_t, 3> float32x4x3_t;
+        typedef tuple<int8x16, 3> int8x16x3;
+        typedef tuple<uint8x16, 3> uint8x16x3;
+        typedef tuple<int16x8, 3> int16x8x3;
+        typedef tuple<uint16x8, 3> uint16x8x3;
+        typedef tuple<int32x4, 3> int32x4x3;
+        typedef tuple<uint32x4, 3> uint32x4x3;
+        typedef tuple<float32x4, 3> float32x4x3;
 
-        typedef tuple<int8x16_t, 4> int8x16x4_t;
-        typedef tuple<uint8x16_t, 4> uint8x16x4_t;
-        typedef tuple<int16x8_t, 4> int16x8x4_t;
-        typedef tuple<uint16x8_t, 4> uint16x8x4_t;
-        typedef tuple<int32x4_t, 4> int32x4x4_t;
-        typedef tuple<uint32x4_t, 4> uint32x4x4_t;
-        typedef tuple<float32x4_t, 4> float32x4x4_t;
+        typedef tuple<int8x16, 4> int8x16x4;
+        typedef tuple<uint8x16, 4> uint8x16x4;
+        typedef tuple<int16x8, 4> int16x8x4;
+        typedef tuple<uint16x8, 4> uint16x8x4;
+        typedef tuple<int32x4, 4> int32x4x4;
+        typedef tuple<uint32x4, 4> uint32x4x4;
+        typedef tuple<float32x4, 4> float32x4x4;
+
+#ifdef USE_ARM_NEON
+        int8x16x2 make_tuple(int8x16x2_t a) {
+            return { a.val[0], a.val[1] };
+        }
+
+        uint8x16x2 make_tuple(uint8x16x2_t a) {
+            return { a.val[0], a.val[1] };
+        }
+        
+        int16x8x2 make_tuple(int16x8x2_t a) {
+            return { a.val[0], a.val[1] };
+        }
+
+        uint16x8x2 make_tuple(uint16x8x2_t a) {
+            return { a.val[0], a.val[1] };
+        }
+
+        int32x4x2 make_tuple(int32x4x2_t a) {
+            return { a.val[0], a.val[1] };
+        }
+
+        uint32x4x2 make_tuple(uint32x4x2_t a) {
+            return { a.val[0], a.val[1] };
+        }
+
+        float32x4x2 make_tuple(float32x4x2_t a) {
+            return { a.val[0], a.val[1] };
+        }
+
+        int8x16x3 make_tuple(int8x16x3_t a) {
+            return { a.val[0], a.val[1], a.val[2] };
+        }
+
+        uint8x16x3 make_tuple(uint8x16x3_t a) {
+            return { a.val[0], a.val[1], a.val[2] };
+        }
+
+        int16x8x3 make_tuple(int16x8x3_t a) {
+            return { a.val[0], a.val[1], a.val[2] };
+        }
+
+        uint16x8x3 make_tuple(uint16x8x3_t a) {
+            return { a.val[0], a.val[1], a.val[2] };
+        }
+
+        int32x4x3 make_tuple(int32x4x3_t a) {
+            return { a.val[0], a.val[1], a.val[2] };
+        }
+
+        uint32x4x3 make_tuple(uint32x4x3_t a) {
+            return { a.val[0], a.val[1], a.val[2] };
+        }
+
+        float32x4x3 make_tuple(float32x4x3_t a) {
+            return { a.val[0], a.val[1], a.val[2] };
+        }
+
+        int8x16x4 make_tuple(int8x16x4_t a) {
+            return { a.val[0], a.val[1], a.val[2], a.val[3] };
+        }
+
+        uint8x16x4 make_tuple(uint8x16x4_t a) {
+            return { a.val[0], a.val[1], a.val[2], a.val[3] };
+        }
+
+        int16x8x4 make_tuple(int16x8x4_t a) {
+            return { a.val[0], a.val[1], a.val[2], a.val[3] };
+        }
+
+        uint16x8x4 make_tuple(uint16x8x4_t a) {
+            return { a.val[0], a.val[1], a.val[2], a.val[3] };
+        }
+
+        int32x4x4 make_tuple(int32x4x4_t a) {
+            return { a.val[0], a.val[1], a.val[2], a.val[3] };
+        }
+
+        uint32x4x4 make_tuple(uint32x4x4_t a) {
+            return { a.val[0], a.val[1], a.val[2], a.val[3] };
+        }
+
+        float32x4x4 make_tuple(float32x4x4_t a) {
+            return { a.val[0], a.val[1], a.val[2], a.val[3] };
+        }
+
+        int8x16x2_t make_neon(int8x16x2 a) {
+            return { a.val[0].v, a.val[1].v };
+        }
+
+        uint8x16x2_t make_neon(uint8x16x2 a) {
+            return { a.val[0].v, a.val[1].v };
+        }
+
+        int16x8x2_t make_neon(int16x8x2 a) {
+            return { a.val[0].v, a.val[1].v };
+        }
+
+        uint16x8x2_t make_neon(uint16x8x2 a) {
+            return { a.val[0].v, a.val[1].v };
+        }
+
+        int32x4x2_t make_neon(int32x4x2 a) {
+            return { a.val[0].v, a.val[1].v };
+        }
+
+        uint32x4x2_t make_neon(uint32x4x2 a) {
+            return { a.val[0].v, a.val[1].v };
+        }
+
+        float32x4x2_t make_neon(float32x4x2 a) {
+            return { a.val[0].v, a.val[1].v };
+        }
+
+        int8x16x3_t make_neon(int8x16x3 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v };
+        }
+
+        uint8x16x3_t make_neon(uint8x16x3 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v };
+        }
+
+        int16x8x3_t make_neon(int16x8x3 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v };
+        }
+
+        uint16x8x3_t make_neon(uint16x8x3 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v };
+        }
+
+        int32x4x3_t make_neon(int32x4x3 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v };
+        }
+
+        uint32x4x3_t make_neon(uint32x4x3 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v };
+        }
+
+        float32x4x3_t make_neon(float32x4x3 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v };
+        }
+
+        int8x16x4_t make_neon(int8x16x4 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
+        }
+
+        uint8x16x4_t make_neon(uint8x16x4 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
+        }
+
+        int16x8x4_t make_neon(int16x8x4 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
+        }
+
+        uint16x8x4_t make_neon(uint16x8x4 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
+        }
+
+        int32x4x4_t make_neon(int32x4x4 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
+        }
+
+        uint32x4x4_t make_neon(uint32x4x4 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
+        }
+
+        float32x4x4_t make_neon(float32x4x4 a) {
+            return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
+        }
+#endif
 
         template<class T, class = typename std::enable_if<traits::is_simd<T>::value>::type>
         struct half : public T {
-            typedef T simd_t;
             half(T t) : T(t) {}
         };
-
-#endif
 
         // helpers
 
@@ -440,32 +598,32 @@ namespace c4 {
         }
 
         template<class dst_t, class src_t, int n, class = typename std::enable_if<traits::is_integral<src_t>::value && traits::is_integral<dst_t>::value>::type>
-        tuple<dst_t, n> reinterpret(typename tuple<src_t, n> a) {
+        tuple<dst_t, n> reinterpret(tuple<src_t, n> a) {
             return *reinterpret_cast<tuple<dst_t, n>*>(&a);
         }
 
-        inline int8x16_t reinterpret_signed(uint8x16_t a) {
-            return reinterpret<int8x16_t>(a);
+        inline int8x16 reinterpret_signed(uint8x16 a) {
+            return reinterpret<int8x16>(a);
         }
 
-        inline int16x8_t reinterpret_signed(uint16x8_t a) {
-            return reinterpret<int16x8_t>(a);
+        inline int16x8 reinterpret_signed(uint16x8 a) {
+            return reinterpret<int16x8>(a);
         }
 
-        inline int32x4_t reinterpret_signed(uint32x4_t a) {
-            return reinterpret<int32x4_t>(a);
+        inline int32x4 reinterpret_signed(uint32x4 a) {
+            return reinterpret<int32x4>(a);
         }
 
-        inline uint8x16_t reinterpret_unsigned(int8x16_t a) {
-            return reinterpret<uint8x16_t>(a);
+        inline uint8x16 reinterpret_unsigned(int8x16 a) {
+            return reinterpret<uint8x16>(a);
         }
 
-        inline uint16x8_t reinterpret_unsigned(int16x8_t a) {
-            return reinterpret<uint16x8_t>(a);
+        inline uint16x8 reinterpret_unsigned(int16x8 a) {
+            return reinterpret<uint16x8>(a);
         }
 
-        inline uint32x4_t reinterpret_unsigned(int32x4_t a) {
-            return reinterpret<uint32x4_t>(a);
+        inline uint32x4 reinterpret_unsigned(int32x4 a) {
+            return reinterpret<uint32x4>(a);
         }
 
         template<class src_t, int n>
@@ -484,37 +642,21 @@ namespace c4 {
             return r;
         }
 
-        template<class T>
-        T serial(T a, T b, std::function<typename T::base_t(typename T::base_t, typename T::base_t)> F) {
-            constexpr size_t n = traits::length<T>();
-
-            alignas(16) typename T::base_t ta[n];
-            alignas(16) typename T::base_t tb[n];
-
-            store(ta, a);
-            store(tb, b);
-
-            for (size_t i = 0; i < n; i++)
-                ta[i] = F(ta[i], tb[i]);
-
-            return load(ta);
-        }
-
-        inline int8x16_t cmpgt(int8x16_t a, int8x16_t b) {
+        inline int8x16 cmpgt(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
 #else
             return { _mm_cmpgt_epi8(a.v, b.v) };
 #endif
         }
 
-        inline int16x8_t cmpgt(int16x8_t a, int16x8_t b) {
+        inline int16x8 cmpgt(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
 #else
             return { _mm_cmpgt_epi16(a.v, b.v) };
 #endif
         }
 
-        inline int32x4_t cmpgt(int32x4_t a, int32x4_t b) {
+        inline int32x4 cmpgt(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
 #else
             return { _mm_cmpgt_epi32(a.v, b.v) };
@@ -523,7 +665,7 @@ namespace c4 {
 
         // Minimum
 
-        inline int8x16_t min(int8x16_t a, int8x16_t b) {
+        inline int8x16 min(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vminq_s8(a.v, b.v);
 #else
@@ -531,7 +673,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t min(uint8x16_t a, uint8x16_t b) {
+        inline uint8x16 min(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vminq_u8(a.v, b.v);
 #else
@@ -539,7 +681,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t min(int16x8_t a, int16x8_t b) {
+        inline int16x8 min(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vminq_s16(a.v, b.v);
 #else
@@ -547,7 +689,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t min(uint16x8_t a, uint16x8_t b) {
+        inline uint16x8 min(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vminq_u16(a.v, b.v);
 #else
@@ -555,7 +697,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4_t min(int32x4_t a, int32x4_t b) {
+        inline int32x4 min(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vminq_s32(a.v, b.v);
 #else
@@ -563,7 +705,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4_t min(uint32x4_t a, uint32x4_t b) {
+        inline uint32x4 min(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vminq_u32(a.v, b.v);
 #else
@@ -571,7 +713,7 @@ namespace c4 {
 #endif
         }
 
-        inline float32x4_t min(float32x4_t a, float32x4_t b) {
+        inline float32x4 min(float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
             return vminq_f32(a.v, b.v);
 #else
@@ -581,7 +723,7 @@ namespace c4 {
 
         // Maximum
 
-        inline int8x16_t max(int8x16_t a, int8x16_t b) {
+        inline int8x16 max(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vmaxq_s8(a.v, b.v);
 #else
@@ -589,7 +731,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t max(uint8x16_t a, uint8x16_t b) {
+        inline uint8x16 max(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vmaxq_u8(a.v, b.v);
 #else
@@ -597,7 +739,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t max(int16x8_t a, int16x8_t b) {
+        inline int16x8 max(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vmaxq_s16(a.v, b.v);
 #else
@@ -605,7 +747,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t max(uint16x8_t a, uint16x8_t b) {
+        inline uint16x8 max(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vmaxq_u16(a.v, b.v);
 #else
@@ -613,7 +755,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4_t max(int32x4_t a, int32x4_t b) {
+        inline int32x4 max(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmaxq_s32(a.v, b.v);
 #else
@@ -621,7 +763,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4_t max(uint32x4_t a, uint32x4_t b) {
+        inline uint32x4 max(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vmaxq_u32(a.v, b.v);
 #else
@@ -629,7 +771,7 @@ namespace c4 {
 #endif
         }
 
-        inline float32x4_t max(float32x4_t a, float32x4_t b) {
+        inline float32x4 max(float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
             return vmaxq_f32(a.v, b.v);
 #else
@@ -639,33 +781,33 @@ namespace c4 {
 
 
         // Interleave
-        inline int8x16x2_t interleave(int8x16x2_t p) {
+        inline int8x16x2 interleave(int8x16x2 p) {
 #ifdef USE_ARM_NEON
-            return vzipq_s8(p.val[0].v, p.val[1].v);
+            return make_tuple(vzipq_s8(p.val[0].v, p.val[1].v));
 #else
             return { _mm_unpacklo_epi8(p.val[0].v, p.val[1].v), _mm_unpackhi_epi8(p.val[0].v, p.val[1].v) };
 #endif
         }
 
-        inline int16x8x2_t interleave(int16x8x2_t p) {
+        inline int16x8x2 interleave(int16x8x2 p) {
 #ifdef USE_ARM_NEON
-            return vzipq_s16(p.val[0].v, p.val[1].v);
+            return make_tuple(vzipq_s16(p.val[0].v, p.val[1].v));
 #else
             return { _mm_unpacklo_epi16(p.val[0].v, p.val[1].v), _mm_unpackhi_epi16(p.val[0].v, p.val[1].v) };
 #endif
         }
 
-        inline int32x4x2_t interleave(int32x4x2_t p) {
+        inline int32x4x2 interleave(int32x4x2 p) {
 #ifdef USE_ARM_NEON
-            return vzipq_s32(p.val[0].v, p.val[1].v);
+            return make_tuple(vzipq_s32(p.val[0].v, p.val[1].v));
 #else
             return { _mm_unpacklo_epi32(p.val[0].v, p.val[1].v), _mm_unpackhi_epi32(p.val[0].v, p.val[1].v) };
 #endif
         }
 
-        inline float32x4x2_t interleave(float32x4x2_t p) {
+        inline float32x4x2 interleave(float32x4x2 p) {
 #ifdef USE_ARM_NEON
-            return vzipq_f32(p.val[0].v, p.val[1].v);
+            return make_tuple(vzipq_f32(p.val[0].v, p.val[1].v));
 #else
             return { _mm_unpacklo_ps(p.val[0].v, p.val[1].v), _mm_unpackhi_ps(p.val[0].v, p.val[1].v) };
 #endif
@@ -677,9 +819,9 @@ namespace c4 {
         }
 
         // Interleave
-        inline int8x16x2_t deinterleave(int8x16x2_t p) {
+        inline int8x16x2 deinterleave(int8x16x2 p) {
 #ifdef USE_ARM_NEON
-            return vuzpq_s8(p.val[0].v, p.val[1].v);
+            return make_tuple(vuzpq_s8(p.val[0].v, p.val[1].v));
 #else
             __m128i x0 = p.val[0].v;                      // a0, b0, a1, b1, a2, b2, a3, b3, a4, b4, a5, b5, a6, b6, a7, b7
             __m128i x1 = p.val[1].v;                      // a8, b8, a9, b9,a10,b10,a11,b11,a12,b12,a13,b13,a14,b14,a15,b15
@@ -695,9 +837,9 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8x2_t deinterleave(int16x8x2_t p) {
+        inline int16x8x2 deinterleave(int16x8x2 p) {
 #ifdef USE_ARM_NEON
-            return vuzpq_s16(p.val[0].v, p.val[1].v);
+            return make_tuple(vuzpq_s16(p.val[0].v, p.val[1].v));
 #else
             __m128i x0 = p.val[0].v;                    // a0, b0, a1, b1, a2, b2, a3, b3
             __m128i x1 = p.val[1].v;                    // a4, b4, a5, b5, a6, b6, a7, b7
@@ -713,9 +855,9 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4x2_t deinterleave(int32x4x2_t p) {
+        inline int32x4x2 deinterleave(int32x4x2 p) {
 #ifdef USE_ARM_NEON
-            return vuzpq_s32(p.val[0].v, p.val[1].v);
+            return make_tuple(vuzpq_s32(p.val[0].v, p.val[1].v));
 #else
             __m128i x0 = p.val[0].v;          // a0, b0, a1, b1
             __m128i x1 = p.val[1].v;          // a2, b2, a3, b3
@@ -728,13 +870,13 @@ namespace c4 {
 #endif
         }
 
-        inline float32x4x2_t deinterleave(float32x4x2_t p) {
+        inline float32x4x2 deinterleave(float32x4x2 p) {
 #ifdef USE_ARM_NEON
-            return vuzpq_f32(p.val[0].v, p.val[1].v);
+            return make_tuple(vuzpq_f32(p.val[0].v, p.val[1].v));
 #else
             // a0, b0, a1, b1
             // a2, b2, a3, b3
-            float32x4x2_t ab;
+            float32x4x2 ab;
             
             ab.val[0].v = _mm_shuffle_ps(p.val[0].v, p.val[1].v, _MM_SHUFFLE(2, 0, 2, 0));
             ab.val[1].v = _mm_shuffle_ps(p.val[0].v, p.val[1].v, _MM_SHUFFLE(3, 1, 3, 1));
@@ -749,26 +891,26 @@ namespace c4 {
         }
 
         // Long move, narrow
-        inline int16x8x2_t long_move(int8x16_t a) {
+        inline int16x8x2 long_move(int8x16 a) {
 #ifdef USE_ARM_NEON
             int8x8_t hi = vget_high_s8(a.v);
             int8x8_t lo = vget_low_s8(a.v);
 
-            return { vmovl_s8(hi), vmovl_s8(lo) };
+            return int16x8x2{ vmovl_s8(hi), vmovl_s8(lo) };
 #else
-            int8x16_t sign = cmpgt({ _mm_setzero_si128() }, a);
+            int8x16 sign = cmpgt({ _mm_setzero_si128() }, a);
             return { _mm_unpacklo_epi8(a.v, sign.v), _mm_unpackhi_epi8(a.v, sign.v) };
 #endif
         }
 
-        inline int32x4x2_t long_move(int16x8_t a) {
+        inline int32x4x2 long_move(int16x8 a) {
 #ifdef USE_ARM_NEON
             int16x4_t hi = vget_high_s16(a.v);
             int16x4_t lo = vget_low_s16(a.v);
 
             return { vmovl_s16(hi), vmovl_s16(lo) };
 #else
-            int16x8_t sign = cmpgt({ _mm_setzero_si128() }, a);
+            int16x8 sign = cmpgt({ _mm_setzero_si128() }, a);
             __m128i r0 = _mm_unpacklo_epi16(a.v, sign.v);
             __m128i r1 = _mm_unpackhi_epi16(a.v, sign.v);
             
@@ -776,7 +918,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8x2_t long_move(uint8x16_t a) {
+        inline uint16x8x2 long_move(uint8x16 a) {
 #ifdef USE_ARM_NEON
             uint8x8_t hi = vget_high_u8(a.v);
             uint8x8_t lo = vget_low_u8(a.v);
@@ -787,7 +929,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4x2_t long_move(uint16x8_t a) {
+        inline uint32x4x2 long_move(uint16x8 a) {
 #ifdef USE_ARM_NEON
             uint16x4_t hi = vget_high_u16(a.v);
             uint16x4_t lo = vget_low_u16(a.v);
@@ -805,25 +947,25 @@ namespace c4 {
             return { r0.val[0], r0.val[1], r1.val[0], r1.val[1] };
         }
 
-        inline int16x8_t long_move(half<int8x16_t> a) {
+        inline int16x8 long_move(half<int8x16> a) {
 #ifdef USE_ARM_NEON
             return vmovl_s8(vget_low_s8(a.v));
 #else
-            int8x16_t sign = cmpgt(_mm_setzero_si128(), a);
+            int8x16 sign = cmpgt(_mm_setzero_si128(), a);
             return _mm_unpacklo_epi8(a.v, sign.v);
 #endif
         }
 
-        inline int32x4_t long_move(half<int16x8_t> a) {
+        inline int32x4 long_move(half<int16x8> a) {
 #ifdef USE_ARM_NEON
             return vmovl_s16(vget_low_s16(a.v));
 #else
-            int16x8_t sign = cmpgt(_mm_setzero_si128(), a);
+            int16x8 sign = cmpgt(_mm_setzero_si128(), a);
             return _mm_unpacklo_epi16(a.v, sign.v);
 #endif
         }
 
-        inline uint16x8_t long_move(half<uint8x16_t> a) {
+        inline uint16x8 long_move(half<uint8x16> a) {
 #ifdef USE_ARM_NEON
             return vmovl_u8(vget_low_u8(a.v));
 #else
@@ -831,7 +973,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4_t long_move(half<uint16x8_t> a) {
+        inline uint32x4 long_move(half<uint16x8> a) {
 #ifdef USE_ARM_NEON
             return vmovl_u16(vget_low_u16(a.v));
 #else
@@ -841,82 +983,82 @@ namespace c4 {
 
         // Narrow
 
-        inline half<int8x16_t> narrow(int16x8_t a) {
+        inline half<int8x16> narrow(int16x8 a) {
 #ifdef USE_ARM_NEON
-            ::int8x8_t t = vmovn_s16(a);
-            return vcombine_s8(t, t);
+            int8x8_t t = vmovn_s16(a.v);
+            return int8x16(vcombine_s8(t, t));
 #else
-            return separate_even_odd_8(a.v);
+            return int8x16(separate_even_odd_8(a.v));
 #endif
         }
 
-        inline half<int8x16_t> narrow(uint16x8_t a) {
+        inline half<uint8x16> narrow(uint16x8 a) {
 #ifdef USE_ARM_NEON
-            ::uint8x8_t t = vmovn_u16(a);
-            return vcombine_u8(t, t);
+            uint8x8_t t = vmovn_u16(a.v);
+            return uint8x16(vcombine_u8(t, t));
 #else
-            return separate_even_odd_8(a.v);
+            return uint8x16(separate_even_odd_8(a.v));
 #endif
         }
 
-        inline half<int16x8_t> narrow(int32x4_t a) {
+        inline half<int16x8> narrow(int32x4 a) {
 #ifdef USE_ARM_NEON
-            ::int16x4_t t = vmovn_s32(a);
-            return vcombine_s16(t, t);
+            int16x4_t t = vmovn_s32(a.v);
+            return int16x8(vcombine_s16(t, t));
 #else
-            return separate_even_odd_16(a.v);
+            return int16x8(separate_even_odd_16(a.v));
 #endif
         }
 
-        inline half<uint16x8_t> narrow(uint32x4_t a) {
+        inline half<uint16x8> narrow(uint32x4 a) {
 #ifdef USE_ARM_NEON
-            ::uint16x4_t t = vmovn_u32(a);
-            return vcombine_u16(t, t);
+            uint16x4_t t = vmovn_u32(a.v);
+            return uint16x8(vcombine_u16(t, t));
 #else
-            return separate_even_odd_16(a.v);
+            return uint16x8(separate_even_odd_16(a.v));
 #endif
         }
 
-        inline half<int8x16_t> narrow_saturate(int16x8_t a) {
+        inline half<int8x16> narrow_saturate(int16x8 a) {
 #ifdef USE_ARM_NEON
-            ::int8x8_t t = vqmovn_s16(a);
-            return vcombine_s8(t, t);
+            int8x8_t t = vqmovn_s16(a.v);
+            return int8x16(vcombine_s8(t, t));
 #else
-            return _mm_packs_epi16(a.v, a.v);
+            return int8x16(_mm_packs_epi16(a.v, a.v));
 #endif
         }
 
-        inline half<uint8x16_t> narrow_unsigned_saturate(int16x8_t a) {
+        inline half<uint8x16> narrow_unsigned_saturate(int16x8 a) {
 #ifdef USE_ARM_NEON
-            ::uint8x8_t t = vqmovun_s16(a);
-            return vcombine_u8(t, t);
+            uint8x8_t t = vqmovun_s16(a.v);
+            return uint8x16(vcombine_u8(t, t));
 #else
-            return _mm_packus_epi16(a.v, a.v);
+            return uint8x16(_mm_packus_epi16(a.v, a.v));
 #endif
         }
 
-        inline half<int16x8_t> narrow_saturate(int32x4_t a) {
+        inline half<int16x8> narrow_saturate(int32x4 a) {
 #ifdef USE_ARM_NEON
-            ::int16x4_t t = vqmovn_s32(a);
-            return vcombine_s16(t, t);
+            int16x4_t t = vqmovn_s32(a.v);
+            return int16x8(vcombine_s16(t, t));
 #else
-            return _mm_packs_epi32(a.v, a.v);
+            return int16x8(_mm_packs_epi32(a.v, a.v));
 #endif
         }
 
-        inline half<uint16x8_t> narrow_unsigned_saturate(int32x4_t a) {
+        inline half<uint16x8> narrow_unsigned_saturate(int32x4 a) {
 #ifdef USE_ARM_NEON
-            ::uint16x4_t t = vqmovun_s32(a);
-            return vcombine_u16(t, t);
+            uint16x4_t t = vqmovun_s32(a.v);
+            return uint16x8(vcombine_u16(t, t));
 #else
-            return _mm_packus_epi32(a.v, a.v);
+            return uint16x8(_mm_packus_epi32(a.v, a.v));
 #endif
         }
 
-        inline uint8x16_t narrow(uint16x8x2_t p) {
+        inline uint8x16 narrow(uint16x8x2 p) {
 #ifdef USE_ARM_NEON
-            uint16x4_t lo = vmovl_u8(p.val[0]);
-            uint16x4_t hi = vmovl_u8(p.val[1]);
+            uint8x8_t lo = vmovn_u16(p.val[0].v);
+            uint8x8_t hi = vmovn_u16(p.val[1].v);
 
             return vcombine_u8(lo, hi);
 #else
@@ -929,16 +1071,16 @@ namespace c4 {
 #endif
         }
 
-        inline int8x16_t narrow(int16x8x2_t p) {
+        inline int8x16 narrow(int16x8x2 p) {
             return reinterpret_signed(narrow(reinterpret_unsigned(p)));
         }
 
-        inline uint16x8_t narrow(uint32x4x2_t p) {
+        inline uint16x8 narrow(uint32x4x2 p) {
 #ifdef USE_ARM_NEON
-            uint16x4_t lo = vmovl_u8(p.val[0]);
-            uint16x4_t hi = vmovl_u8(p.val[1]);
+            uint16x4_t lo = vmovn_u32(p.val[0].v);
+            uint16x4_t hi = vmovn_u32(p.val[1].v);
 
-            return vcombine_u8(lo, hi);
+            return vcombine_u16(lo, hi);
 #else
             __m128i al = separate_even_odd_16(p.val[0].v);
             __m128i bl = separate_even_odd_16(p.val[1].v);
@@ -947,7 +1089,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t narrow(int32x4x2_t p) {
+        inline int16x8 narrow(int32x4x2 p) {
             return reinterpret_signed(narrow(reinterpret_unsigned(p)));
         }
 
@@ -958,10 +1100,10 @@ namespace c4 {
             return { r0, r1 };
         }
 
-        inline int8x16_t narrow_saturate(int16x8x2_t p) {
+        inline int8x16 narrow_saturate(int16x8x2 p) {
 #ifdef USE_ARM_NEON
-            int8x8_t lo = vqmovn_s16(p.val[0]);
-            int8x8_t hi = vqmovn_s16(p.val[1]);
+            int8x8_t lo = vqmovn_s16(p.val[0].v);
+            int8x8_t hi = vqmovn_s16(p.val[1].v);
 
             return vcombine_s8(lo, hi);
 #else
@@ -969,10 +1111,10 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t narrow_unsigned_saturate(int16x8x2_t p) {
+        inline uint8x16 narrow_unsigned_saturate(int16x8x2 p) {
 #ifdef USE_ARM_NEON
-            uint8x8_t lo = vqmovun_s16(p.val[0]);
-            uint8x8_t hi = vqmovun_s16(p.val[1]);
+            uint8x8_t lo = vqmovun_s16(p.val[0].v);
+            uint8x8_t hi = vqmovun_s16(p.val[1].v);
 
             return vcombine_u8(lo, hi);
 #else
@@ -980,10 +1122,10 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t narrow_saturate(uint16x8x2_t p) {
+        inline uint8x16 narrow_saturate(uint16x8x2 p) {
 #ifdef USE_ARM_NEON
-            uint8x8_t lo = vqmovn_u16(p.val[0]);
-            uint8x8_t hi = vqmovn_u16(p.val[1]);
+            uint8x8_t lo = vqmovn_u16(p.val[0].v);
+            uint8x8_t hi = vqmovn_u16(p.val[1].v);
 
             return vcombine_u8(lo, hi);
 #else
@@ -991,21 +1133,21 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t narrow_saturate(int32x4x2_t p) {
+        inline int16x8 narrow_saturate(int32x4x2 p) {
 #ifdef USE_ARM_NEON
-            int8x8_t lo = vqmovn_s16(p.val[0]);
-            int8x8_t hi = vqmovn_s16(p.val[1]);
+            int16x4_t lo = vqmovn_s32(p.val[0].v);
+            int16x4_t hi = vqmovn_s32(p.val[1].v);
 
-            return vcombine_s8(lo, hi);
+            return vcombine_s16(lo, hi);
 #else
             return _mm_packs_epi32(p.val[0].v, p.val[1].v);
 #endif
         }
 
-        inline uint16x8_t narrow_unsigned_saturate(int32x4x2_t p) {
+        inline uint16x8 narrow_unsigned_saturate(int32x4x2 p) {
 #ifdef USE_ARM_NEON
-            uint16x4_t lo = vqmovun_s32(p.val[0]);
-            uint16x4_t hi = vqmovun_s32(p.val[1]);
+            uint16x4_t lo = vqmovun_s32(p.val[0].v);
+            uint16x4_t hi = vqmovun_s32(p.val[1].v);
 
             return vcombine_u16(lo, hi);
 #else
@@ -1013,12 +1155,12 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t narrow_saturate(uint32x4x2_t p) {
+        inline uint16x8 narrow_saturate(uint32x4x2 p) {
 #ifdef USE_ARM_NEON
-            int8x8_t lo = vqmovn_s16(p.val[0]);
-            int8x8_t hi = vqmovn_s16(p.val[1]);
+            uint16x4_t lo = vqmovn_u32(p.val[0].v);
+            uint16x4_t hi = vqmovn_u32(p.val[1].v);
 
-            return vcombine_s8(lo, hi);
+            return vcombine_u16(lo, hi);
 #else
             return _mm_packs_epi16(p.val[0].v, p.val[1].v);
 #endif
@@ -1047,17 +1189,17 @@ namespace c4 {
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type >
         half<T> get_high(T a) {
 #ifdef USE_ARM_NEON
-            uint8x16_t t = reinterpret<uint8x16_t>(a);
+            uint8x16 t = reinterpret<uint8x16>(a);
             t.v = vcombine_u8(vget_high_u8(t.v), vget_low_u8(t.v));
             return reinterpret<T>(t);
 #else
-            return { _mm_bsrli_si128(a.v, 8) };
+            return T(_mm_srli_si128(a.v, 8));
 #endif
         }
 
         // Load
 
-        inline int8x16_t load(const int8_t* ptr) {
+        inline int8x16 load(const int8_t* ptr) {
 #ifdef USE_ARM_NEON
             return vld1q_s8(ptr);
 #else
@@ -1065,7 +1207,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t load(const uint8_t* ptr) {
+        inline uint8x16 load(const uint8_t* ptr) {
 #ifdef USE_ARM_NEON
             return vld1q_u8(ptr);
 #else
@@ -1073,7 +1215,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t load(const int16_t* ptr) {
+        inline int16x8 load(const int16_t* ptr) {
 #ifdef USE_ARM_NEON
             return vld1q_s16(ptr);
 #else
@@ -1081,7 +1223,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t load(const uint16_t* ptr) {
+        inline uint16x8 load(const uint16_t* ptr) {
 #ifdef USE_ARM_NEON
             return vld1q_u16(ptr);
 #else
@@ -1089,7 +1231,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4_t load(const int32_t* ptr) {
+        inline int32x4 load(const int32_t* ptr) {
 #ifdef USE_ARM_NEON
             return vld1q_s32(ptr);
 #else
@@ -1097,7 +1239,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4_t load(const uint32_t* ptr) {
+        inline uint32x4 load(const uint32_t* ptr) {
 #ifdef USE_ARM_NEON
             return vld1q_u32(ptr);
 #else
@@ -1105,7 +1247,7 @@ namespace c4 {
 #endif
         }
 
-        inline float32x4_t load(const float* ptr) {
+        inline float32x4 load(const float* ptr) {
 #ifdef USE_ARM_NEON
             return vld1q_f32(ptr);
 #else
@@ -1113,51 +1255,57 @@ namespace c4 {
 #endif
         }
 
-        inline half<int8x16_t> load_half(const int8_t* ptr) {
+        inline half<int8x16> load_half(const int8_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld1_s8(ptr);
+            int8x8_t t = vld1_s8(ptr);
+            return int8x16(vcombine_s8(t, t));
 #else
-            return _mm_loadl_epi64((__m128i *)ptr);
+            return int8x16(_mm_loadl_epi64((__m128i *)ptr));
 #endif
         }
 
-        inline half<uint8x16_t> load_half(const uint8_t* ptr) {
+        inline half<uint8x16> load_half(const uint8_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld1_u8(ptr);
+            uint8x8_t t = vld1_u8(ptr);
+            return uint8x16(vcombine_u8(t, t));
 #else
-            return _mm_loadl_epi64((__m128i *)ptr);
+            return uint8x16(_mm_loadl_epi64((__m128i *)ptr));
 #endif
         }
 
-        inline half<int16x8_t> load_half(const int16_t* ptr) {
+        inline half<int16x8> load_half(const int16_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld1_s16(ptr);
+            int16x4_t t = vld1_s16(ptr);
+            return int16x8(vcombine_s16(t, t));
 #else
-            return _mm_loadl_epi64((__m128i *)ptr);
+            return int16x8(_mm_loadl_epi64((__m128i *)ptr));
 #endif
         }
 
-        inline half<uint16x8_t> load_half(const uint16_t* ptr) {
+        inline half<uint16x8> load_half(const uint16_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld1_u16(ptr);
+            uint16x4_t t = vld1_u16(ptr);
+            return uint16x8(vcombine_u16(t, t));
 #else
-            return _mm_loadl_epi64((__m128i *)ptr);
+            return uint16x8(_mm_loadl_epi64((__m128i *)ptr));
 #endif
         }
 
-        inline half<int32x4_t> load_half(const int32_t* ptr) {
+        inline half<int32x4> load_half(const int32_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld1_s32(ptr);
+            int32x2_t t = vld1_s32(ptr);
+            return int32x4(vcombine_s32(t, t));
 #else
-            return _mm_loadl_epi64((__m128i *)ptr);
+            return int32x4(_mm_loadl_epi64((__m128i *)ptr));
 #endif
         }
 
-        inline half<uint32x4_t> load_half(const uint32_t* ptr) {
+        inline half<uint32x4> load_half(const uint32_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld1_u32(ptr);
+            uint32x2_t t = vld1_u32(ptr);
+            return uint32x4(vcombine_u32(t, t));
 #else
-            return _mm_loadl_epi64((__m128i *)ptr);
+            return uint32x4(_mm_loadl_epi64((__m128i *)ptr));
 #endif
         }
 
@@ -1187,45 +1335,45 @@ namespace c4 {
 
         // Load two elements that are interleaved
 
-        inline int8x16x2_t load_2_interleaved(const int8_t* ptr) {
+        inline int8x16x2 load_2_interleaved(const int8_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld2q_s8(ptr);
+            return make_tuple(vld2q_s8(ptr));
 #else
             return deinterleave({ load(ptr), load(ptr + 16) });
 #endif
         }
 
-        inline uint8x16x2_t load_2_interleaved(const uint8_t* ptr) {
+        inline uint8x16x2 load_2_interleaved(const uint8_t* ptr) {
             return reinterpret_unsigned(load_2_interleaved((int8_t*)ptr));
         }
 
-        inline int16x8x2_t load_2_interleaved(const int16_t* ptr) {
+        inline int16x8x2 load_2_interleaved(const int16_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld2q_s16(ptr);
+            return make_tuple(vld2q_s16(ptr));
 #else
             return deinterleave({ load(ptr), load(ptr + 8) });
 #endif
         }
 
-        inline uint16x8x2_t load_2_interleaved(const uint16_t* ptr) {
+        inline uint16x8x2 load_2_interleaved(const uint16_t* ptr) {
             return reinterpret_unsigned(load_2_interleaved((int16_t*)ptr));
         }
 
-        inline int32x4x2_t load_2_interleaved(const int32_t* ptr) {
+        inline int32x4x2 load_2_interleaved(const int32_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld2q_s32(ptr);
+            return make_tuple(vld2q_s32(ptr));
 #else
             return deinterleave({ load(ptr), load(ptr + 4) });
 #endif
         }
 
-        inline uint32x4x2_t load_2_interleaved(const uint32_t* ptr) {
+        inline uint32x4x2 load_2_interleaved(const uint32_t* ptr) {
             return reinterpret_unsigned(load_2_interleaved((int32_t*)ptr));
         }
 
-        inline float32x4x2_t load_2_interleaved(const float* ptr) {
+        inline float32x4x2 load_2_interleaved(const float* ptr) {
 #ifdef USE_ARM_NEON
-            return vld2q_f32(ptr);
+            return make_tuple(vld2q_f32(ptr));
 #else
             return deinterleave({ load(ptr), load(ptr + 4) });
 #endif
@@ -1233,16 +1381,16 @@ namespace c4 {
 
         // read 16 bytes: a0, b0, ... a7, b7
         // return {A, B}
-        inline uint16x8x2_t load_2_interleaved_long(const uint8_t* ptr) {
+        inline uint16x8x2 load_2_interleaved_long(const uint8_t* ptr) {
 #ifdef USE_ARM_NEON
-            ::uint8x8x2_t u8 = vld2_u8(ptr);
-            ::uint16x8x2_t u16;
+            uint8x8x2_t u8 = vld2_u8(ptr);
+            uint16x8x2 u16;
             u16.val[0] = vmovl_u8(u8.val[0]);
             u16.val[1] = vmovl_u8(u8.val[1]);
 
             return u16;
 #else
-            uint8x16_t a = load(ptr);                   // a0, b0, a1, b1, a2, b2, a3, b3, a4, b4, a5, b5, a6, b6, a7, b7
+            uint8x16 a = load(ptr);                   // a0, b0, a1, b1, a2, b2, a3, b3, a4, b4, a5, b5, a6, b6, a7, b7
 
             a.v = separate_even_odd_8(a.v);             // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
 
@@ -1252,10 +1400,10 @@ namespace c4 {
 
         // read 24 bytes: a0, b0, c0, ... a7, b7, c7
         // return {A, B, C}
-        inline uint16x8x3_t load_3_interleaved_long(const uint8_t* ptr) {
+        inline uint16x8x3 load_3_interleaved_long(const uint8_t* ptr) {
 #ifdef USE_ARM_NEON
-            ::uint8x8x3_t u8 = vld3_u8(ptr);
-            ::uint16x8x3_t u16;
+            uint8x8x3_t u8 = vld3_u8(ptr);
+            uint16x8x3 u16;
             u16.val[0] = vmovl_u8(u8.val[0]);
             u16.val[1] = vmovl_u8(u8.val[1]);
             u16.val[2] = vmovl_u8(u8.val[2]);
@@ -1291,9 +1439,9 @@ namespace c4 {
         }
 
 
-        inline int8x16x4_t load_4_interleaved(const int8_t* ptr) {
+        inline int8x16x4 load_4_interleaved(const int8_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld4q_s8(ptr);
+            return make_tuple(vld4q_s8(ptr));
 #else
             __m128i x0, x1, x2, x3;
             __m128i y0, y1, y2, y3;
@@ -1327,13 +1475,13 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16x4_t load_4_interleaved(const uint8_t* ptr) {
-            return reinterpret<uint8x16_t>(load_4_interleaved((int8_t*)ptr));
+        inline uint8x16x4 load_4_interleaved(const uint8_t* ptr) {
+            return reinterpret<uint8x16>(load_4_interleaved((int8_t*)ptr));
         }
 
-        inline int16x8x4_t load_4_interleaved(const int16_t* ptr) {
+        inline int16x8x4 load_4_interleaved(const int16_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld4q_s16(ptr);
+            return make_tuple(vld4q_s16(ptr));
 #else
             __m128i x0, x1, x2, x3;
             __m128i y0, y1, y2, y3;
@@ -1362,13 +1510,13 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8x4_t load_4_interleaved(const uint16_t* ptr) {
-            return reinterpret<uint16x8_t>(load_4_interleaved((int16_t*)ptr));
+        inline uint16x8x4 load_4_interleaved(const uint16_t* ptr) {
+            return reinterpret<uint16x8>(load_4_interleaved((int16_t*)ptr));
         }
 
-        inline int32x4x4_t load_4_interleaved(const int32_t* ptr) {
+        inline int32x4x4 load_4_interleaved(const int32_t* ptr) {
 #ifdef USE_ARM_NEON
-            return vld4q_s32(ptr);
+            return make_tuple(vld4q_s32(ptr));
 #else
             __m128i x0, x1, x2, x3;
             __m128i y0, y1, y2, y3;
@@ -1392,13 +1540,13 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4x4_t load_4_interleaved(const uint32_t* ptr) {
-            return reinterpret<uint32x4_t>(load_4_interleaved((int32_t*)ptr));
+        inline uint32x4x4 load_4_interleaved(const uint32_t* ptr) {
+            return reinterpret<uint32x4>(load_4_interleaved((int32_t*)ptr));
         }
 
-        inline float32x4x4_t load_4_interleaved(const float* ptr) {
+        inline float32x4x4 load_4_interleaved(const float* ptr) {
 #ifdef USE_ARM_NEON
-            return vld4q_f32(ptr);
+            return make_tuple(vld4q_f32(ptr));
 #else
             __m128 x0, x1, x2, x3;
             __m128 y0, y1, y2, y3;
@@ -1423,7 +1571,7 @@ namespace c4 {
         }
 
         // Long load
-        inline int16x8_t load_long(const int8_t* ptr) {
+        inline int16x8 load_long(const int8_t* ptr) {
 #ifdef USE_ARM_NEON
             return { vmovl_s8(vld1_s8(ptr)) };
 #else
@@ -1433,7 +1581,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t load_long(const uint8_t* ptr) {
+        inline uint16x8 load_long(const uint8_t* ptr) {
 #ifdef USE_ARM_NEON
             return { vmovl_u8(vld1_u8(ptr)) };
 #else
@@ -1444,7 +1592,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4_t load_long(const int16_t* ptr) {
+        inline int32x4 load_long(const int16_t* ptr) {
 #ifdef USE_ARM_NEON
             return { vmovl_s16(vld1_s16(ptr)) };
 #else
@@ -1454,7 +1602,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4_t load_long(const uint16_t* ptr) {
+        inline uint32x4 load_long(const uint16_t* ptr) {
 #ifdef USE_ARM_NEON
             return { vmovl_u16(vld1_u16(ptr)) };
 #else
@@ -1466,51 +1614,51 @@ namespace c4 {
 
         // Store
 
-        inline void store(int8_t* ptr, int8x16_t a) {
+        inline void store(int8_t* ptr, int8x16 a) {
 #ifdef USE_ARM_NEON
-            vst1q_s8(ptr, a);
+            vst1q_s8(ptr, a.v);
 #else
             _mm_storeu_si128((__m128i *)ptr, a.v);
 #endif
         }
 
-        inline void store(uint8_t* ptr, uint8x16_t a) {
+        inline void store(uint8_t* ptr, uint8x16 a) {
             store((int8_t*)ptr, reinterpret_signed(a));
         }
 
-        inline void store(int16_t* ptr, int16x8_t a) {
+        inline void store(int16_t* ptr, int16x8 a) {
 #ifdef USE_ARM_NEON
-            vst1q_s16(ptr, a);
+            vst1q_s16(ptr, a.v);
 #else
             _mm_storeu_si128((__m128i *)ptr, a.v);
 #endif
         }
 
-        inline void store(uint16_t* ptr, uint16x8_t a) {
+        inline void store(uint16_t* ptr, uint16x8 a) {
             store((int16_t*)ptr, reinterpret_signed(a));
         }
 
-        inline void store(int32_t* ptr, int32x4_t a) {
+        inline void store(int32_t* ptr, int32x4 a) {
 #ifdef USE_ARM_NEON
-            vst1q_s32(ptr, a);
+            vst1q_s32(ptr, a.v);
 #else
             _mm_storeu_si128((__m128i *)ptr, a.v);
 #endif
         }
 
-        inline void store(uint32_t* ptr, uint32x4_t a) {
+        inline void store(uint32_t* ptr, uint32x4 a) {
             store((int32_t*)ptr, reinterpret_signed(a));
         }
 
-        inline void store(float* ptr, float32x4_t a) {
+        inline void store(float* ptr, float32x4 a) {
 #ifdef USE_ARM_NEON
-            vst1q_f32(ptr, a);
+            vst1q_f32(ptr, a.v);
 #else
             _mm_storeu_ps(ptr, a.v);
 #endif
         }
 
-        inline void store(int8_t* ptr, half<int8x16_t> a) {
+        inline void store(int8_t* ptr, half<int8x16> a) {
 #ifdef USE_ARM_NEON
             vst1_s8(ptr, vget_low_s8(a.v));
 #else
@@ -1518,7 +1666,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(uint8_t* ptr, half<uint8x16_t> a) {
+        inline void store(uint8_t* ptr, half<uint8x16> a) {
 #ifdef USE_ARM_NEON
             vst1_u8(ptr, vget_low_u8(a.v));
 #else
@@ -1526,7 +1674,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(int16_t* ptr, half<int16x8_t> a) {
+        inline void store(int16_t* ptr, half<int16x8> a) {
 #ifdef USE_ARM_NEON
             vst1_s16(ptr, vget_low_s16(a.v));
 #else
@@ -1534,7 +1682,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(uint16_t* ptr, half<uint16x8_t> a) {
+        inline void store(uint16_t* ptr, half<uint16x8> a) {
 #ifdef USE_ARM_NEON
             vst1_u16(ptr, vget_low_u16(a.v));
 #else
@@ -1542,7 +1690,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(int32_t* ptr, half<int32x4_t> a) {
+        inline void store(int32_t* ptr, half<int32x4> a) {
 #ifdef USE_ARM_NEON
             vst1_s32(ptr, vget_low_s32(a.v));
 #else
@@ -1550,7 +1698,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(uint32_t* ptr, half<uint32x4_t> a) {
+        inline void store(uint32_t* ptr, half<uint32x4> a) {
 #ifdef USE_ARM_NEON
             vst1_u32(ptr, vget_low_u32(a.v));
 #else
@@ -1558,7 +1706,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(float* ptr, half<float32x4_t> a) {
+        inline void store(float* ptr, half<float32x4> a) {
 #ifdef USE_ARM_NEON
             vst1_f32(ptr, vget_low_f32(a.v));
 #else
@@ -1567,9 +1715,9 @@ namespace c4 {
         }
 
 
-        inline void store_2_interleaved(int8_t* ptr, int8x16x2_t a) {
+        inline void store_2_interleaved(int8_t* ptr, int8x16x2 a) {
 #ifdef USE_ARM_NEON
-            vst2q_s8(ptr, a);
+            vst2q_s8(ptr, make_neon(a));
 #else
             a = interleave(a);
             store(ptr, a.val[0]);
@@ -1577,13 +1725,13 @@ namespace c4 {
 #endif
         }
 
-        inline void store_2_interleaved(uint8_t* ptr, uint8x16x2_t a) {
+        inline void store_2_interleaved(uint8_t* ptr, uint8x16x2 a) {
             store_2_interleaved((int8_t*)ptr, reinterpret_signed(a));
         }
 
-        inline void store_2_interleaved(int16_t* ptr, int16x8x2_t a) {
+        inline void store_2_interleaved(int16_t* ptr, int16x8x2 a) {
 #ifdef USE_ARM_NEON
-            vst1q_s16(ptr, a);
+            vst2q_s16(ptr, make_neon(a));
 #else
             a = interleave(a);
             store(ptr, a.val[0]);
@@ -1591,13 +1739,13 @@ namespace c4 {
 #endif
         }
 
-        inline void store_2_interleaved(uint16_t* ptr, uint16x8x2_t a) {
+        inline void store_2_interleaved(uint16_t* ptr, uint16x8x2 a) {
             store_2_interleaved((int16_t*)ptr, reinterpret_signed(a));
         }
 
-        inline void store_2_interleaved(int32_t* ptr, int32x4x2_t a) {
+        inline void store_2_interleaved(int32_t* ptr, int32x4x2 a) {
 #ifdef USE_ARM_NEON
-            vst1q_s32(ptr, a);
+            vst2q_s32(ptr, make_neon(a));
 #else
             a = interleave(a);
             store(ptr, a.val[0]);
@@ -1605,13 +1753,13 @@ namespace c4 {
 #endif
         }
 
-        inline void store_2_interleaved(uint32_t* ptr, uint32x4x2_t a) {
+        inline void store_2_interleaved(uint32_t* ptr, uint32x4x2 a) {
             store_2_interleaved((int32_t*)ptr, reinterpret_signed(a));
         }
 
-        inline void store_2_interleaved(float* ptr, float32x4x2_t a) {
+        inline void store_2_interleaved(float* ptr, float32x4x2 a) {
 #ifdef USE_ARM_NEON
-            vst2q_f32(ptr, a);
+            vst2q_f32(ptr, make_neon(a));
 #else
             a = interleave(a);
             store(ptr, a.val[0]);
@@ -1619,26 +1767,33 @@ namespace c4 {
 #endif
         }
 
-        inline void store_2_interleaved_narrow_unsigned_saturate(uint8_t* ptr, int16x8x2_t a) {
-            uint8x16_t u8_0 = narrow_unsigned_saturate(a);
-            uint8x16_t u8_1 = swap_lo_hi_64(u8_0.v);
+        inline void store_2_interleaved_narrow_unsigned_saturate(uint8_t* ptr, int16x8x2 a) {
+#ifdef USE_ARM_NEON
+            uint8x8x2_t b;
+            b.val[0] = vqmovun_s16(a.val[0].v);
+            b.val[1] = vqmovun_s16(a.val[1].v);
+            vst2_u8(ptr, b);
+#else
+            uint8x16 u8_0 = narrow_unsigned_saturate(a);
+            uint8x16 u8_1 = swap_lo_hi_64(u8_0.v);
 
-            uint8x16_t r = _mm_unpacklo_epi8(u8_0.v, u8_1.v);
+            uint8x16 r = _mm_unpacklo_epi8(u8_0.v, u8_1.v);
 
             store(ptr, r);
+#endif
         }
 
 
 
-        inline void store_4_interleaved(int8_t* ptr, int8x16x4_t v) {
+        inline void store_4_interleaved(int8_t* ptr, int8x16x4 v) {
 #ifdef USE_ARM_NEON
-            vst4q_s8(ptr, a);
+            vst4q_s8(ptr, make_neon(v));
 #else
-            int8x16x2_t a = interleave({ v.val[0], v.val[2] });
-            int8x16x2_t b = interleave({ v.val[1], v.val[3] });
+            int8x16x2 a = interleave({ v.val[0], v.val[2] });
+            int8x16x2 b = interleave({ v.val[1], v.val[3] });
 
-            int8x16x2_t c = interleave({ a.val[0], b.val[0] });
-            int8x16x2_t d = interleave({ a.val[1], b.val[1] });
+            int8x16x2 c = interleave({ a.val[0], b.val[0] });
+            int8x16x2 d = interleave({ a.val[1], b.val[1] });
 
             store(ptr, c.val[0]);
             store(ptr + 16, c.val[1]);
@@ -1647,19 +1802,19 @@ namespace c4 {
 #endif
         }
 
-        inline void store_4_interleaved(uint8_t* ptr, uint8x16x4_t a) {
-            store_4_interleaved((int8_t*)ptr, reinterpret<int8x16_t>(a));
+        inline void store_4_interleaved(uint8_t* ptr, uint8x16x4 a) {
+            store_4_interleaved((int8_t*)ptr, reinterpret<int8x16>(a));
         }
 
-        inline void store_4_interleaved(int16_t* ptr, int16x8x4_t v) {
+        inline void store_4_interleaved(int16_t* ptr, int16x8x4 v) {
 #ifdef USE_ARM_NEON
-            vst4q_s16(ptr, a);
+            vst4q_s16(ptr, make_neon(v));
 #else
-            int16x8x2_t a = interleave({ v.val[0], v.val[2] });
-            int16x8x2_t b = interleave({ v.val[1], v.val[3] });
+            int16x8x2 a = interleave({ v.val[0], v.val[2] });
+            int16x8x2 b = interleave({ v.val[1], v.val[3] });
 
-            int16x8x2_t c = interleave({ a.val[0], b.val[0] });
-            int16x8x2_t d = interleave({ a.val[1], b.val[1] });
+            int16x8x2 c = interleave({ a.val[0], b.val[0] });
+            int16x8x2 d = interleave({ a.val[1], b.val[1] });
 
             store(ptr, c.val[0]);
             store(ptr + 8, c.val[1]);
@@ -1668,19 +1823,19 @@ namespace c4 {
 #endif
         }
 
-        inline void store_4_interleaved(uint16_t* ptr, uint16x8x4_t a) {
-            store_4_interleaved((int16_t*)ptr, reinterpret<int16x8_t>(a));
+        inline void store_4_interleaved(uint16_t* ptr, uint16x8x4 a) {
+            store_4_interleaved((int16_t*)ptr, reinterpret<int16x8>(a));
         }
 
-        inline void store_4_interleaved(int32_t* ptr, int32x4x4_t v) {
+        inline void store_4_interleaved(int32_t* ptr, int32x4x4 v) {
 #ifdef USE_ARM_NEON
-            vst4q_s32(ptr, a);
+            vst4q_s32(ptr, make_neon(v));
 #else
-            int32x4x2_t a = interleave({ v.val[0], v.val[2] });
-            int32x4x2_t b = interleave({ v.val[1], v.val[3] });
+            int32x4x2 a = interleave({ v.val[0], v.val[2] });
+            int32x4x2 b = interleave({ v.val[1], v.val[3] });
 
-            int32x4x2_t c = interleave({ a.val[0], b.val[0] });
-            int32x4x2_t d = interleave({ a.val[1], b.val[1] });
+            int32x4x2 c = interleave({ a.val[0], b.val[0] });
+            int32x4x2 d = interleave({ a.val[1], b.val[1] });
 
             store(ptr, c.val[0]);
             store(ptr + 4, c.val[1]);
@@ -1689,19 +1844,19 @@ namespace c4 {
 #endif
         }
 
-        inline void store_4_interleaved(uint32_t* ptr, uint32x4x4_t a) {
-            store_4_interleaved((int32_t*)ptr, reinterpret<int32x4_t>(a));
+        inline void store_4_interleaved(uint32_t* ptr, uint32x4x4 a) {
+            store_4_interleaved((int32_t*)ptr, reinterpret<int32x4>(a));
         }
 
-        inline void store_4_interleaved(float* ptr, float32x4x4_t v) {
+        inline void store_4_interleaved(float* ptr, float32x4x4 v) {
 #ifdef USE_ARM_NEON
-            vst4q_f32(ptr, a);
+            vst4q_f32(ptr, make_neon(v));
 #else
-            float32x4x2_t a = interleave({ v.val[0], v.val[2] });
-            float32x4x2_t b = interleave({ v.val[1], v.val[3] });
+            float32x4x2 a = interleave({ v.val[0], v.val[2] });
+            float32x4x2 b = interleave({ v.val[1], v.val[3] });
 
-            float32x4x2_t c = interleave({ a.val[0], b.val[0] });
-            float32x4x2_t d = interleave({ a.val[1], b.val[1] });
+            float32x4x2 c = interleave({ a.val[0], b.val[0] });
+            float32x4x2 d = interleave({ a.val[1], b.val[1] });
 
             store(ptr, c.val[0]);
             store(ptr + 4, c.val[1]);
@@ -1746,12 +1901,12 @@ namespace c4 {
         }
 #endif
 
-        inline void store_3_interleaved_narrow_saturate(int8_t* ptr, int16x8x3_t v) {
+        inline void store_3_interleaved_narrow_saturate(int8_t* ptr, int16x8x3 v) {
 #ifdef USE_ARM_NEON
-            ::int8x8x3_t a;
-            a.val[0] = vqmovn_s16(v.val[0]);
-            a.val[1] = vqmovn_s16(v.val[1]);
-            a.val[2] = vqmovn_s16(v.val[2]);
+            int8x8x3_t a;
+            a.val[0] = vqmovn_s16(v.val[0].v);
+            a.val[1] = vqmovn_s16(v.val[1].v);
+            a.val[2] = vqmovn_s16(v.val[2].v);
             vst3_s8(ptr, a);
 #else
             __m128i ab = _mm_packs_epi16(v.val[0].v, v.val[1].v);            // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
@@ -1761,12 +1916,12 @@ namespace c4 {
 #endif
         }
 
-        inline void store_3_interleaved_narrow_saturate(uint8_t* ptr, int16x8x3_t v) {
+        inline void store_3_interleaved_narrow_saturate(uint8_t* ptr, int16x8x3 v) {
 #ifdef USE_ARM_NEON
-            ::uint8x8x3_t a;
-            a.val[0] = vqmovun_s16(v.val[0]);
-            a.val[1] = vqmovun_s16(v.val[1]);
-            a.val[2] = vqmovun_s16(v.val[2]);
+            uint8x8x3_t a;
+            a.val[0] = vqmovun_s16(v.val[0].v);
+            a.val[1] = vqmovun_s16(v.val[1].v);
+            a.val[2] = vqmovun_s16(v.val[2].v);
             vst3_u8(ptr, a);
 #else
             __m128i ab = _mm_packus_epi16(v.val[0].v, v.val[1].v);            // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
@@ -1776,40 +1931,40 @@ namespace c4 {
 #endif
         }
 
-        inline void store_3_interleaved_narrow_saturate(int16_t* ptr, int32x4x3_t v) {
+        inline void store_3_interleaved_narrow_saturate(int16_t* ptr, int32x4x3 v) {
 #ifdef USE_ARM_NEON
-            ::int16x4x3_t a;
-            a.val[0] = vqmovn_s32(v.val[0]);
-            a.val[1] = vqmovn_s32(v.val[1]);
-            a.val[2] = vqmovn_s32(v.val[2]);
+            int16x4x3_t a;
+            a.val[0] = vqmovn_s32(v.val[0].v);
+            a.val[1] = vqmovn_s32(v.val[1].v);
+            a.val[2] = vqmovn_s32(v.val[2].v);
             vst3_s16(ptr, a);
 #else
             NOT_IMPLEMENTED;
 #endif
         }
 
-        inline void store_3_interleaved_narrow_saturate(uint16_t* ptr, int32x4x3_t v) {
+        inline void store_3_interleaved_narrow_saturate(uint16_t* ptr, int32x4x3 v) {
 #ifdef USE_ARM_NEON
-            ::uint16x4x3_t a;
-            a.val[0] = vqmovun_s32(v.val[0]);
-            a.val[1] = vqmovun_s32(v.val[1]);
-            a.val[2] = vqmovun_s32(v.val[2]);
+            uint16x4x3_t a;
+            a.val[0] = vqmovun_s32(v.val[0].v);
+            a.val[1] = vqmovun_s32(v.val[1].v);
+            a.val[2] = vqmovun_s32(v.val[2].v);
             vst3_u16(ptr, a);
 #else
             NOT_IMPLEMENTED;
 #endif
         }
 
-        inline void store_4_interleaved_narrow_saturate(int8_t* ptr, int16x8x4_t v) {
+        inline void store_4_interleaved_narrow_saturate(int8_t* ptr, int16x8x4 v) {
 #ifdef USE_ARM_NEON
-            ::int8x8x4_t a;
-            a.val[0] = vqmovn_s16(v.val[0]);
-            a.val[1] = vqmovn_s16(v.val[1]);
-            a.val[2] = vqmovn_s16(v.val[2]);
-            a.val[3] = vqmovn_s16(v.val[3]);
+            int8x8x4_t a;
+            a.val[0] = vqmovn_s16(v.val[0].v);
+            a.val[1] = vqmovn_s16(v.val[1].v);
+            a.val[2] = vqmovn_s16(v.val[2].v);
+            a.val[3] = vqmovn_s16(v.val[3].v);
             vst4_s8(ptr, a);
 #else
-            int8x16x2_t p;
+            int8x16x2 p;
             p.val[0] = _mm_packs_epi16(v.val[0].v, v.val[2].v);
             p.val[1] = _mm_packs_epi16(v.val[1].v, v.val[3].v);
 
@@ -1817,16 +1972,16 @@ namespace c4 {
 #endif
         }
 
-        inline void store_4_interleaved_narrow_saturate(uint8_t* ptr, int16x8x4_t v) {
+        inline void store_4_interleaved_narrow_saturate(uint8_t* ptr, int16x8x4 v) {
 #ifdef USE_ARM_NEON
-            ::uint8x8x4_t a;
-            a.val[0] = vqmovun_s16(v.val[0]);
-            a.val[1] = vqmovun_s16(v.val[1]);
-            a.val[2] = vqmovun_s16(v.val[2]);
-            a.val[3] = vqmovun_s16(v.val[3]);
+            uint8x8x4_t a;
+            a.val[0] = vqmovun_s16(v.val[0].v);
+            a.val[1] = vqmovun_s16(v.val[1].v);
+            a.val[2] = vqmovun_s16(v.val[2].v);
+            a.val[3] = vqmovun_s16(v.val[3].v);
             vst4_u8(ptr, a);
 #else
-            uint8x16x2_t p;
+            uint8x16x2 p;
             p.val[0] = _mm_packus_epi16(v.val[0].v, v.val[2].v);
             p.val[1] = _mm_packus_epi16(v.val[1].v, v.val[3].v);
 
@@ -1834,16 +1989,16 @@ namespace c4 {
 #endif
         }
 
-        inline void store_4_interleaved_narrow_saturate(int16_t* ptr, int32x4x4_t v) {
+        inline void store_4_interleaved_narrow_saturate(int16_t* ptr, int32x4x4 v) {
 #ifdef USE_ARM_NEON
-            ::int16x4x4_t a;
-            a.val[0] = vqmovn_s32(v.val[0]);
-            a.val[1] = vqmovn_s32(v.val[1]);
-            a.val[2] = vqmovn_s32(v.val[2]);
-            a.val[3] = vqmovn_s32(v.val[3]);
+            int16x4x4_t a;
+            a.val[0] = vqmovn_s32(v.val[0].v);
+            a.val[1] = vqmovn_s32(v.val[1].v);
+            a.val[2] = vqmovn_s32(v.val[2].v);
+            a.val[3] = vqmovn_s32(v.val[3].v);
             vst4_s16(ptr, a);
 #else
-            int16x8x2_t p;
+            int16x8x2 p;
             p.val[0] = _mm_packs_epi32(v.val[0].v, v.val[2].v);
             p.val[1] = _mm_packs_epi32(v.val[1].v, v.val[3].v);
 
@@ -1851,23 +2006,39 @@ namespace c4 {
 #endif
         }
 
-        inline void store_4_interleaved_narrow_saturate(uint16_t* ptr, int32x4x4_t v) {
+        inline void store_4_interleaved_narrow_saturate(uint16_t* ptr, int32x4x4 v) {
 #ifdef USE_ARM_NEON
-            ::uint16x4x4_t a;
-            a.val[0] = vqmovun_s32(v.val[0]);
-            a.val[1] = vqmovun_s32(v.val[1]);
-            a.val[2] = vqmovun_s32(v.val[2]);
-            a.val[3] = vqmovun_s32(v.val[3]);
+            uint16x4x4_t a;
+            a.val[0] = vqmovun_s32(v.val[0].v);
+            a.val[1] = vqmovun_s32(v.val[1].v);
+            a.val[2] = vqmovun_s32(v.val[2].v);
+            a.val[3] = vqmovun_s32(v.val[3].v);
             vst4_u16(ptr, a);
 #else
             NOT_IMPLEMENTED;
 #endif
         }
 
+        // Helper function for cases where we don't have efficient simd implementation
+        template<class T, class F>
+        T serial(T a, T b, F f) {
+            constexpr size_t n = traits::length<T>();
+
+            alignas(16) typename T::base_t ta[n];
+            alignas(16) typename T::base_t tb[n];
+
+            store(ta, a);
+            store(tb, b);
+
+            for (size_t i = 0; i < n; i++)
+                ta[i] = f(ta[i], tb[i]);
+
+            return load(ta);
+        }
 
         // Int <-> Float conversions
 
-        inline float32x4_t to_float(int32x4_t a) {
+        inline float32x4 to_float(int32x4 a) {
 #ifdef USE_ARM_NEON
             return { vcvtq_f32_s32(a.v) };
 #else
@@ -1875,15 +2046,15 @@ namespace c4 {
 #endif
         }
 
-        inline tuple<float32x4_t, 2> to_float(typename tuple<int32x4_t, 2> a) {
+        inline tuple<float32x4, 2> to_float(tuple<int32x4, 2> a) {
             return { to_float(a.val[0]), to_float(a.val[1]) };
         }
 
-        inline tuple<float32x4_t, 4> to_float(typename tuple<int32x4_t, 4> a) {
+        inline tuple<float32x4, 4> to_float(tuple<int32x4, 4> a) {
             return { to_float(a.val[0]), to_float(a.val[1]), to_float(a.val[2]), to_float(a.val[3]) };
         }
 
-        inline int32x4_t to_int(float32x4_t a) {
+        inline int32x4 to_int(float32x4 a) {
 #ifdef USE_ARM_NEON
             return { vcvtq_s32_f32(a.v) };
 #else
@@ -1891,18 +2062,18 @@ namespace c4 {
 #endif
         }
 
-        inline tuple<int32x4_t, 2> to_int(typename tuple<float32x4_t, 2> a) {
+        inline tuple<int32x4, 2> to_int(tuple<float32x4, 2> a) {
             return { to_int(a.val[0]), to_int(a.val[1]) };
         }
 
-        inline tuple<int32x4_t, 4> to_int(typename tuple<float32x4_t, 4> a) {
+        inline tuple<int32x4, 4> to_int(tuple<float32x4, 4> a) {
             return { to_int(a.val[0]), to_int(a.val[1]), to_int(a.val[2]), to_int(a.val[3]) };
         }
 
 
         // Addition
 
-        inline int8x16_t add(int8x16_t a, int8x16_t b) {
+        inline int8x16 add(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vaddq_s8(a.v, b.v);
 #else
@@ -1910,7 +2081,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t add(uint8x16_t a, uint8x16_t b) {
+        inline uint8x16 add(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vaddq_u8(a.v, b.v);
 #else
@@ -1918,7 +2089,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t add(int16x8_t a, int16x8_t b) {
+        inline int16x8 add(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vaddq_s16(a.v, b.v);
 #else
@@ -1926,7 +2097,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t add(uint16x8_t a, uint16x8_t b) {
+        inline uint16x8 add(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vaddq_u16(a.v, b.v);
 #else
@@ -1934,7 +2105,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4_t add(int32x4_t a, int32x4_t b) {
+        inline int32x4 add(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vaddq_s32(a.v, b.v);
 #else
@@ -1942,7 +2113,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4_t add(uint32x4_t a, uint32x4_t b) {
+        inline uint32x4 add(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vaddq_u32(a.v, b.v);
 #else
@@ -1950,7 +2121,7 @@ namespace c4 {
 #endif
         }
 
-        inline float32x4_t add(float32x4_t a, float32x4_t b) {
+        inline float32x4 add(float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
             return vaddq_f32(a.v, b.v);
 #else
@@ -1960,7 +2131,7 @@ namespace c4 {
 
         // Long pairwise add
 
-        inline int16x8_t hadd(int8x16_t a) {
+        inline int16x8 hadd(int8x16 a) {
 #ifdef USE_ARM_NEON
             return vpaddlq_s8(a.v);
 #else
@@ -1971,7 +2142,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t hadd(uint8x16_t a) {
+        inline uint16x8 hadd(uint8x16 a) {
 #ifdef USE_ARM_NEON
             return vpaddlq_u8(a.v);
 #else
@@ -1982,7 +2153,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4_t hadd(int16x8_t a) {
+        inline int32x4 hadd(int16x8 a) {
 #ifdef USE_ARM_NEON
             return vpaddlq_s16(a.v);
 #else
@@ -1993,7 +2164,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4_t hadd(uint16x8_t a) {
+        inline uint32x4 hadd(uint16x8 a) {
 #ifdef USE_ARM_NEON
             return vpaddlq_u16(a.v);
 #else
@@ -2007,7 +2178,7 @@ namespace c4 {
 
         // Subtraction
 
-        inline int8x16_t sub(int8x16_t a, int8x16_t b) {
+        inline int8x16 sub(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vsubq_s8(a.v, b.v);
 #else
@@ -2015,7 +2186,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t sub(uint8x16_t a, uint8x16_t b) {
+        inline uint8x16 sub(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vsubq_u8(a.v, b.v);
 #else
@@ -2023,7 +2194,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t sub(int16x8_t a, int16x8_t b) {
+        inline int16x8 sub(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vsubq_s16(a.v, b.v);
 #else
@@ -2031,7 +2202,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t sub(uint16x8_t a, uint16x8_t b) {
+        inline uint16x8 sub(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vsubq_u16(a.v, b.v);
 #else
@@ -2039,7 +2210,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4_t sub(int32x4_t a, int32x4_t b) {
+        inline int32x4 sub(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vsubq_s32(a.v, b.v);
 #else
@@ -2047,7 +2218,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4_t sub(uint32x4_t a, uint32x4_t b) {
+        inline uint32x4 sub(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vsubq_u32(a.v, b.v);
 #else
@@ -2055,7 +2226,7 @@ namespace c4 {
 #endif
         }
 
-        inline float32x4_t sub(float32x4_t a, float32x4_t b) {
+        inline float32x4 sub(float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
             return vsubq_f32(a.v, b.v);
 #else
@@ -2063,7 +2234,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t sub_div2(uint8x16_t a, uint8x16_t b) {
+        inline uint8x16 sub_div2(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vhsubq_u8(a.v, b.v);
 #else
@@ -2071,7 +2242,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t sub_div2(uint16x8_t a, uint16x8_t b) {
+        inline uint16x8 sub_div2(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vhsubq_u16(a.v, b.v);
 #else
@@ -2079,7 +2250,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4_t sub_div2(uint32x4_t a, uint32x4_t b) {
+        inline uint32x4 sub_div2(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vhsubq_u32(a.v, b.v);
 #else
@@ -2095,33 +2266,33 @@ namespace c4 {
 #endif
         }
 
-        inline int8x16_t sub_div2(int8x16_t a, int8x16_t b) {
+        inline int8x16 sub_div2(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vhsubq_s8(a.v, b.v);
 #else
-            static const int8x16_t c0x80((int8_t)0x80);
+            static const int8x16 c0x80((int8_t)0x80);
 
-            uint8x16_t au = reinterpret_unsigned(add(a, c0x80));
-            uint8x16_t bu = reinterpret_unsigned(add(b, c0x80));
+            uint8x16 au = reinterpret_unsigned(add(a, c0x80));
+            uint8x16 bu = reinterpret_unsigned(add(b, c0x80));
             
             return reinterpret_signed(sub_div2(au, bu));
 #endif
         }
 
-        inline int16x8_t sub_div2(int16x8_t a, int16x8_t b) {
+        inline int16x8 sub_div2(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vhsubq_s16(a.v, b.v);
 #else
-            static const int16x8_t c0x8000((int16_t)0x8000);
+            static const int16x8 c0x8000((int16_t)0x8000);
 
-            uint16x8_t au = reinterpret_unsigned(add(a, c0x8000));
-            uint16x8_t bu = reinterpret_unsigned(add(b, c0x8000));
+            uint16x8 au = reinterpret_unsigned(add(a, c0x8000));
+            uint16x8 bu = reinterpret_unsigned(add(b, c0x8000));
 
             return reinterpret_signed(sub_div2(au, bu));
 #endif
         }
 
-        inline int32x4_t sub_div2(int32x4_t a, int32x4_t b) {
+        inline int32x4 sub_div2(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vhsubq_s32(a.v, b.v);
 #else
@@ -2142,7 +2313,7 @@ namespace c4 {
 
         // Shift left by a constant
 
-        inline int8x16_t shift_left(int8x16_t a, int8_t n) {
+        inline int8x16 shift_left(int8x16 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshlq_n_s8(a.v, n);
 #else
@@ -2150,7 +2321,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t shift_left(int16x8_t a, int8_t n) {
+        inline int16x8 shift_left(int16x8 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshlq_n_s16(a.v, n);
 #else
@@ -2158,7 +2329,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4_t shift_left(int32x4_t a, int8_t n) {
+        inline int32x4 shift_left(int32x4 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshlq_n_s32(a.v, n);
 #else
@@ -2171,7 +2342,7 @@ namespace c4 {
             return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
         }
 
-        inline int8x16_t shift_left_saturate(int8x16_t a, int8_t n) {
+        inline int8x16 shift_left_saturate(int8x16 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vqshlq_n_s8(a.v, n);
 #else
@@ -2183,7 +2354,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t shift_left_saturate(uint8x16_t a, int8_t n) {
+        inline uint8x16 shift_left_saturate(uint8x16 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vqshlq_n_u8(a.v, n);
 #else
@@ -2195,7 +2366,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t shift_left_saturate(int16x8_t a, int8_t n) {
+        inline int16x8 shift_left_saturate(int16x8 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vqshlq_n_s16(a.v, n);
 #else
@@ -2207,7 +2378,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t shift_left_saturate(uint16x8_t a, int8_t n) {
+        inline uint16x8 shift_left_saturate(uint16x8 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vqshlq_n_u16(a.v, n);
 #else
@@ -2231,49 +2402,50 @@ namespace c4 {
         }
 
         // Shifts by a packed variable
-        __C4_SIMD_SLOW_SSE__ inline int8x16_t shift_left(int8x16_t a, int8x16_t b) {
+        __C4_SIMD_SLOW_SSE__ inline int8x16 shift_left(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
-            return vshl_s8(a.v, b.v);
+            return vshlq_s8(a.v, b.v);
 #else
+            // TODO: there should be a faster way
             return serial(a, b, scalar_shift_left_signed<int8_t>);
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline uint8x16_t shift_left(uint8x16_t a, uint8x16_t b) {
+        __C4_SIMD_SLOW_SSE__ inline uint8x16 shift_left(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
-            return vshl_u8(a.v, b.v);
+            return vshlq_u8(a.v, vreinterpretq_s8_u8(b.v));
 #else
             return serial(a, b, scalar_shift_left_unsigned<uint8_t>);
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline int16x8_t shift_left(int16x8_t a, int16x8_t b) {
+        __C4_SIMD_SLOW_SSE__ inline int16x8 shift_left(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
-            return vshl_s16(a.v, n);
+            return vshlq_s16(a.v, b.v);
 #else
             return serial(a, b, scalar_shift_left_signed<int16_t>);
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline uint16x8_t shift_left(uint16x8_t a, uint16x8_t b) {
+        __C4_SIMD_SLOW_SSE__ inline uint16x8 shift_left(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
-            return vshl_u16(a.v, n);
+            return vshlq_u16(a.v, vreinterpretq_s16_u16(b.v));
 #else
             return serial(a, b, scalar_shift_left_unsigned<uint16_t>);
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline int32x4_t shift_left(int32x4_t a, int32x4_t b) {
+        __C4_SIMD_SLOW_SSE__ inline int32x4 shift_left(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
-            return vshl_s32(a.v, n);
+            return vshlq_s32(a.v, b.v);
 #else
             return serial(a, b, scalar_shift_left_signed<int32_t>);
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline uint32x4_t shift_left(uint32x4_t a, uint32x4_t b) {
+        __C4_SIMD_SLOW_SSE__ inline uint32x4 shift_left(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
-            return vshl_u32(a.v, n);
+            return vshlq_u32(a.v, vreinterpretq_s32_u32(b.v));
 #else
             return serial(a, b, scalar_shift_left_unsigned<uint32_t>);
 #endif
@@ -2283,7 +2455,7 @@ namespace c4 {
         // Shifting in sign bits for signed types
         // Shifting in zero bits for unsigned types
 
-        inline int8x16_t shift_right(int8x16_t a, int8_t n) {
+        inline int8x16 shift_right(int8x16 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshrq_n_s8(a.v, n);
 #else
@@ -2294,7 +2466,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t shift_right(uint8x16_t a, int8_t n) {
+        inline uint8x16 shift_right(uint8x16 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshrq_n_u8(a.v, n);
 #else
@@ -2305,7 +2477,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t shift_right(int16x8_t a, int8_t n) {
+        inline int16x8 shift_right(int16x8 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshrq_n_s16(a.v, n);
 #else
@@ -2313,33 +2485,33 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t shift_right(uint16x8_t a, int8_t n) {
+        inline uint16x8 shift_right(uint16x8 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshrq_n_u16(a.v, n);
 #else
-            return { _mm_srli_epi16(a.v, n) };
+            return _mm_srli_epi16(a.v, n);
 #endif
         }
 
-        inline int32x4_t shift_right(int32x4_t a, int8_t n) {
+        inline int32x4 shift_right(int32x4 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshrq_n_s32(a.v, n);
 #else
-            return { _mm_srai_epi32(a.v, n) };
+            return _mm_srai_epi32(a.v, n);
 #endif
         }
 
-        inline uint32x4_t shift_right(uint32x4_t a, int8_t n) {
+        inline uint32x4 shift_right(uint32x4 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshrq_n_u32(a.v, n);
 #else
-            return { _mm_srli_epi32(a.v, n) };
+            return _mm_srli_epi32(a.v, n);
 #endif
         }
 
         // Logical operations
 
-        inline int8x16_t and(int8x16_t a, int8x16_t b) {
+        inline int8x16 bitwise_and(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vandq_s8(a.v, b.v);
 #else
@@ -2348,24 +2520,24 @@ namespace c4 {
         }
 
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
-        inline T and(T a, T b) {
-            return reinterpret<T>(and(reinterpret<int8x16_t>(a), reinterpret<int8x16_t>(b)));
+        inline T bitwise_and(T a, T b) {
+            return reinterpret<T>(bitwise_and(reinterpret<int8x16>(a), reinterpret<int8x16>(b)));
         }
 
-        inline int8x16_t or(int8x16_t a, int8x16_t b) {
+        inline int8x16 bitwise_or(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
-            return vorq_s8(a.v, b.v);
+            return vorrq_s8(a.v, b.v);
 #else
             return { _mm_or_si128(a.v, b.v) };
 #endif
         }
 
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
-        inline T or(T a, T b) {
-            return reinterpret<T>(or(reinterpret<int8x16_t>(a), reinterpret<int8x16_t>(b)));
+        inline T bitwise_or(T a, T b) {
+            return reinterpret<T>(bitwise_or(reinterpret<int8x16>(a), reinterpret<int8x16>(b)));
         }
 
-        inline int8x16_t not(int8x16_t a) {
+        inline int8x16 bitwise_not(int8x16 a) {
 #ifdef USE_ARM_NEON
             return vmvnq_s8(a.v);
 #else
@@ -2375,12 +2547,12 @@ namespace c4 {
         }
 
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
-        inline T not(T a) {
-            return reinterpret<T>(not(reinterpret<int8x16_t>(a)));
+        inline T bitwise_not(T a) {
+            return reinterpret<T>(bitwise_not(reinterpret<int8x16>(a)));
         }
 
         // a & !b
-        inline int8x16_t and_not(int8x16_t a, int8x16_t b) {
+        inline int8x16 bitwise_and_not(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vandq_s8(a.v, vmvnq_s8(b.v));
 #else
@@ -2389,11 +2561,11 @@ namespace c4 {
         }
 
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
-        inline T and_not(T a, T b) {
-            return reinterpret<T>(and_not(reinterpret<int8x16_t>(a), reinterpret<int8x16_t>(b)));
+        inline T bitwise_and_not(T a, T b) {
+            return reinterpret<T>(bitwise_and_not(reinterpret<int8x16>(a), reinterpret<int8x16>(b)));
         }
 
-        inline int8x16_t xor(int8x16_t a, int8x16_t b) {
+        inline int8x16 bitwise_xor(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return veorq_s8(a.v, b.v);
 #else
@@ -2402,14 +2574,14 @@ namespace c4 {
         }
 
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
-        inline T xor(T a, T b) {
-            return reinterpret<T>(xor(reinterpret<int8x16_t>(a), reinterpret<int8x16_t>(b)));
+        inline T bitwise_xor(T a, T b) {
+            return reinterpret<T>(bitwise_xor(reinterpret<int8x16>(a), reinterpret<int8x16>(b)));
         }
 
 
         // Multiplication
 
-        inline int16x8_t mul_lo(int16x8_t a, int16x8_t b) {
+        inline int16x8 mul_lo(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vmulq_s16(a.v, b.v);
 #else
@@ -2417,7 +2589,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t mul_lo(uint16x8_t a, uint16x8_t b) {
+        inline uint16x8 mul_lo(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vmulq_u16(a.v, b.v);
 #else
@@ -2425,12 +2597,12 @@ namespace c4 {
 #endif
         }
 
-        inline int8x16_t mul_lo(int8x16_t a, int8x16_t b) {
+        inline int8x16 mul_lo(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vmulq_s8(a.v, b.v);
 #else
-            int16x8x2_t ap = long_move(a);
-            int16x8x2_t bp = long_move(b);
+            int16x8x2 ap = long_move(a);
+            int16x8x2 bp = long_move(b);
 
             ap.val[0] = mul_lo(ap.val[0], bp.val[0]);
             ap.val[1] = mul_lo(ap.val[1], bp.val[1]);
@@ -2439,12 +2611,12 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t mul_lo(uint8x16_t a, uint8x16_t b) {
+        inline uint8x16 mul_lo(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vmulq_u8(a.v, b.v);
 #else
-            uint16x8x2_t ap = long_move(a);
-            uint16x8x2_t bp = long_move(b);
+            uint16x8x2 ap = long_move(a);
+            uint16x8x2 bp = long_move(b);
 
             ap.val[0] = mul_lo(ap.val[0], bp.val[0]);
             ap.val[1] = mul_lo(ap.val[1], bp.val[1]);
@@ -2453,7 +2625,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE3__ inline int32x4_t mul_lo(int32x4_t a, int32x4_t b) {
+        __C4_SIMD_SLOW_SSE3__ inline int32x4 mul_lo(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmulq_s32(a.v, b.v);
 #else
@@ -2465,7 +2637,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE3__ inline uint32x4_t mul_lo(uint32x4_t a, uint32x4_t b) {
+        __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_lo(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vmulq_u32(a.v, b.v);
 #else
@@ -2477,7 +2649,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t mul_hi(int16x8_t a, int16x8_t b) {
+        inline int16x8 mul_hi(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vshrq_n_s16(vqdmulhq_s16(a.v, b.v), 1);
 #else
@@ -2485,7 +2657,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline int32x4_t mul_hi(int32x4_t a, int32x4_t b) {
+        __C4_SIMD_SLOW_SSE__ inline int32x4 mul_hi(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vshrq_n_s32(vqdmulhq_s32(a.v, b.v), 1);
 #else
@@ -2494,7 +2666,7 @@ namespace c4 {
         }
 
 
-        inline float32x4_t mul(float32x4_t a, float32x4_t b) {
+        inline float32x4 mul(float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
             return vmulq_f32(a.v, b.v);
 #else
@@ -2504,7 +2676,7 @@ namespace c4 {
 
         // Assumes 32-bit integers in a and b fit into 16-bit signed
         // Same speed on NEON, but faster on SSE compared to 32-bit mul_lo
-        inline int32x4_t mul_16(int32x4_t a, int32x4_t b) {
+        inline int32x4 mul_16(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmulq_s32(a.v, b.v);
 #else
@@ -2517,7 +2689,7 @@ namespace c4 {
         }
 
         // Multiply accumulate: r = s + a * b
-        inline int8x16_t mul_acc(int8x16_t s, int8x16_t a, int8x16_t b) {
+        inline int8x16 mul_acc(int8x16 s, int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_s8(s.v, a.v, b.v);
 #else
@@ -2525,7 +2697,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t mul_acc(uint8x16_t s, uint8x16_t a, uint8x16_t b) {
+        inline uint8x16 mul_acc(uint8x16 s, uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_u8(s.v, a.v, b.v);
 #else
@@ -2533,7 +2705,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t mul_acc(int16x8_t s, int16x8_t a, int16x8_t b) {
+        inline int16x8 mul_acc(int16x8 s, int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_s16(s.v, a.v, b.v);
 #else
@@ -2541,7 +2713,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t mul_acc(uint16x8_t s, uint16x8_t a, uint16x8_t b) {
+        inline uint16x8 mul_acc(uint16x8 s, uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_u16(s.v, a.v, b.v);
 #else
@@ -2549,7 +2721,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE3__ inline int32x4_t mul_acc(int32x4_t s, int32x4_t a, int32x4_t b) {
+        __C4_SIMD_SLOW_SSE3__ inline int32x4 mul_acc(int32x4 s, int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_s32(s.v, a.v, b.v);
 #else
@@ -2558,7 +2730,7 @@ namespace c4 {
         }
 
         // Multiply accumulate: r = s - a * b
-        inline int8x16_t mul_sub(int8x16_t s, int8x16_t a, int8x16_t b) {
+        inline int8x16 mul_sub(int8x16 s, int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vmlsq_s8(s.v, a.v, b.v);
 #else
@@ -2566,7 +2738,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16_t mul_sub(uint8x16_t s, uint8x16_t a, uint8x16_t b) {
+        inline uint8x16 mul_sub(uint8x16 s, uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vmlsq_u8(s.v, a.v, b.v);
 #else
@@ -2574,7 +2746,7 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8_t mul_sub(int16x8_t s, int16x8_t a, int16x8_t b) {
+        inline int16x8 mul_sub(int16x8 s, int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vmlsq_s16(s.v, a.v, b.v);
 #else
@@ -2582,7 +2754,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t mul_sub(uint16x8_t s, uint16x8_t a, uint16x8_t b) {
+        inline uint16x8 mul_sub(uint16x8 s, uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vmlsq_u16(s.v, a.v, b.v);
 #else
@@ -2590,7 +2762,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4_t mul_sub(int32x4_t s, int32x4_t a, int32x4_t b) {
+        __C4_SIMD_SLOW_SSE3__ inline int32x4 mul_sub(int32x4 s, int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlsq_s32(s.v, a.v, b.v);
 #else
@@ -2600,7 +2772,7 @@ namespace c4 {
 
         // Assumes 32-bit integers in a and b fit into 16-bit signed
         // Same speed on NEON, but faster on SSE compared to 32-bit mul
-        inline int32x4_t mul_16_acc(int32x4_t s, int32x4_t a, int32x4_t b) {
+        inline int32x4 mul_16_acc(int32x4 s, int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_s32(s.v, a.v, b.v);
 #else
@@ -2608,7 +2780,7 @@ namespace c4 {
 #endif
         }
         
-        inline uint32x4_t mul_acc(uint32x4_t s, uint32x4_t a, uint32x4_t b) {
+        __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_acc(uint32x4 s, uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_u32(s.v, a.v, b.v);
 #else
@@ -2616,7 +2788,7 @@ namespace c4 {
 #endif
         }
 
-        inline float32x4_t mul_acc(float32x4_t s, float32x4_t a, float32x4_t b) {
+        inline float32x4 mul_acc(float32x4 s, float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_f32(s.v, a.v, b.v);
 #else
@@ -2626,7 +2798,7 @@ namespace c4 {
 
         // Average
 
-        inline uint8x16_t avg(uint8x16_t a, uint8x16_t b) {
+        inline uint8x16 avg(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vrhaddq_u8(a.v, b.v);
 #else
@@ -2634,7 +2806,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8_t avg(uint16x8_t a, uint16x8_t b) {
+        inline uint16x8 avg(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vrhaddq_u16(a.v, b.v);
 #else
@@ -2643,60 +2815,60 @@ namespace c4 {
         }
 
 
-        inline int8x16_t avg(int8x16_t a, int8x16_t b) {
+        inline int8x16 avg(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vrhaddq_s8(a.v, b.v);
 #else
-            const int8x16_t c0x80{ _mm_set1_epi8((int8_t)0x80) };
+            const int8x16 c0x80{ _mm_set1_epi8((int8_t)0x80) };
             a = sub(a, c0x80);
             b = sub(b, c0x80);
-            int8x16_t sum = reinterpret_signed(avg(reinterpret_unsigned(a), reinterpret_unsigned(b)));
+            int8x16 sum = reinterpret_signed(avg(reinterpret_unsigned(a), reinterpret_unsigned(b)));
             return add(sum, c0x80);
 #endif
         }
 
-        inline int16x8_t avg(int16x8_t a, int16x8_t b) {
+        inline int16x8 avg(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vrhaddq_s16(a.v, b.v);
 #else
-            const int16x8_t c0x8000{ _mm_set1_epi16((int16_t)0x8000) };
+            const int16x8 c0x8000{ _mm_set1_epi16((int16_t)0x8000) };
             a = sub(a, c0x8000);
             b = sub(b, c0x8000);
-            int16x8_t sum = reinterpret_signed(avg(reinterpret_unsigned(a), reinterpret_unsigned(b)));
+            int16x8 sum = reinterpret_signed(avg(reinterpret_unsigned(a), reinterpret_unsigned(b)));
             return add(sum, c0x8000);
 #endif
         }
 
-        inline int32x4_t avg(int32x4_t a, int32x4_t b) {
+        inline int32x4 avg(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vrhaddq_s32(a.v, b.v);
 #else
-            int32x4_t a2 = shift_right(a, 1);
-            int32x4_t b2 = shift_right(b, 1);
-            int32x4_t rounding{ _mm_or_si128(a.v, b.v) };
+            int32x4 a2 = shift_right(a, 1);
+            int32x4 b2 = shift_right(b, 1);
+            int32x4 rounding{ _mm_or_si128(a.v, b.v) };
             rounding = shift_left(rounding, 31);
             rounding = shift_right(rounding, 31);
-            int32x4_t sum = add(a2, b2);
+            int32x4 sum = add(a2, b2);
             return add(sum, rounding);
 #endif
         }
 
-        inline uint32x4_t avg(uint32x4_t a, uint32x4_t b) {
+        inline uint32x4 avg(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vrhaddq_u32(a.v, b.v);
 #else
-            uint32x4_t a2 = shift_right(a, 1);
-            uint32x4_t b2 = shift_right(b, 1);
-            uint32x4_t rounding{ _mm_or_si128(a.v, b.v) };
+            uint32x4 a2 = shift_right(a, 1);
+            uint32x4 b2 = shift_right(b, 1);
+            uint32x4 rounding{ _mm_or_si128(a.v, b.v) };
             rounding = shift_left(rounding, 31);
             rounding = shift_right(rounding, 31);
-            uint32x4_t sum = add(a2, b2);
+            uint32x4 sum = add(a2, b2);
             return add(sum, rounding);
 #endif
         }
 
         // Other
-        inline float32x4_t rsqrt(float32x4_t a) {
+        inline float32x4 rsqrt(float32x4 a) {
 #ifdef USE_ARM_NEON
             float32x4_t x = a.v;
 
@@ -2710,10 +2882,10 @@ namespace c4 {
 #endif
         }
         
-        inline float32x4_t reciprocal(float32x4_t a) {
+        inline float32x4 reciprocal(float32x4 a) {
 #ifdef USE_ARM_NEON
-            ::float32x4 x = a.v;
-            ::float32x4_t r = vrecpeq_f32(x);
+            float32x4_t x = a.v;
+            float32x4_t r = vrecpeq_f32(x);
 
             r = vmulq_f32(vrecpsq_f32(x, r), r);
 
@@ -2723,26 +2895,26 @@ namespace c4 {
 #endif
         }
 
-        inline float32x4_t sqrt(float32x4_t a) {
+        inline float32x4 sqrt(float32x4 a) {
             return mul(a, rsqrt(a));
         }
 
-        inline float32x4_t div(float32x4_t a, float32x4_t b) {
+        inline float32x4 div(float32x4 a, float32x4 b) {
             return mul(a, reciprocal(b));
         }
 
         // Table look up
 
-        static const uint8x16_t c16(16);
+        static const uint8x16 c16(16);
 
         // r[i] = q[i] < 16 ? t[q[i]] : undefined
-        inline uint8x16_t look_up(uint8x16_t t, uint8x16_t q) {
+        inline uint8x16 look_up(uint8x16 t, uint8x16 q) {
 #ifdef USE_ARM_NEON
-            ::uint8x8x2_t vt{ vget_low_u8(t.v), vget_high_u8(t.v) };
-            ::uint8x8x2_t vq{ vget_low_u8(q.v), vget_high_u8(q.v) };
+            uint8x8x2_t vt{ vget_low_u8(t.v), vget_high_u8(t.v) };
+            uint8x8x2_t vq{ vget_low_u8(q.v), vget_high_u8(q.v) };
 
-            ::uint8x8_t low = vtbl2_u8(vt, vq.val[0]);
-            ::uint8x8_t high = vtbl2_u8(vt, vq.val[1]);
+            uint8x8_t low = vtbl2_u8(vt, vq.val[0]);
+            uint8x8_t high = vtbl2_u8(vt, vq.val[1]);
 
             return vcombine_u8(low, high);
 #else
@@ -2751,14 +2923,14 @@ namespace c4 {
         }
 
         // r[i] = q[i] < 16 ? t[q[i]] : r[i]
-        inline uint8x16_t look_up(uint8x16_t r, uint8x16_t t, uint8x16_t q) {
+        inline uint8x16 look_up(uint8x16 r, uint8x16 t, uint8x16 q) {
 #ifdef USE_ARM_NEON
-            ::uint8x8x2_t vr{ vget_low_u8(r.v), vget_high_u8(r.v) };
-            ::uint8x8x2_t vt{ vget_low_u8(t.v), vget_high_u8(t.v) };
-            ::uint8x8x2_t vq{ vget_low_u8(q.v), vget_high_u8(q.v) };
+            uint8x8x2_t vr{ vget_low_u8(r.v), vget_high_u8(r.v) };
+            uint8x8x2_t vt{ vget_low_u8(t.v), vget_high_u8(t.v) };
+            uint8x8x2_t vq{ vget_low_u8(q.v), vget_high_u8(q.v) };
 
-            ::uint8x8_t low = vtbx2_u8(vr.val[0], vt, vq.val[0]);
-            ::uint8x8_t high = vtbx2_u8(vr.val[1], vt, vq.val[1]);
+            uint8x8_t low = vtbx2_u8(vr.val[0], vt, vq.val[0]);
+            uint8x8_t high = vtbx2_u8(vr.val[1], vt, vq.val[1]);
             
             return vcombine_u8(low, high);
 #else
@@ -2772,10 +2944,10 @@ namespace c4 {
 
         // r[i] = q[i] < 16 * n ? t[q[i]] : undefined
         template<int n>
-        inline uint8x16_t look_up(const std::array<uint8x16_t, n>& t, uint8x16_t q) {
+        inline uint8x16 look_up(const std::array<uint8x16, n>& t, uint8x16 q) {
             static_assert(1 <= n && n <= 16, "we can only address up to 256 elements");
 
-            uint8x16_t r = look_up(t[0], q);
+            uint8x16 r = look_up(t[0], q);
             for (int i = 1; i < n; i++) {
                 q = sub(q, c16);
                 r = look_up(r, t[i], q);
@@ -2785,9 +2957,9 @@ namespace c4 {
         }
 
         // Count leading zeros
-        inline uint8x16_t clz(uint8x16_t a) {
+        inline uint8x16 clz(uint8x16 a) {
 #ifdef USE_ARM_NEON
-            return vclzq_s8(a.v);
+            return vclzq_u8(a.v);
 #else
             static const __m128i clz4 = _mm_setr_epi8( 4, 3, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 );
             
@@ -2806,7 +2978,7 @@ namespace c4 {
 
         // Operations on tuples
         template<class T, int n, class = typename std::enable_if<traits::is_simd<T>::value>::type>
-        tuple<T, n> binary_operation(typename tuple<T, n> a, typename tuple<T, n> b, std::function<T(T, T)> f) {
+        tuple<T, n> binary_operation(tuple<T, n> a, tuple<T, n> b, std::function<T(T, T)> f) {
             tuple<T, n> r;
             
             for (int i = 0; i < n; i++)
@@ -2816,7 +2988,7 @@ namespace c4 {
         }
 
         template<class T, int n, class = typename std::enable_if<traits::is_simd<T>::value>::type>
-        tuple<T, n> binary_operation(typename tuple<T, n> a, T b, std::function<T(T, T)> f) {
+        tuple<T, n> binary_operation(tuple<T, n> a, T b, std::function<T(T, T)> f) {
             tuple<T, n> r;
 
             for (int i = 0; i < n; i++)
@@ -2832,68 +3004,68 @@ namespace c4 {
         }
 
         template<class T, int n>
-        tuple<T, n> add(typename tuple<T, n> a, T b) {
+        tuple<T, n> add(tuple<T, n> a, T b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(add);
             return binary_operation(a, b, f);
         }
 
         template<class T, int n>
-        tuple<T, n> sub(typename tuple<T, n> a, typename tuple<T, n> b) {
+        tuple<T, n> sub(tuple<T, n> a, tuple<T, n> b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(sub);
             return binary_operation(a, b, f);
         }
 
         template<class T, int n>
-        tuple<T, n> sub(typename tuple<T, n> a, T b) {
+        tuple<T, n> sub(tuple<T, n> a, T b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(sub);
             return binary_operation(a, b, f);
         }
 
         template<class T, int n>
-        tuple<T, n> mul(typename tuple<T, n> a, typename tuple<T, n> b) {
+        tuple<T, n> mul(tuple<T, n> a, tuple<T, n> b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(mul);
             return binary_operation(a, b, f);
         }
 
         template<class T, int n>
-        tuple<T, n> mul(typename tuple<T, n> a, T b) {
+        tuple<T, n> mul(tuple<T, n> a, T b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(mul);
             return binary_operation(a, b, f);
         }
 
         template<class T, int n>
-        tuple<T, n> div(typename tuple<T, n> a, typename tuple<T, n> b) {
+        tuple<T, n> div(tuple<T, n> a, tuple<T, n> b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(div);
             return binary_operation(a, b, f);
         }
 
         template<class T, int n>
-        tuple<T, n> div(typename tuple<T, n> a, T b) {
+        tuple<T, n> div(tuple<T, n> a, T b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(div);
             return binary_operation(a, b, f);
         }
 
 
         template<class T, int n>
-        tuple<T, n> min(typename tuple<T, n> a, typename tuple<T, n> b) {
+        tuple<T, n> min(tuple<T, n> a, tuple<T, n> b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(min);
             return binary_operation(a, b, f);
         }
 
         template<class T, int n>
-        tuple<T, n> min(typename tuple<T, n> a, T b) {
+        tuple<T, n> min(tuple<T, n> a, T b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(min);
             return binary_operation(a, b, f);
         }
 
         template<class T, int n>
-        tuple<T, n> max(typename tuple<T, n> a, typename tuple<T, n> b) {
+        tuple<T, n> max(tuple<T, n> a, tuple<T, n> b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(max);
             return binary_operation(a, b, f);
         }
 
         template<class T, int n>
-        tuple<T, n> max(typename tuple<T, n> a, T b) {
+        tuple<T, n> max(tuple<T, n> a, T b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(max);
             return binary_operation(a, b, f);
         }
@@ -2917,4 +3089,3 @@ namespace c4 {
     }; // namespace simd
 }; // namespace c4
 
-#pragma warning(pop) // 4996
