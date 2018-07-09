@@ -462,27 +462,45 @@ namespace c4 {
         // helpers
 
 #ifdef USE_SSE
-        inline __m128i separate_even_odd_8(__m128i x) {
+        inline __m128i _mm_separate_even_odd_8(__m128i x) {
             static const __m128i mask = _mm_setr_epi8(0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15);
             return _mm_shuffle_epi8(x, mask);
         }
 
-        inline __m128i separate_even_odd_16(__m128i x) {
+        inline __m128i _mm_separate_even_odd_16(__m128i x) {
             static const __m128i mask = _mm_setr_epi8(0, 1, 4, 5, 8, 9, 12, 13, 2, 3, 6, 7, 10, 11, 14, 15);
             return _mm_shuffle_epi8(x, mask);
         }
 
-        inline __m128i separate_even_odd_32(__m128i x) {
+        inline __m128i _mm_separate_even_odd_32(__m128i x) {
             return _mm_shuffle_epi32(x, _MM_SHUFFLE(3, 1, 2, 0));
         }
 
-        inline __m128i swap_lo_hi_64(__m128i x) {
+        inline __m128i _mm_swap_lo_hi_64(__m128i x) {
             return _mm_shuffle_epi32(x, _MM_SHUFFLE(1, 0, 3, 2));
         }
 
         // Replace bit in x with bit in y when matching bit in mask is set
         inline __m128i _mm_blendv_si128(__m128i x, __m128i y, __m128i mask) {
             return _mm_or_si128(_mm_andnot_si128(mask, x), _mm_and_si128(mask, y));
+        }
+
+        inline __m128i _mm_set_0xff_si128() {
+            __m128i r;
+            r = _mm_cmpeq_epi8(r, r);
+            return r;
+        }
+
+        inline __m128i _mm_set_0x80_si128() {
+            static const __m128i r = _mm_set1_epi8((int8_t)0x80);
+            return r;
+        }
+
+        inline __m128i _mm_set_0x8000_si128() {
+            return _mm_slli_epi16(_mm_set_0xff_si128(), 15);
+        }
+        inline __m128i _mm_set_0x80000000_si128() {
+            return _mm_slli_epi32(_mm_set_0xff_si128(), 31);
         }
 
 #ifndef USE_SSE4_1
@@ -526,9 +544,7 @@ namespace c4 {
         }
 
         inline __m128i _mm_max_epu16(__m128i a, __m128i b) {
-            // TODO: extract constants
-            __m128i c = _mm_cmpeq_epi16(a, a);      //0xffff
-            c = _mm_slli_epi16(c, 15);              //0x8000
+            __m128i c = _mm_set_0x8000_si128();
             __m128i a_s = _mm_sub_epi16(a, c);
             __m128i b_s = _mm_sub_epi16(b, c);
             __m128i mn = _mm_max_epi16(a_s, b_s);
@@ -536,9 +552,7 @@ namespace c4 {
         }
 
         inline __m128i _mm_max_epu32(__m128i a, __m128i b) {
-            // TODO: extract constants
-            __m128i c = _mm_cmpeq_epi32(a, a);      //0xffffffff
-            c = _mm_slli_epi32(c, 31);              //0x80000000
+            __m128i c = _mm_set_0x80000000_si128();
             __m128i a_s = _mm_sub_epi32(a, c);
             __m128i b_s = _mm_sub_epi32(b, c);
             __m128i mask = _mm_cmpgt_epi32(b_s, a_s);
@@ -557,9 +571,7 @@ namespace c4 {
         }
 
         inline __m128i _mm_min_epu16(__m128i a, __m128i b) {
-            // TODO: extract constants
-            __m128i c = _mm_cmpeq_epi16(a, a);          //0xffff
-            c = _mm_slli_epi16(c, 15);                  //0x8000
+            __m128i c = _mm_set_0x8000_si128();
             __m128i a_s = _mm_sub_epi16(a, c);
             __m128i b_s = _mm_sub_epi16(b, c);
             __m128i mn = _mm_min_epi16(a_s, b_s);
@@ -567,9 +579,7 @@ namespace c4 {
         }
 
         inline __m128i _mm_min_epu32(__m128i a, __m128i b) {
-            // TODO: extract constants
-            __m128i c = _mm_cmpeq_epi32(a, a);          //0xffffffff
-            c = _mm_slli_epi32(c, 31);                  //0x80000000
+            __m128i c = _mm_set_0x80000000_si128();
             __m128i a_s = _mm_sub_epi32(a, c);
             __m128i b_s = _mm_sub_epi32(b, c);
             __m128i mask = _mm_cmpgt_epi32(a_s, b_s);
@@ -579,8 +589,8 @@ namespace c4 {
 
         inline __m128i _mm_packus_epi32(__m128i a, __m128i b) {
             __m128i zero = _mm_setzero_si128();
-            a = separate_even_odd_16(a);
-            b = separate_even_odd_16(b);
+            a = _mm_separate_even_odd_16(a);
+            b = _mm_separate_even_odd_16(b);
             __m128i hi = _mm_unpackhi_epi64(a, b);                  //hi part of result used for saturation
             __m128i lo = _mm_unpacklo_epi64(a, b);                  //hi part of result used for saturation
             __m128i negative_mask = _mm_cmpgt_epi16(zero, hi);      //if hi < 0 the result should be zero
@@ -644,22 +654,61 @@ namespace c4 {
 
         inline int8x16 cmpgt(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
+            return vcgtq_s8(a.v, b.v);
 #else
-            return { _mm_cmpgt_epi8(a.v, b.v) };
+            return _mm_cmpgt_epi8(a.v, b.v);
+#endif
+        }
+
+        inline uint8x16 cmpgt(uint8x16 a, uint8x16 b) {
+#ifdef USE_ARM_NEON
+            return vcgtq_u8(a.v, b.v);
+#else
+            __m128i c0x80 = _mm_set_0x80_si128();
+            __m128i as = _mm_sub_epi8(a.v, c0x80);
+            __m128i bs = _mm_sub_epi8(b.v, c0x80);
+
+            return _mm_cmpgt_epi8(as, bs);
 #endif
         }
 
         inline int16x8 cmpgt(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
+            return vcgtq_s16(a.v, b.v);
 #else
-            return { _mm_cmpgt_epi16(a.v, b.v) };
+            return _mm_cmpgt_epi16(a.v, b.v);
+#endif
+        }
+
+        inline uint16x8 cmpgt(uint16x8 a, uint16x8 b) {
+#ifdef USE_ARM_NEON
+            return vcgtq_u16(a.v, b.v);
+#else
+            __m128i c0x8000 = _mm_set_0x8000_si128();
+            __m128i as = _mm_sub_epi16(a.v, c0x8000);
+            __m128i bs = _mm_sub_epi16(b.v, c0x8000);
+
+            return _mm_cmpgt_epi16(as, bs);
 #endif
         }
 
         inline int32x4 cmpgt(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
+            return vcgtq_s32(a.v, b.v);
 #else
-            return { _mm_cmpgt_epi32(a.v, b.v) };
+            return _mm_cmpgt_epi32(a.v, b.v);
+#endif
+        }
+
+        inline uint32x4 cmpgt(uint32x4 a, uint32x4 b) {
+#ifdef USE_ARM_NEON
+            return vcgtq_u32(a.v, b.v);
+#else
+            __m128i c0x80000000 = _mm_set_0x80000000_si128();
+            __m128i as = _mm_sub_epi32(a.v, c0x80000000);
+            __m128i bs = _mm_sub_epi32(b.v, c0x80000000);
+
+            return _mm_cmpgt_epi32(as, bs);
 #endif
         }
 
@@ -789,12 +838,20 @@ namespace c4 {
 #endif
         }
 
+        inline uint8x16x2 interleave(uint8x16x2 p) {
+            return reinterpret_unsigned(interleave(reinterpret_signed(p)));
+        }
+
         inline int16x8x2 interleave(int16x8x2 p) {
 #ifdef USE_ARM_NEON
             return make_tuple(vzipq_s16(p.val[0].v, p.val[1].v));
 #else
             return { _mm_unpacklo_epi16(p.val[0].v, p.val[1].v), _mm_unpackhi_epi16(p.val[0].v, p.val[1].v) };
 #endif
+        }
+
+        inline uint16x8x2 interleave(uint16x8x2 p) {
+            return reinterpret_unsigned(interleave(reinterpret_signed(p)));
         }
 
         inline int32x4x2 interleave(int32x4x2 p) {
@@ -805,6 +862,10 @@ namespace c4 {
 #endif
         }
 
+        inline uint32x4x2 interleave(uint32x4x2 p) {
+            return reinterpret_unsigned(interleave(reinterpret_signed(p)));
+        }
+
         inline float32x4x2 interleave(float32x4x2 p) {
 #ifdef USE_ARM_NEON
             return make_tuple(vzipq_f32(p.val[0].v, p.val[1].v));
@@ -813,12 +874,7 @@ namespace c4 {
 #endif
         }
 
-        template<class src_t, class = typename std::enable_if<traits::is_integral<src_t>::value && traits::is_unsigned<src_t>::value>::type>
-        inline tuple<src_t, 2> interleave(src_t a, src_t b) {
-            return reinterpret_unsigned(interleave(reinterpret_signed(a), reinterpret_signed(b)));
-        }
-
-        // Interleave
+        // Deinterleave
         inline int8x16x2 deinterleave(int8x16x2 p) {
 #ifdef USE_ARM_NEON
             return make_tuple(vuzpq_s8(p.val[0].v, p.val[1].v));
@@ -827,14 +883,18 @@ namespace c4 {
             __m128i x1 = p.val[1].v;                      // a8, b8, a9, b9,a10,b10,a11,b11,a12,b12,a13,b13,a14,b14,a15,b15
             __m128i y0, y1;
 
-            x0 = separate_even_odd_8(x0);               // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
-            x1 = separate_even_odd_8(x1);               // a8 ... a15, b8 ... b15
+            x0 = _mm_separate_even_odd_8(x0);               // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
+            x1 = _mm_separate_even_odd_8(x1);               // a8 ... a15, b8 ... b15
 
             y0 = _mm_unpacklo_epi64(x0, x1);            // a0, a1, a2, a3, a4, a5, a6, a7, a8, a9,a10,a11,a12,a13,a14,a15
             y1 = _mm_unpackhi_epi64(x0, x1);            // b0, b1, b2, b3, b4, b5, b6, b7, b8, b9,b10,b11,b12,b13,b14,b15
 
             return { y0, y1 };
 #endif
+        }
+
+        inline uint8x16x2 deinterleave(uint8x16x2 p) {
+            return reinterpret_unsigned(interleave(reinterpret_signed(p)));
         }
 
         inline int16x8x2 deinterleave(int16x8x2 p) {
@@ -845,14 +905,18 @@ namespace c4 {
             __m128i x1 = p.val[1].v;                    // a4, b4, a5, b5, a6, b6, a7, b7
             __m128i y0, y1;
 
-            x0 = separate_even_odd_16(x0);              // a0, a1, a2, a3, b0, b1, b2, b3
-            x1 = separate_even_odd_16(x1);              // a4, a5, a6, a7, b4, b5, b6, b7
+            x0 = _mm_separate_even_odd_16(x0);              // a0, a1, a2, a3, b0, b1, b2, b3
+            x1 = _mm_separate_even_odd_16(x1);              // a4, a5, a6, a7, b4, b5, b6, b7
 
             y0 = _mm_unpacklo_epi64(x0, x1);            // a0, a1, a2, a3, a4, a5, a6, a7
             y1 = _mm_unpackhi_epi64(x0, x1);            // b0, b1, b2, b3, b4, b5, b6, b7
 
             return { y0, y1 };
 #endif
+        }
+
+        inline uint16x8x2 deinterleave(uint16x8x2 p) {
+            return reinterpret_unsigned(interleave(reinterpret_signed(p)));
         }
 
         inline int32x4x2 deinterleave(int32x4x2 p) {
@@ -863,11 +927,15 @@ namespace c4 {
             __m128i x1 = p.val[1].v;          // a2, b2, a3, b3
                                                                
             
-            x0 = separate_even_odd_32(x0);    // a0, a1, b0, b1
-            x1 = separate_even_odd_32(x1);    // a2, a3, b2, b3
+            x0 = _mm_separate_even_odd_32(x0);    // a0, a1, b0, b1
+            x1 = _mm_separate_even_odd_32(x1);    // a2, a3, b2, b3
 
             return { _mm_unpacklo_epi64(x0, x1), _mm_unpackhi_epi64(x0, x1) };
 #endif
+        }
+
+        inline uint32x4x2 deinterleave(uint32x4x2 p) {
+            return reinterpret_unsigned(interleave(reinterpret_signed(p)));
         }
 
         inline float32x4x2 deinterleave(float32x4x2 p) {
@@ -883,11 +951,6 @@ namespace c4 {
             
             return ab;
 #endif
-        }
-
-        template<class src_t, class = typename std::enable_if<traits::is_integral<src_t>::value && traits::is_unsigned<src_t>::value>::type>
-        inline tuple<src_t, 2> deinterleave(tuple<src_t, 2> p) {
-            return reinterpret_unsigned(deinterleave(reinterpret_signed(p)));
         }
 
         // Long move, narrow
@@ -988,7 +1051,7 @@ namespace c4 {
             int8x8_t t = vmovn_s16(a.v);
             return int8x16(vcombine_s8(t, t));
 #else
-            return int8x16(separate_even_odd_8(a.v));
+            return int8x16(_mm_separate_even_odd_8(a.v));
 #endif
         }
 
@@ -997,7 +1060,7 @@ namespace c4 {
             uint8x8_t t = vmovn_u16(a.v);
             return uint8x16(vcombine_u8(t, t));
 #else
-            return uint8x16(separate_even_odd_8(a.v));
+            return uint8x16(_mm_separate_even_odd_8(a.v));
 #endif
         }
 
@@ -1006,7 +1069,7 @@ namespace c4 {
             int16x4_t t = vmovn_s32(a.v);
             return int16x8(vcombine_s16(t, t));
 #else
-            return int16x8(separate_even_odd_16(a.v));
+            return int16x8(_mm_separate_even_odd_16(a.v));
 #endif
         }
 
@@ -1015,7 +1078,7 @@ namespace c4 {
             uint16x4_t t = vmovn_u32(a.v);
             return uint16x8(vcombine_u16(t, t));
 #else
-            return uint16x8(separate_even_odd_16(a.v));
+            return uint16x8(_mm_separate_even_odd_16(a.v));
 #endif
         }
 
@@ -1067,7 +1130,7 @@ namespace c4 {
             __m128i al = _mm_shuffle_epi8(p.val[0].v, i);
             __m128i bl = _mm_shuffle_epi8(p.val[1].v, i);
 
-            return { _mm_unpacklo_epi64(al, bl) };
+            return _mm_unpacklo_epi64(al, bl);
 #endif
         }
 
@@ -1082,10 +1145,10 @@ namespace c4 {
 
             return vcombine_u16(lo, hi);
 #else
-            __m128i al = separate_even_odd_16(p.val[0].v);
-            __m128i bl = separate_even_odd_16(p.val[1].v);
+            __m128i al = _mm_separate_even_odd_16(p.val[0].v);
+            __m128i bl = _mm_separate_even_odd_16(p.val[1].v);
 
-            return { _mm_unpacklo_epi64(al, bl) };
+            return _mm_unpacklo_epi64(al, bl);
 #endif
         }
 
@@ -1310,7 +1373,7 @@ namespace c4 {
         }
 
         // Extend half to a full register
-        // The higer 64 bits are undefined
+        // The high 64 bits are undefined
         template<class T>
         inline T extend(half<T> a) {
             return a.v;
@@ -1319,7 +1382,17 @@ namespace c4 {
         // Combine two halfs
         template<class T>
         inline T combine(half<T> a, half<T> b) {
-            NOT_IMPLEMENTED;
+#ifdef USE_ARM_NEON
+            int8x16 a8 = reinterpret<int8x16_t>(a);
+            int8x16 b8 = reinterpret<int8x16_t>(a);
+            int8x8_t a8h = vget_low_s8(a8);
+            int8x8_t b8h = vget_low_s8(b8);
+            return vcombine_s8(a8h, b8h);
+#else
+            __m128i a0 = _mm_srli_si128(_mm_slli_si128(a.v, 8), 8);
+            __m128i b0 = _mm_srli_si128(b.v, 8);
+            return _mm_or_si128(a0, b0);
+#endif
         }
 
         // Load tuple of elements
@@ -1392,7 +1465,7 @@ namespace c4 {
 #else
             uint8x16 a = load(ptr);                   // a0, b0, a1, b1, a2, b2, a3, b3, a4, b4, a5, b5, a6, b6, a7, b7
 
-            a.v = separate_even_odd_8(a.v);             // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
+            a.v = _mm_separate_even_odd_8(a.v);             // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
 
             return long_move(a);
 #endif
@@ -1775,7 +1848,7 @@ namespace c4 {
             vst2_u8(ptr, b);
 #else
             uint8x16 u8_0 = narrow_unsigned_saturate(a);
-            uint8x16 u8_1 = swap_lo_hi_64(u8_0.v);
+            uint8x16 u8_1 = _mm_swap_lo_hi_64(u8_0.v);
 
             uint8x16 r = _mm_unpacklo_epi8(u8_0.v, u8_1.v);
 
@@ -2040,9 +2113,9 @@ namespace c4 {
 
         inline float32x4 to_float(int32x4 a) {
 #ifdef USE_ARM_NEON
-            return { vcvtq_f32_s32(a.v) };
+            return vcvtq_f32_s32(a.v);
 #else
-            return { _mm_cvtepi32_ps(a.v) };
+            return  _mm_cvtepi32_ps(a.v);
 #endif
         }
 
@@ -2056,9 +2129,9 @@ namespace c4 {
 
         inline int32x4 to_int(float32x4 a) {
 #ifdef USE_ARM_NEON
-            return { vcvtq_s32_f32(a.v) };
+            return vcvtq_s32_f32(a.v);
 #else
-            return { _mm_cvtps_epi32(a.v) };
+            return _mm_cvtps_epi32(a.v);
 #endif
         }
 
@@ -2077,7 +2150,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vaddq_s8(a.v, b.v);
 #else
-            return { _mm_add_epi8(a.v, b.v) };
+            return _mm_add_epi8(a.v, b.v);
 #endif
         }
 
@@ -2085,7 +2158,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vaddq_u8(a.v, b.v);
 #else
-            return { _mm_add_epi8(a.v, b.v) };
+            return _mm_add_epi8(a.v, b.v);
 #endif
         }
 
@@ -2093,7 +2166,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vaddq_s16(a.v, b.v);
 #else
-            return { _mm_add_epi16(a.v, b.v) };
+            return _mm_add_epi16(a.v, b.v);
 #endif
         }
 
@@ -2101,7 +2174,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vaddq_u16(a.v, b.v);
 #else
-            return { _mm_add_epi16(a.v, b.v) };
+            return _mm_add_epi16(a.v, b.v);
 #endif
         }
 
@@ -2109,7 +2182,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vaddq_s32(a.v, b.v);
 #else
-            return { _mm_add_epi32(a.v, b.v) };
+            return _mm_add_epi32(a.v, b.v);
 #endif
         }
 
@@ -2117,7 +2190,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vaddq_u32(a.v, b.v);
 #else
-            return { _mm_add_epi32(a.v, b.v) };
+            return _mm_add_epi32(a.v, b.v);
 #endif
         }
 
@@ -2125,7 +2198,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vaddq_f32(a.v, b.v);
 #else
-            return { _mm_add_ps(a.v, b.v) };
+            return _mm_add_ps(a.v, b.v);
 #endif
         }
 
@@ -2136,7 +2209,7 @@ namespace c4 {
             return vpaddlq_s8(a.v);
 #else
             __m128i r0 = _mm_cvtepi8_epi16(a.v);
-            __m128i r1 = _mm_cvtepi8_epi16(swap_lo_hi_64(a.v));
+            __m128i r1 = _mm_cvtepi8_epi16(_mm_swap_lo_hi_64(a.v));
 
             return _mm_hadd_epi16(r0, r1);
 #endif
@@ -2147,7 +2220,7 @@ namespace c4 {
             return vpaddlq_u8(a.v);
 #else
             __m128i r0 = _mm_cvtepu8_epi16(a.v);
-            __m128i r1 = _mm_cvtepu8_epi16(swap_lo_hi_64(a.v));
+            __m128i r1 = _mm_cvtepu8_epi16(_mm_swap_lo_hi_64(a.v));
 
             return _mm_hadd_epi16(r0, r1);
 #endif
@@ -2158,7 +2231,7 @@ namespace c4 {
             return vpaddlq_s16(a.v);
 #else
             __m128i r0 = _mm_cvtepi16_epi32(a.v);
-            __m128i r1 = _mm_cvtepi16_epi32(swap_lo_hi_64(a.v));
+            __m128i r1 = _mm_cvtepi16_epi32(_mm_swap_lo_hi_64(a.v));
 
             return _mm_hadd_epi32(r0, r1);
 #endif
@@ -2169,7 +2242,7 @@ namespace c4 {
             return vpaddlq_u16(a.v);
 #else
             __m128i r0 = _mm_cvtepu16_epi32(a.v);
-            __m128i r1 = _mm_cvtepu16_epi32(swap_lo_hi_64(a.v));
+            __m128i r1 = _mm_cvtepu16_epi32(_mm_swap_lo_hi_64(a.v));
 
             return _mm_hadd_epi32(r0, r1);
 #endif
@@ -2182,7 +2255,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vsubq_s8(a.v, b.v);
 #else
-            return { _mm_sub_epi8(a.v, b.v) };
+            return _mm_sub_epi8(a.v, b.v);
 #endif
         }
 
@@ -2190,7 +2263,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vsubq_u8(a.v, b.v);
 #else
-            return { _mm_sub_epi8(a.v, b.v) };
+            return _mm_sub_epi8(a.v, b.v);
 #endif
         }
 
@@ -2198,7 +2271,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vsubq_s16(a.v, b.v);
 #else
-            return { _mm_sub_epi16(a.v, b.v) };
+            return _mm_sub_epi16(a.v, b.v);
 #endif
         }
 
@@ -2206,7 +2279,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vsubq_u16(a.v, b.v);
 #else
-            return { _mm_sub_epi16(a.v, b.v) };
+            return _mm_sub_epi16(a.v, b.v);
 #endif
         }
 
@@ -2214,7 +2287,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vsubq_s32(a.v, b.v);
 #else
-            return { _mm_sub_epi32(a.v, b.v) };
+            return _mm_sub_epi32(a.v, b.v);
 #endif
         }
 
@@ -2222,7 +2295,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vsubq_u32(a.v, b.v);
 #else
-            return { _mm_sub_epi32(a.v, b.v) };
+            return _mm_sub_epi32(a.v, b.v);
 #endif
         }
 
@@ -2230,7 +2303,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vsubq_f32(a.v, b.v);
 #else
-            return { _mm_sub_ps(a.v, b.v) };
+            return _mm_sub_ps(a.v, b.v);
 #endif
         }
 
@@ -2270,7 +2343,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vhsubq_s8(a.v, b.v);
 #else
-            static const int8x16 c0x80((int8_t)0x80);
+            const int8x16 c0x80 = _mm_set_0x80_si128();
 
             uint8x16 au = reinterpret_unsigned(add(a, c0x80));
             uint8x16 bu = reinterpret_unsigned(add(b, c0x80));
@@ -2283,7 +2356,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vhsubq_s16(a.v, b.v);
 #else
-            static const int16x8 c0x8000((int16_t)0x8000);
+            const int16x8 c0x8000 = _mm_set_0x8000_si128();
 
             uint16x8 au = reinterpret_unsigned(add(a, c0x8000));
             uint16x8 bu = reinterpret_unsigned(add(b, c0x8000));
@@ -2317,28 +2390,35 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vshlq_n_s8(a.v, n);
 #else
-            NOT_IMPLEMENTED;
+            return _mm_and_si128(_mm_set1_epi8(0xff << n), _mm_slli_epi32(a.v, n));
 #endif
+        }
+        
+        inline uint8x16 shift_left(uint8x16 a, int8_t n) {
+            return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
         }
 
         inline int16x8 shift_left(int16x8 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshlq_n_s16(a.v, n);
 #else
-            return { _mm_slli_epi16(a.v, n) };
+            return _mm_slli_epi16(a.v, n);
 #endif
+        }
+
+        inline uint16x8 shift_left(uint16x8 a, int8_t n) {
+            return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
         }
 
         inline int32x4 shift_left(int32x4 a, int8_t n) {
 #ifdef USE_ARM_NEON
             return vshlq_n_s32(a.v, n);
 #else
-            return { _mm_slli_epi32(a.v, n) };
+            return _mm_slli_epi32(a.v, n);
 #endif
         }
 
-        template<class src_t, class = typename std::enable_if<traits::is_integral<src_t>::value && traits::is_unsigned<src_t>::value>::type>
-        inline src_t shift_left(src_t a, int8_t n) {
+        inline uint32x4 shift_left(uint32x4 a, int8_t n) {
             return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
         }
 
@@ -2347,7 +2427,7 @@ namespace c4 {
             return vqshlq_n_s8(a.v, n);
 #else
             __m128i a16_0 = _mm_cvtepi8_epi16(a.v);
-            __m128i a16_1 = _mm_cvtepi8_epi16(swap_lo_hi_64(a.v));
+            __m128i a16_1 = _mm_cvtepi8_epi16(_mm_swap_lo_hi_64(a.v));
             __m128i r16_0 = _mm_slli_epi16(a16_0, n);
             __m128i r16_1 = _mm_slli_epi16(a16_1, n);
             return _mm_packs_epi16(r16_0, r16_1);
@@ -2359,7 +2439,7 @@ namespace c4 {
             return vqshlq_n_u8(a.v, n);
 #else
             __m128i a16_0 = _mm_cvtepu8_epi16(a.v);
-            __m128i a16_1 = _mm_cvtepu8_epi16(swap_lo_hi_64(a.v));
+            __m128i a16_1 = _mm_cvtepu8_epi16(_mm_swap_lo_hi_64(a.v));
             __m128i r16_0 = _mm_slli_epi16(a16_0, n);
             __m128i r16_1 = _mm_slli_epi16(a16_1, n);
             return _mm_packus_epi16(r16_0, r16_1);
@@ -2371,7 +2451,7 @@ namespace c4 {
             return vqshlq_n_s16(a.v, n);
 #else
             __m128i a16_0 = _mm_cvtepi16_epi32(a.v);
-            __m128i a16_1 = _mm_cvtepi16_epi32(swap_lo_hi_64(a.v));
+            __m128i a16_1 = _mm_cvtepi16_epi32(_mm_swap_lo_hi_64(a.v));
             __m128i r16_0 = _mm_slli_epi32(a16_0, n);
             __m128i r16_1 = _mm_slli_epi32(a16_1, n);
             return _mm_packs_epi32(r16_0, r16_1);
@@ -2383,7 +2463,7 @@ namespace c4 {
             return vqshlq_n_u16(a.v, n);
 #else
             __m128i a16_0 = _mm_cvtepu16_epi32(a.v);
-            __m128i a16_1 = _mm_cvtepu16_epi32(swap_lo_hi_64(a.v));
+            __m128i a16_1 = _mm_cvtepu16_epi32(_mm_swap_lo_hi_64(a.v));
             __m128i r16_0 = _mm_slli_epi32(a16_0, n);
             __m128i r16_1 = _mm_slli_epi32(a16_1, n);
             return _mm_packus_epi32(r16_0, r16_1);
@@ -2511,71 +2591,70 @@ namespace c4 {
 
         // Logical operations
 
-        inline int8x16 bitwise_and(int8x16 a, int8x16 b) {
-#ifdef USE_ARM_NEON
-            return vandq_s8(a.v, b.v);
-#else
-            return { _mm_and_si128(a.v, b.v) };
-#endif
-        }
-
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
         inline T bitwise_and(T a, T b) {
-            return reinterpret<T>(bitwise_and(reinterpret<int8x16>(a), reinterpret<int8x16>(b)));
-        }
-
-        inline int8x16 bitwise_or(int8x16 a, int8x16 b) {
+            int8x16 a8 = reinterpret<int8x16>(a);
+            int8x16 b8 = reinterpret<int8x16>(b);
+            int8x16 r8;
 #ifdef USE_ARM_NEON
-            return vorrq_s8(a.v, b.v);
+            r8.v = vandq_s8(a8.v, b8.v);
 #else
-            return { _mm_or_si128(a.v, b.v) };
+            r8.v = _mm_and_si128(a8.v, b8.v);
 #endif
+            return reinterpret<T>(r8);
         }
 
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
         inline T bitwise_or(T a, T b) {
-            return reinterpret<T>(bitwise_or(reinterpret<int8x16>(a), reinterpret<int8x16>(b)));
-        }
-
-        inline int8x16 bitwise_not(int8x16 a) {
+            int8x16 a8 = reinterpret<int8x16>(a);
+            int8x16 b8 = reinterpret<int8x16>(b);
+            int8x16 r8;
 #ifdef USE_ARM_NEON
-            return vmvnq_s8(a.v);
+            r8.v = vorrq_s8(a8.v, b8.v);
 #else
-            __m128i c1 = _mm_cmpeq_epi8(a.v, a.v);
-            return { _mm_andnot_si128(a.v, c1) };
+            r8.v = _mm_or_si128(a8.v, b8.v);
 #endif
+            return reinterpret<T>(r8);
         }
 
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
         inline T bitwise_not(T a) {
-            return reinterpret<T>(bitwise_not(reinterpret<int8x16>(a)));
-        }
-
-        // a & !b
-        inline int8x16 bitwise_and_not(int8x16 a, int8x16 b) {
+            int8x16 a8 = reinterpret<int8x16>(a);
+            int8x16 r8;
 #ifdef USE_ARM_NEON
-            return vandq_s8(a.v, vmvnq_s8(b.v));
+            r8.v = vmvnq_s8(a8.v);
 #else
-            return _mm_andnot_si128(b.v, a.v);
+            __m128i c1 = _mm_cmpeq_epi8(a8.v, a8.v);
+            return _mm_andnot_si128(a8.v, c1);
 #endif
+            return reinterpret<T>(r8);
         }
 
+        // a & ~b
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
         inline T bitwise_and_not(T a, T b) {
-            return reinterpret<T>(bitwise_and_not(reinterpret<int8x16>(a), reinterpret<int8x16>(b)));
-        }
-
-        inline int8x16 bitwise_xor(int8x16 a, int8x16 b) {
+            int8x16 a8 = reinterpret<int8x16>(a);
+            int8x16 b8 = reinterpret<int8x16>(b);
+            int8x16 r8;
 #ifdef USE_ARM_NEON
-            return veorq_s8(a.v, b.v);
+            r8.v = vbicq_s8(a8.v, b8.v);
 #else
-            return _mm_xor_si128(a.v, b.v);
+            r8.v = _mm_andnot_si128(b8.v, a8.v);
 #endif
+            return reinterpret<T>(r8);
         }
 
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
         inline T bitwise_xor(T a, T b) {
-            return reinterpret<T>(bitwise_xor(reinterpret<int8x16>(a), reinterpret<int8x16>(b)));
+            int8x16 a8 = reinterpret<int8x16>(a);
+            int8x16 b8 = reinterpret<int8x16>(b);
+            int8x16 r8;
+#ifdef USE_ARM_NEON
+            r8.v = veorq_s8(a8.v, b8.v);
+#else
+            r8.v = _mm_xor_si128(a8.v, b8.v);
+#endif
+            return reinterpret<T>(r8);
         }
 
 
@@ -2585,7 +2664,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vmulq_s16(a.v, b.v);
 #else
-            return { _mm_mullo_epi16(a.v, b.v) };
+            return _mm_mullo_epi16(a.v, b.v);
 #endif
         }
 
@@ -2593,7 +2672,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vmulq_u16(a.v, b.v);
 #else
-            return { _mm_mullo_epi16(a.v, b.v) };
+            return _mm_mullo_epi16(a.v, b.v);
 #endif
         }
 
@@ -2802,7 +2881,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vrhaddq_u8(a.v, b.v);
 #else
-            return { _mm_avg_epu8(a.v, b.v) };
+            return _mm_avg_epu8(a.v, b.v);
 #endif
         }
 
@@ -2810,7 +2889,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vrhaddq_u16(a.v, b.v);
 #else
-            return { _mm_avg_epu16(a.v, b.v) };
+            return _mm_avg_epu16(a.v, b.v);
 #endif
         }
 
@@ -2819,7 +2898,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vrhaddq_s8(a.v, b.v);
 #else
-            const int8x16 c0x80{ _mm_set1_epi8((int8_t)0x80) };
+            const int8x16 c0x80 = _mm_set_0x80_si128();
             a = sub(a, c0x80);
             b = sub(b, c0x80);
             int8x16 sum = reinterpret_signed(avg(reinterpret_unsigned(a), reinterpret_unsigned(b)));
@@ -2831,7 +2910,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vrhaddq_s16(a.v, b.v);
 #else
-            const int16x8 c0x8000{ _mm_set1_epi16((int16_t)0x8000) };
+            const int16x8 c0x8000 = _mm_set_0x8000_si128();
             a = sub(a, c0x8000);
             b = sub(b, c0x8000);
             int16x8 sum = reinterpret_signed(avg(reinterpret_unsigned(a), reinterpret_unsigned(b)));
@@ -2876,9 +2955,9 @@ namespace c4 {
             float32x4_t m = vrsqrtsq_f32(x, vmulq_f32(r, r));
             r = vmulq_f32(m, r);
 
-            return { r };
+            return r;
 #else
-            return { _mm_rsqrt_ps(a.v) };
+            return _mm_rsqrt_ps(a.v);
 #endif
         }
         
@@ -2889,9 +2968,9 @@ namespace c4 {
 
             r = vmulq_f32(vrecpsq_f32(x, r), r);
 
-            return { r };
+            return r;
 #else
-            return { _mm_rcp_ps(a.v) };
+            return _mm_rcp_ps(a.v);
 #endif
         }
 
