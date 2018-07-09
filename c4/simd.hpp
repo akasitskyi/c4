@@ -486,7 +486,7 @@ namespace c4 {
         }
 
         inline __m128i _mm_set_0xff_si128() {
-            __m128i r;
+            __m128i r = _mm_setzero_si128();
             r = _mm_cmpeq_epi8(r, r);
             return r;
         }
@@ -894,7 +894,7 @@ namespace c4 {
         }
 
         inline uint8x16x2 deinterleave(uint8x16x2 p) {
-            return reinterpret_unsigned(interleave(reinterpret_signed(p)));
+            return reinterpret_unsigned(deinterleave(reinterpret_signed(p)));
         }
 
         inline int16x8x2 deinterleave(int16x8x2 p) {
@@ -916,7 +916,7 @@ namespace c4 {
         }
 
         inline uint16x8x2 deinterleave(uint16x8x2 p) {
-            return reinterpret_unsigned(interleave(reinterpret_signed(p)));
+            return reinterpret_unsigned(deinterleave(reinterpret_signed(p)));
         }
 
         inline int32x4x2 deinterleave(int32x4x2 p) {
@@ -935,7 +935,7 @@ namespace c4 {
         }
 
         inline uint32x4x2 deinterleave(uint32x4x2 p) {
-            return reinterpret_unsigned(interleave(reinterpret_signed(p)));
+            return reinterpret_unsigned(deinterleave(reinterpret_signed(p)));
         }
 
         inline float32x4x2 deinterleave(float32x4x2 p) {
