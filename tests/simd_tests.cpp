@@ -22,7 +22,7 @@ T random() {
 template<>
 float random<float>() {
     static std::mt19937 mt;
-    static std::uniform_real_distribution<float> d;
+    static std::normal_distribution<float> d;
 
     return d(mt);
 }
@@ -449,6 +449,89 @@ void multitest_bitwise_xor() {
     test_bitwise_xor<uint32_t>();
 }
 
+template<class T>
+void test_mul_lo() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = mul_lo(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] * b[i]));
+    }
+}
+
+void multitest_mul_lo() {
+    test_mul_lo<int8_t>();
+    test_mul_lo<uint8_t>();
+    test_mul_lo<int16_t>();
+    test_mul_lo<uint16_t>();
+    test_mul_lo<int32_t>();
+    test_mul_lo<uint32_t>();
+}
+
+template<class T>
+void test_mul_hi() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = mul_hi(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(((int64_t)a[i] * (int64_t)b[i]) >> (sizeof(T) * 8)));
+    }
+}
+
+void multitest_mul_hi() {
+    test_mul_hi<int16_t>();
+    test_mul_hi<int32_t>();
+}
+
+void test_mul() {
+    constexpr int n = 16 / sizeof(float);
+    auto a = random_array<float, n>();
+    auto b = random_array<float, n>();
+    auto r = random_array<float, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = mul(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[i] * b[i]);
+    }
+}
+
+void test_mul_16() {
+    constexpr int n = 16 / sizeof(int32_t);
+    auto a = random_array<int16_t, n>();
+    auto b = random_array<int16_t, n>();
+    auto r = random_array<int32_t, n>();
+
+    auto va = load_long(a.data());
+    auto vb = load_long(b.data());
+    auto vr = mul_16(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], (int32_t)a[i] * (int32_t)b[i]);
+    }
+}
 
 
 // ======================================================= MAIN =================================================================
@@ -495,10 +578,10 @@ int main()
             multitest_bitwise_not();
             multitest_bitwise_and_not();
             multitest_bitwise_xor();
-            // TODO: mul_lo
-            // TODO: mul_hi
-            // TODO: mul
-            // TODO: mul_16
+            multitest_mul_lo();
+            multitest_mul_hi();
+            test_mul();
+            test_mul_16();
             // TODO: mul_acc
             // TODO: mul_sub
             // TODO: mul_16_acc
