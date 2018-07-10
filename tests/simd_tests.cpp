@@ -316,6 +316,139 @@ void multitest_sub_div2() {
     test_sub_div2<uint32_t>();
 }
 
+template<class T>
+void test_bitwise_and() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = bitwise_and(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] & b[i]));
+    }
+}
+
+void multitest_bitwise_and() {
+    test_bitwise_and<int8_t>();
+    test_bitwise_and<uint8_t>();
+    test_bitwise_and<int16_t>();
+    test_bitwise_and<uint16_t>();
+    test_bitwise_and<int32_t>();
+    test_bitwise_and<uint32_t>();
+}
+
+template<class T>
+void test_bitwise_or() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = bitwise_or(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] | b[i]));
+    }
+}
+
+void multitest_bitwise_or() {
+    test_bitwise_or<int8_t>();
+    test_bitwise_or<uint8_t>();
+    test_bitwise_or<int16_t>();
+    test_bitwise_or<uint16_t>();
+    test_bitwise_or<int32_t>();
+    test_bitwise_or<uint32_t>();
+}
+
+template<class T>
+void test_bitwise_not() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = bitwise_not(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(~a[i]));
+    }
+}
+
+void multitest_bitwise_not() {
+    test_bitwise_not<int8_t>();
+    test_bitwise_not<uint8_t>();
+    test_bitwise_not<int16_t>();
+    test_bitwise_not<uint16_t>();
+    test_bitwise_not<int32_t>();
+    test_bitwise_not<uint32_t>();
+}
+
+template<class T>
+void test_bitwise_and_not() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = bitwise_and_not(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] & ~b[i]));
+    }
+}
+
+void multitest_bitwise_and_not() {
+    test_bitwise_and_not<int8_t>();
+    test_bitwise_and_not<uint8_t>();
+    test_bitwise_and_not<int16_t>();
+    test_bitwise_and_not<uint16_t>();
+    test_bitwise_and_not<int32_t>();
+    test_bitwise_and_not<uint32_t>();
+}
+
+template<class T>
+void test_bitwise_xor() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = bitwise_xor(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] ^ b[i]));
+    }
+}
+
+void multitest_bitwise_xor() {
+    test_bitwise_xor<int8_t>();
+    test_bitwise_xor<uint8_t>();
+    test_bitwise_xor<int16_t>();
+    test_bitwise_xor<uint16_t>();
+    test_bitwise_xor<int32_t>();
+    test_bitwise_xor<uint32_t>();
+}
+
 
 
 // ======================================================= MAIN =================================================================
@@ -357,11 +490,11 @@ int main()
             // TODO: shift_left
             // TODO: shift_left_saturate
             // TODO: shift_right
-            // TODO: bitwise_and
-            // TODO: bitwise_or
-            // TODO: bitwise_not
-            // TODO: bitwise_and_not
-            // TODO: bitwise_xor
+            multitest_bitwise_and();
+            multitest_bitwise_or();
+            multitest_bitwise_not();
+            multitest_bitwise_and_not();
+            multitest_bitwise_xor();
             // TODO: mul_lo
             // TODO: mul_hi
             // TODO: mul
