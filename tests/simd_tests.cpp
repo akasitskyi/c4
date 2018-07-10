@@ -195,6 +195,129 @@ void multitest_deinterleave() {
     test_deinterleave<float>();
 }
 
+void test_to_float() {
+    constexpr int n = 4;
+    auto a = random_array<int32_t, n>();
+    auto r = random_array<float, n>();
+
+    auto va = load(a.data());
+    auto vr = to_float(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], (float)a[i]);
+    }
+}
+
+void test_to_int() {
+    constexpr int n = 4;
+    auto a = random_array<float, n>();
+    auto r = random_array<int32_t, n>();
+
+    auto va = load(a.data());
+    auto vr = to_int(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], (int32_t)a[i]);
+    }
+}
+
+template<class T>
+void test_add() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = add(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] + b[i]));
+    }
+}
+
+void multitest_add() {
+    test_add<int8_t>();
+    test_add<uint8_t>();
+    test_add<int16_t>();
+    test_add<uint16_t>();
+    test_add<int32_t>();
+    test_add<uint32_t>();
+    test_add<float>();
+}
+
+template<class T>
+void test_sub() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = sub(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] - b[i]));
+    }
+}
+
+void multitest_sub() {
+    test_sub<int8_t>();
+    test_sub<uint8_t>();
+    test_sub<int16_t>();
+    test_sub<uint16_t>();
+    test_sub<int32_t>();
+    test_sub<uint32_t>();
+    test_sub<float>();
+}
+
+template<class T>
+void test_sub_div2() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = sub_div2(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        int64_t t = (int64_t)a[i] - (int64_t)b[i];
+        // arithmetic shift right
+        t = t >= 0 ? t >> 1 : t >> 1 | (1ll << 63);
+        T e = T(t);
+        if (r[i] != e) {
+            cout << "a[i] = " << a[i] << ", b[i] = " << b[i] << endl;
+            cout << "r[i] = " << r[i] << ", a[i] - b[i] = " << e << endl;
+        }
+        ASSERT_EQUAL(r[i], e);
+    }
+}
+
+void multitest_sub_div2() {
+    test_sub_div2<int8_t>();
+    test_sub_div2<uint8_t>();
+    test_sub_div2<int16_t>();
+    test_sub_div2<uint16_t>();
+    test_sub_div2<int32_t>();
+    test_sub_div2<uint32_t>();
+}
+
+
+
 // ======================================================= MAIN =================================================================
 
 int main()
@@ -225,12 +348,12 @@ int main()
             // TODO: store_4_interleaved
             // TODO: store_3_interleaved_narrow_saturate
             // TODO: store_4_interleaved_narrow_saturate
-            // TODO: to_float
-            // TODO: to_int
-            // TODO: add
+            test_to_float();
+            test_to_int();
+            multitest_add();
             // TODO: hadd
-            // TODO: sub
-            // TODO: sub_div2
+            multitest_sub();
+            multitest_sub_div2();
             // TODO: shift_left
             // TODO: shift_left_saturate
             // TODO: shift_right

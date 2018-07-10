@@ -2131,7 +2131,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vcvtq_s32_f32(a.v);
 #else
-            return _mm_cvtps_epi32(a.v);
+            return _mm_cvttps_epi32(a.v);
 #endif
         }
 
@@ -2333,7 +2333,7 @@ namespace c4 {
 
             // the only situation r is incorrect, is if last bit of a is 0 and last bit of b is 1
             __m128i b_1 = _mm_andnot_si128(a.v, b.v);
-            b_1 = _mm_srli_epi32(_mm_slli_epi32(b_1, 31), 32);
+            b_1 = _mm_srli_epi32(_mm_slli_epi32(b_1, 31), 31);
 
             return _mm_sub_epi32(r, b_1);
 #endif
@@ -2343,10 +2343,10 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vhsubq_s8(a.v, b.v);
 #else
-            const int8x16 c0x80 = _mm_set_0x80_si128();
+            const int8x16 c0x80 = _mm_set_0x80_si128(); // -128
 
-            uint8x16 au = reinterpret_unsigned(add(a, c0x80));
-            uint8x16 bu = reinterpret_unsigned(add(b, c0x80));
+            uint8x16 au = reinterpret_unsigned(sub(a, c0x80));
+            uint8x16 bu = reinterpret_unsigned(sub(b, c0x80));
             
             return reinterpret_signed(sub_div2(au, bu));
 #endif
@@ -2358,8 +2358,8 @@ namespace c4 {
 #else
             const int16x8 c0x8000 = _mm_set_0x8000_si128();
 
-            uint16x8 au = reinterpret_unsigned(add(a, c0x8000));
-            uint16x8 bu = reinterpret_unsigned(add(b, c0x8000));
+            uint16x8 au = reinterpret_unsigned(sub(a, c0x8000));
+            uint16x8 bu = reinterpret_unsigned(sub(b, c0x8000));
 
             return reinterpret_signed(sub_div2(au, bu));
 #endif
@@ -2369,13 +2369,13 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vhsubq_s32(a.v, b.v);
 #else
-            __m128i a2 = _mm_srli_epi32(a.v, 1);
-            __m128i b2 = _mm_srli_epi32(b.v, 1);
+            __m128i a2 = _mm_srai_epi32(a.v, 1);
+            __m128i b2 = _mm_srai_epi32(b.v, 1);
             __m128i r = _mm_sub_epi32(a2, b2);
 
             // the only situation r is incorrect, is if last bit of a is 0 and last bit of b is 1
             __m128i b_1 = _mm_andnot_si128(a.v, b.v);
-            b_1 = _mm_srli_epi32(_mm_slli_epi32(b_1, 31), 32);
+            b_1 = _mm_srli_epi32(_mm_slli_epi32(b_1, 31), 31);
 
             return _mm_sub_epi32(r, b_1);
 #endif
