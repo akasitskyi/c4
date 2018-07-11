@@ -2808,7 +2808,33 @@ namespace c4 {
 #endif
         }
 
-        // Multiply accumulate: r = s - a * b
+        // Assumes 32-bit integers in a and b fit into 16-bit signed
+        // Same speed on NEON, but faster on SSE compared to 32-bit mul
+        inline int32x4 mul_16_acc(int32x4 s, int32x4 a, int32x4 b) {
+#ifdef USE_ARM_NEON
+            return vmlaq_s32(s.v, a.v, b.v);
+#else
+            return add(s, mul_16(a, b));
+#endif
+        }
+        
+        __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_acc(uint32x4 s, uint32x4 a, uint32x4 b) {
+#ifdef USE_ARM_NEON
+            return vmlaq_u32(s.v, a.v, b.v);
+#else
+            return add(s, mul_lo(a, b));
+#endif
+        }
+
+        inline float32x4 mul_acc(float32x4 s, float32x4 a, float32x4 b) {
+#ifdef USE_ARM_NEON
+            return vmlaq_f32(s.v, a.v, b.v);
+#else
+            return add(s, mul(a, b));
+#endif
+        }
+
+        // Multiply subtract: r = s - a * b
         inline int8x16 mul_sub(int8x16 s, int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vmlsq_s8(s.v, a.v, b.v);
@@ -2851,27 +2877,27 @@ namespace c4 {
 
         // Assumes 32-bit integers in a and b fit into 16-bit signed
         // Same speed on NEON, but faster on SSE compared to 32-bit mul
-        inline int32x4 mul_16_acc(int32x4 s, int32x4 a, int32x4 b) {
+        inline int32x4 mul_16_sub(int32x4 s, int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_s32(s.v, a.v, b.v);
 #else
-            return add(s, mul_16(a, b));
-#endif
-        }
-        
-        __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_acc(uint32x4 s, uint32x4 a, uint32x4 b) {
-#ifdef USE_ARM_NEON
-            return vmlaq_u32(s.v, a.v, b.v);
-#else
-            return add(s, mul_lo(a, b));
+            return sub(s, mul_16(a, b));
 #endif
         }
 
-        inline float32x4 mul_acc(float32x4 s, float32x4 a, float32x4 b) {
+        __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_sub(uint32x4 s, uint32x4 a, uint32x4 b) {
+#ifdef USE_ARM_NEON
+            return vmlaq_u32(s.v, a.v, b.v);
+#else
+            return sub(s, mul_lo(a, b));
+#endif
+        }
+
+        inline float32x4 mul_sub(float32x4 s, float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_f32(s.v, a.v, b.v);
 #else
-            return add(s, mul(a, b));
+            return sub(s, mul(a, b));
 #endif
         }
 
@@ -2922,13 +2948,13 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vrhaddq_s32(a.v, b.v);
 #else
-            int32x4 a2 = shift_right(a, 1);
-            int32x4 b2 = shift_right(b, 1);
-            int32x4 rounding{ _mm_or_si128(a.v, b.v) };
-            rounding = shift_left(rounding, 31);
-            rounding = shift_right(rounding, 31);
-            int32x4 sum = add(a2, b2);
-            return add(sum, rounding);
+            __m128i a2 = _mm_srai_epi32(a.v, 1);
+            __m128i b2 = _mm_srai_epi32(b.v, 1);
+            __m128i rounding = _mm_or_si128(a.v, b.v);
+            rounding = _mm_slli_epi32(rounding, 31);
+            rounding = _mm_srli_epi32(rounding, 31);
+            __m128i sum = _mm_add_epi32(a2, b2);
+            return _mm_add_epi32(sum, rounding);
 #endif
         }
 
@@ -3013,7 +3039,7 @@ namespace c4 {
             
             return vcombine_u8(low, high);
 #else
-            __m128i mask = _mm_cmplt_epi8(q.v, c16.v);
+            __m128i mask = _mm_andnot_si128(_mm_cmplt_epi8(q.v, _mm_setzero_si128()), _mm_cmplt_epi8(q.v, c16.v));
 
             __m128i sh0 = _mm_shuffle_epi8(t.v, q.v);
 
@@ -3054,6 +3080,9 @@ namespace c4 {
 #endif
         }
 
+        inline int8x16 clz(int8x16 a) {
+            return reinterpret_signed(clz(reinterpret_unsigned(a)));
+        }
 
         // Operations on tuples
         template<class T, int n, class = typename std::enable_if<traits::is_simd<T>::value>::type>

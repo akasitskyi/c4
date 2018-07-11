@@ -533,6 +533,266 @@ void test_mul_16() {
     }
 }
 
+template<class T>
+void test_mul_acc() {
+    constexpr int n = 16 / sizeof(T);
+    auto s = random_array<T, n>();
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto vs = load(s.data());
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = mul_acc(vs, va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(s[i] + a[i] * b[i]));
+    }
+}
+
+void multitest_mul_acc() {
+    test_mul_acc<int8_t>();
+    test_mul_acc<uint8_t>();
+    test_mul_acc<int16_t>();
+    test_mul_acc<uint16_t>();
+    test_mul_acc<int32_t>();
+    test_mul_acc<uint32_t>();
+    test_mul_acc<float>();
+}
+
+template<class T>
+void test_mul_sub() {
+    constexpr int n = 16 / sizeof(T);
+    auto s = random_array<T, n>();
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto vs = load(s.data());
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = mul_sub(vs, va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(s[i] - a[i] * b[i]));
+    }
+}
+
+void multitest_mul_sub() {
+    test_mul_sub<int8_t>();
+    test_mul_sub<uint8_t>();
+    test_mul_sub<int16_t>();
+    test_mul_sub<uint16_t>();
+    test_mul_sub<int32_t>();
+    test_mul_sub<uint32_t>();
+    test_mul_sub<float>();
+}
+
+void test_mul_16_acc() {
+    constexpr int n = 16 / sizeof(int32_t);
+    auto s = random_array<int32_t, n>();
+    auto a = random_array<int16_t, n>();
+    auto b = random_array<int16_t, n>();
+    auto r = random_array<int32_t, n>();
+
+    auto vs = load(s.data());
+    auto va = load_long(a.data());
+    auto vb = load_long(b.data());
+    auto vr = mul_16_acc(vs, va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], s[i] + (int32_t)a[i] * (int32_t)b[i]);
+    }
+}
+
+void test_mul_16_sub() {
+    constexpr int n = 16 / sizeof(int32_t);
+    auto s = random_array<int32_t, n>();
+    auto a = random_array<int16_t, n>();
+    auto b = random_array<int16_t, n>();
+    auto r = random_array<int32_t, n>();
+
+    auto vs = load(s.data());
+    auto va = load_long(a.data());
+    auto vb = load_long(b.data());
+    auto vr = mul_16_sub(vs, va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], s[i] - (int32_t)a[i] * (int32_t)b[i]);
+    }
+}
+
+template<class T>
+void test_avg() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = avg(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        int64_t s = (int64_t)a[i] + (int64_t)b[i];
+        T e = T((s + 1) >> 1);
+        ASSERT_EQUAL(r[i], e);
+    }
+}
+
+void multitest_avg() {
+    test_avg<int8_t>();
+    test_avg<uint8_t>();
+    test_avg<int16_t>();
+    test_avg<uint16_t>();
+    test_avg<int32_t>();
+    test_avg<uint32_t>();
+}
+
+void test_rsqrt() {
+    constexpr int n = 16 / sizeof(float);
+    auto a = random_array<float, n>();
+    auto r = random_array<float, n>();
+
+    // sqrt is undefined for negative numbers
+    for (float& f : a)
+        f = abs(f);
+
+    auto va = load(a.data());
+    auto vr = rsqrt(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        float e = 1.f / sqrt(a[i]);
+        float abs_err = abs(r[i] - e);
+        float err = abs(e) > 0.f ? abs_err / abs(e) : abs_err;
+        ASSERT_TRUE( err < 0.00037f);
+    }
+}
+
+void test_reciprocal() {
+    constexpr int n = 16 / sizeof(float);
+    auto a = random_array<float, n>();
+    auto r = random_array<float, n>();
+
+    auto va = load(a.data());
+    auto vr = reciprocal(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        float e = 1.f / a[i];
+        float abs_err = abs(r[i] - e);
+        float err = abs(e) > 0.f ? abs_err / abs(e) : abs_err;
+        ASSERT_TRUE(err < 0.00037f);
+    }
+}
+
+void test_sqrt() {
+    constexpr int n = 16 / sizeof(float);
+    auto a = random_array<float, n>();
+    auto r = random_array<float, n>();
+
+    // sqrt is undefined for negative numbers
+    for (float& f : a)
+        f = abs(f);
+
+    auto va = load(a.data());
+    auto vr = sqrt(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        float e = sqrt(a[i]);
+        float abs_err = abs(r[i] - e);
+        float err = abs(e) > 0.f ? abs_err / abs(e) : abs_err;
+        ASSERT_TRUE(err < 0.00037f);
+    }
+}
+
+void test_div() {
+    constexpr int n = 16 / sizeof(float);
+    auto a = random_array<float, n>();
+    auto b = random_array<float, n>();
+    auto r = random_array<float, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = div(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        float e = a[i] / b[i];
+        float abs_err = abs(r[i] - e);
+        float err = abs(e) > 0.f ? abs_err / abs(e) : abs_err;
+        ASSERT_TRUE(err < 0.00037f);
+    }
+}
+
+void test_look_up() {
+    auto a = random_array<uint8_t, 256>();
+    auto b = random_array<uint8_t, 16>();
+    auto r = random_array<uint8_t, 16>();
+
+    std::array<uint8x16, 16> va;
+    for (size_t i = 0; i < va.size(); i++)
+        va[i] = load(a.data() + i * 16);
+
+    auto vb = load(b.data());
+
+    auto vr = look_up(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < 16; i++) {
+        ASSERT_EQUAL(r[i], a[b[i]]);
+    }
+}
+
+template<class T>
+T clz_scalar(T x) {
+    constexpr int n = 8 * sizeof(T);
+    for (int i = 0; i < n; i++)
+        if (x & (1ll << (n - i - 1)))
+            return i;
+    return n;
+}
+
+template<class T>
+void test_clz () {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = clz(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], clz_scalar(a[i]));
+    }
+}
+
+void multitest_clz() {
+    test_clz<int8_t>();
+    test_clz<uint8_t>();
+}
+
+
 
 // ======================================================= MAIN =================================================================
 
@@ -559,7 +819,6 @@ int main()
             // TODO: load_2_interleaved_long
             // TODO: load_3_interleaved_long
             // TODO: load_4_interleaved
-            // TODO: load_long
             // TODO: store_2_interleaved
             // TODO: store_4_interleaved
             // TODO: store_3_interleaved_narrow_saturate
@@ -582,16 +841,17 @@ int main()
             multitest_mul_hi();
             test_mul();
             test_mul_16();
-            // TODO: mul_acc
-            // TODO: mul_sub
-            // TODO: mul_16_acc
-            // TODO: avg
-            // TODO: rsqrt
-            // TODO: reciprocal
-            // TODO: sqrt
-            // TODO: div
-            // TODO: look_up
-            // TODO: clz
+            multitest_mul_acc();
+            multitest_mul_sub();
+            test_mul_16_acc();
+            test_mul_16_sub();
+            multitest_avg();
+            test_rsqrt();
+            test_reciprocal();
+            test_sqrt();
+            test_div();
+            test_look_up();
+            multitest_clz();
         }
     }
     catch (std::exception& e) {
