@@ -224,7 +224,7 @@ void test_long_move() {
     store(r.data() + n / 2, vr.val[1]);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(a[i], r[i]);
+        ASSERT_EQUAL(r[i], a[i]);
     }
 }
 
@@ -303,6 +303,81 @@ void test_narrow_unsigned_saturate() {
 void multitest_narrow_unsigned_saturate() {
     test_narrow_unsigned_saturate<int16_t>();
     test_narrow_unsigned_saturate<int32_t>();
+}
+
+template<class T>
+void test_get_low() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n / 2>();
+
+    auto va = load(a.data());
+    auto vr = get_low(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n / 2; i++) {
+        ASSERT_EQUAL(r[i], a[i]);
+    }
+}
+
+void multitest_get_low() {
+    test_get_low<int8_t>();
+    test_get_low<uint8_t>();
+    test_get_low<int16_t>();
+    test_get_low<uint16_t>();
+    test_get_low<int32_t>();
+    test_get_low<uint32_t>();
+}
+
+template<class T>
+void test_get_high() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n / 2>();
+
+    auto va = load(a.data());
+    auto vr = get_high(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n / 2; i++) {
+        ASSERT_EQUAL(r[i], a[n/2 + i]);
+    }
+}
+
+void multitest_get_high() {
+    test_get_high<int8_t>();
+    test_get_high<uint8_t>();
+    test_get_high<int16_t>();
+    test_get_high<uint16_t>();
+    test_get_high<int32_t>();
+    test_get_high<uint32_t>();
+}
+
+template<class T>
+void test_combine() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load_half(a.data());
+    auto vb = load_half(a.data() + n / 2);
+
+    auto vr = combine(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[i]);
+    }
+}
+
+void multitest_combine() {
+    test_combine<int8_t>();
+    test_combine<uint8_t>();
+    test_combine<int16_t>();
+    test_combine<uint16_t>();
 }
 
 
@@ -1056,10 +1131,9 @@ int main()
             multitest_narrow();
             multitest_narrow_saturate();
             multitest_narrow_unsigned_saturate();
-            // TODO: get_low
-            // TODO: get_high
-            // TODO: extend
-            // TODO: combine
+            multitest_get_low();
+            multitest_get_high();
+            multitest_combine();
             // TODO: load_2_interleaved
             // TODO: load_2_interleaved_long
             // TODO: load_3_interleaved_long

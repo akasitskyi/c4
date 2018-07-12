@@ -1409,7 +1409,7 @@ namespace c4 {
             return vcombine_s8(a8h, b8h);
 #else
             __m128i a0 = _mm_srli_si128(_mm_slli_si128(a.v, 8), 8);
-            __m128i b0 = _mm_srli_si128(b.v, 8);
+            __m128i b0 = _mm_slli_si128(b.v, 8);
             return _mm_or_si128(a0, b0);
 #endif
         }
