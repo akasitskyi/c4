@@ -499,6 +499,11 @@ namespace c4 {
         inline __m128i _mm_set_0x8000_si128() {
             return _mm_slli_epi16(_mm_set_0xff_si128(), 15);
         }
+
+        inline __m128i _mm_set_0x7fff_si128() {
+            return _mm_srli_epi16(_mm_set_0xff_si128(), 1);
+        }
+
         inline __m128i _mm_set_0x80000000_si128() {
             return _mm_slli_epi32(_mm_set_0xff_si128(), 31);
         }
@@ -1192,7 +1197,14 @@ namespace c4 {
 
             return vcombine_u8(lo, hi);
 #else
-            return _mm_packs_epi16(p.val[0].v, p.val[1].v);
+            for (int i = 0; i < 2; i++) {
+                __m128i mask = _mm_srai_epi16(p.val[i].v, 15);// msb == 0 ? 0 : 0xffff
+                p.val[i].v = _mm_andnot_si128(mask, p.val[i].v);// zero is msb was set
+                mask = _mm_srli_epi16(mask, 1);// msb == 0 ? 0 : 0x7fff
+                p.val[i].v = _mm_or_si128(p.val[i].v, mask);
+            }
+
+            return _mm_packus_epi16(p.val[0].v, p.val[1].v);
 #endif
         }
 
@@ -1225,7 +1237,14 @@ namespace c4 {
 
             return vcombine_u16(lo, hi);
 #else
-            return _mm_packs_epi16(p.val[0].v, p.val[1].v);
+            for (int i = 0; i < 2; i++) {
+                __m128i mask = _mm_srai_epi32(p.val[i].v, 31);// msb == 0 ? 0 : 0xffffffff
+                p.val[i].v = _mm_andnot_si128(mask, p.val[i].v);// zero is msb was set
+                mask = _mm_srli_epi32(mask, 1);// msb == 0 ? 0 : 0x7fffffff
+                p.val[i].v = _mm_or_si128(p.val[i].v, mask);
+            }
+
+            return _mm_packus_epi32(p.val[0].v, p.val[1].v);
 #endif
         }
 

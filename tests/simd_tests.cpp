@@ -19,6 +19,14 @@ T random() {
     return (T)d(mt);
 }
 
+template<class T, int L, int R>
+T random() {
+    static std::mt19937 mt;
+    static std::uniform_int_distribution<long long> d(L, R);
+
+    return (T)d(mt);
+}
+
 template<>
 float random<float>() {
     static std::mt19937 mt;
@@ -32,6 +40,14 @@ array<T, n> random_array() {
     array<T, n> v;
     for (T& t : v)
         t = random<T>();
+    return v;
+}
+
+template<class T, int n, int L, int R>
+array<T, n> random_array() {
+    array<T, n> v;
+    for (T& t : v)
+        t = random<T, L, R>();
     return v;
 }
 
@@ -195,6 +211,101 @@ void multitest_deinterleave() {
     test_deinterleave<float>();
 }
 
+template<class T>
+void test_long_move() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = long_move(va);
+    auto r = random_array<typename std::remove_reference<decltype(vr.val[0])>::type::base_t, n>();
+
+    store(r.data(), vr.val[0]);
+    store(r.data() + n / 2, vr.val[1]);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(a[i], r[i]);
+    }
+}
+
+void multitest_long_move() {
+    test_long_move<int8_t>();
+    test_long_move<uint8_t>();
+    test_long_move<int16_t>();
+    test_long_move<uint16_t>();
+}
+
+template<class T>
+void test_narrow() {
+    constexpr int n = 32 / sizeof(T);
+    auto a = random_array<T, n>();
+
+    auto va = load_tuple<2>(a.data());
+    auto vr = narrow(va);
+    typedef typename std::remove_reference<decltype(vr)>::type::base_t dst_t;
+    auto r = random_array<dst_t, n>();
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], (dst_t)a[i]);
+    }
+}
+
+void multitest_narrow() {
+    test_narrow<int16_t>();
+    test_narrow<uint16_t>();
+    test_narrow<int32_t>();
+    test_narrow<uint32_t>();
+}
+
+template<class T>
+void test_narrow_saturate() {
+    constexpr int n = 32 / sizeof(T);
+    auto a = random_array<T, n>();
+
+    auto va = load_tuple<2>(a.data());
+    auto vr = narrow_saturate(va);
+    typedef typename std::remove_reference<decltype(vr)>::type::base_t dst_t;
+    auto r = random_array<dst_t, n>();
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], saturate<dst_t>(a[i]));
+    }
+}
+
+void multitest_narrow_saturate() {
+    test_narrow_saturate<int16_t>();
+    test_narrow_saturate<uint16_t>();
+    test_narrow_saturate<int32_t>();
+    test_narrow_saturate<uint32_t>();
+}
+
+template<class T>
+void test_narrow_unsigned_saturate() {
+    constexpr int n = 32 / sizeof(T);
+    auto a = random_array<T, n>();
+
+    auto va = load_tuple<2>(a.data());
+    auto vr = narrow_unsigned_saturate(va);
+    typedef typename std::remove_reference<decltype(vr)>::type::base_t dst_t;
+    auto r = random_array<dst_t, n>();
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], saturate<dst_t>(a[i]));
+    }
+}
+
+void multitest_narrow_unsigned_saturate() {
+    test_narrow_unsigned_saturate<int16_t>();
+    test_narrow_unsigned_saturate<int32_t>();
+}
+
+
 void test_to_float() {
     constexpr int n = 4;
     auto a = random_array<int32_t, n>();
@@ -251,6 +362,29 @@ void multitest_add() {
     test_add<int32_t>();
     test_add<uint32_t>();
     test_add<float>();
+}
+
+template<class T>
+void test_hadd() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto va = load(a.data());
+    auto vr = hadd(va);
+
+    auto r = random_array<decltype(vr)::base_t, n / 2>();
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n / 2; i++) {
+        ASSERT_EQUAL(r[i], a[2 * i] + a[2 * i + 1]);
+    }
+}
+
+void multitest_hadd() {
+    test_hadd<int8_t>();
+    test_hadd<uint8_t>();
+    test_hadd<int16_t>();
+    test_hadd<uint16_t>();
 }
 
 template<class T>
@@ -315,6 +449,117 @@ void multitest_sub_div2() {
     test_sub_div2<int32_t>();
     test_sub_div2<uint32_t>();
 }
+
+template<class T>
+void test_shift_left() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    int b = random<int, 0, sizeof(T) * 8 - 1>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = shift_left(va, b);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] << b));
+    }
+}
+
+void multitest_shift_left() {
+    test_shift_left<int8_t>();
+    test_shift_left<uint8_t>();
+    test_shift_left<int16_t>();
+    test_shift_left<uint16_t>();
+    test_shift_left<int32_t>();
+    test_shift_left<uint32_t>();
+}
+
+template<class T>
+void test_shift_left_v() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n, 0, sizeof(T) * 8 - 1>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = shift_left(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] << b[i]));
+    }
+}
+
+void multitest_shift_left_v() {
+    test_shift_left_v<int8_t>();
+    test_shift_left_v<uint8_t>();
+    test_shift_left_v<int16_t>();
+    test_shift_left_v<uint16_t>();
+    test_shift_left_v<int32_t>();
+    test_shift_left_v<uint32_t>();
+}
+
+template<class dst_t, class src_t>
+dst_t saturate(src_t x) {
+    x = max<src_t>(x, std::numeric_limits<dst_t>::min());
+    x = min<src_t>(x, std::numeric_limits<dst_t>::max());
+    return (dst_t)x;
+}
+
+template<class T>
+void test_shift_left_saturate() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    int b = random<int, 0, sizeof(T) * 8 - 1>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = shift_left_saturate(va, b);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], saturate<T>((int64_t)a[i] << b));
+    }
+}
+
+void multitest_shift_left_saturate() {
+    test_shift_left_saturate<int8_t>();
+    test_shift_left_saturate<uint8_t>();
+    test_shift_left_saturate<int16_t>();
+    test_shift_left_saturate<uint16_t>();
+}
+
+template<class T>
+void test_shift_right() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    int b = random<int, 0, sizeof(T) * 8 - 1>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = shift_right(va, b);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] >> b));
+    }
+}
+
+void multitest_shift_right() {
+    test_shift_right<int8_t>();
+    test_shift_right<uint8_t>();
+    test_shift_right<int16_t>();
+    test_shift_right<uint16_t>();
+    test_shift_right<int32_t>();
+    test_shift_right<uint32_t>();
+}
+
 
 template<class T>
 void test_bitwise_and() {
@@ -807,10 +1052,10 @@ int main()
             multitest_max();
             multitest_interleave();
             multitest_deinterleave();
-            // TODO: long_move
-            // TODO: narrow
-            // TODO: narrow_saturate
-            // TODO: narrow_unsigned_saturate
+            multitest_long_move();
+            multitest_narrow();
+            multitest_narrow_saturate();
+            multitest_narrow_unsigned_saturate();
             // TODO: get_low
             // TODO: get_high
             // TODO: extend
@@ -826,12 +1071,13 @@ int main()
             test_to_float();
             test_to_int();
             multitest_add();
-            // TODO: hadd
+            multitest_hadd();
             multitest_sub();
             multitest_sub_div2();
-            // TODO: shift_left
-            // TODO: shift_left_saturate
-            // TODO: shift_right
+            multitest_shift_left();
+            multitest_shift_left_v();
+            multitest_shift_left_saturate();
+            multitest_shift_right();
             multitest_bitwise_and();
             multitest_bitwise_or();
             multitest_bitwise_not();
