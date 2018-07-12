@@ -1519,7 +1519,7 @@ namespace c4 {
             __m128i b1 = _mm_shuffle_epi8(v1, mask_b1);         //  0,  0,  0,  0,  0, B5, B6, B7
             __m128i b = _mm_or_si128(b0, b1);                   // B0, B1, B2, B3, B4, B5, B6, B7
 
-            static const __m128i mask_c0 = _mm_setr_epi8(2, -1, 5, -1, 6, -1, 11, -1, 14, -1, -1, -1, -1, -1, -1, -1);
+            static const __m128i mask_c0 = _mm_setr_epi8(2, -1, 5, -1, 8, -1, 11, -1, 14, -1, -1, -1, -1, -1, -1, -1);
             static const __m128i mask_c1 = _mm_setr_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 4, -1, 7, -1);
 
             __m128i c0 = _mm_shuffle_epi8(v0, mask_c0);         // C0, C1, C2, C3, C4,  0,  0,  0
@@ -1596,7 +1596,7 @@ namespace c4 {
             y0 = _mm_unpacklo_epi64(x0, x2);            // a0, a1, a2, a3, a4, a5, a6, a7
             y1 = _mm_unpackhi_epi64(x0, x2);            // b0, b1, b2, b3, b4, b5, b6, b7
             y2 = _mm_unpacklo_epi64(x1, x3);            // c0, c1, c2, c3, c4, c5, c6, c7
-            y3 = _mm_unpackhi_epi64(x3, x3);            // d0, d1, d2, d3, d4, d5, d6, d7
+            y3 = _mm_unpackhi_epi64(x1, x3);            // d0, d1, d2, d3, d4, d5, d6, d7
 
             return { y0, y1, y2, y3 };
 #endif
@@ -1749,6 +1749,15 @@ namespace c4 {
             _mm_storeu_ps(ptr, a.v);
 #endif
         }
+
+        // Load tuple of elements
+        template<typename base_t, typename simd_t, int n>
+        inline void store_tuple(base_t* ptr, tuple<simd_t, n> v) {
+            for (int i = 0; i < n; i++) {
+                store(ptr + i * sizeof(simd_t) / sizeof(base_t), v.val[i]);
+            }
+        }
+
 
         inline void store(int8_t* ptr, half<int8x16> a) {
 #ifdef USE_ARM_NEON
@@ -1961,7 +1970,7 @@ namespace c4 {
 
 #ifdef USE_SSE
         // helper
-        inline void store_3div2_interleaved_8bit(__m128i* ptr, __m128i ab, __m128i c0) {
+        inline void __store_3div2_interleaved_8bit(__m128i* ptr, __m128i ab, __m128i c0) {
             static const __m128i blend_mask0 = _mm_setr_epi8(0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0);
             static const __m128i blend_mask1 = _mm_setr_epi8(0, -1, 0, 0, -1, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1);
 
@@ -1991,6 +2000,45 @@ namespace c4 {
             _mm_storeu_si128(ptr, abc0);
             _mm_storel_epi64(ptr + 1, abc1);
         }
+
+        inline void __store_3div2_interleaved_16bit(__m128i* ptr, __m128i ab, __m128i c0) {
+            static const __m128i blend_mask0 = _mm_setr_epi8( 0,  0, 0, 0, -1, -1,  0,  0,  0,  0, -1, -1,  0,  0,  0,  0);
+            static const __m128i blend_mask1 = _mm_setr_epi8(-1, -1, 0, 0,  0,  0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+
+            // ab: a0, a1, a2, a3, b0, b1, b2, b3
+            // c0: c0, c1, c2, c3, 0 , 0 , 0 , 0 
+
+            // 16 bit masks: (-1 means we don't care)
+            //  0,  4, -1,  1,  5, -1,  2,  6
+            // -1, -1,  0, -1, -1,  1, -1, -1
+            // 8 bit masks: (-1 means we don't care)
+            //  0,  1,  8,  9, -1, -1,  2,  3, 10, 11, -1, -1,  4, 5,  12, 13
+            // -1, -1, -1, -1,  0,  1, -1, -1, -1, -1,  2,  3, -1, -1, -1, -1
+            // merge two masks
+            static const __m128i shuffle_mask0 = _mm_setr_epi8(0, 1, 8, 9, 0, 1, 2, 3, 10, 11, 2, 3, 4, 5, 12, 13);
+
+            // 16 bit masks: (-1 means we don't care)
+            // -1,  3,  7, -1, -1, -1, -1, -1
+            //  2, -1, -1,  3, -1, -1, -1, -1
+            // 8 bit masks: (-1 means we don't care)
+            // -1, -1,  6,  7, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+            //  4,  5, -1, -1, -1, -1,  6,  7, -1, -1, -1, -1, -1, -1, -1, -1
+            // merge two masks
+            static const __m128i shuffle_mask1 = _mm_setr_epi8(4, 5, 6, 7, 14, 15, 6, 7, -1, -1, -1, -1, -1, -1, -1, -1);
+
+            __m128i sh0 = _mm_shuffle_epi8(ab, shuffle_mask0);               // a0, b0,  *, a1, b1,  *, a2, b2
+            __m128i sh1 = _mm_shuffle_epi8(c0, shuffle_mask0);               //  *,  *, c0,  *,  *, c1,  *,  *
+
+            __m128i abc0 = _mm_blendv_si128(sh0, sh1, blend_mask0);            // a0, b0, c0, a1, b1, c1, a2, b2
+
+            __m128i sh2 = _mm_shuffle_epi8(ab, shuffle_mask1);               //  *, a3, b3,  *, 0, 0, 0, 0
+            __m128i sh3 = _mm_shuffle_epi8(c0, shuffle_mask1);               // c2,  *,  *, c3, 0, 0, 0, 0
+
+            __m128i abc1 = _mm_blendv_si128(sh2, sh3, blend_mask1);          // c2, a3, b3, c3, 0, 0, 0, 0
+
+            _mm_storeu_si128(ptr, abc0);
+            _mm_storel_epi64(ptr + 1, abc1);
+        }
 #endif
 
         inline void store_3_interleaved_narrow_saturate(int8_t* ptr, int16x8x3 v) {
@@ -2004,7 +2052,7 @@ namespace c4 {
             __m128i ab = _mm_packs_epi16(v.val[0].v, v.val[1].v);            // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
             __m128i c0 = _mm_packs_epi16(v.val[2].v, _mm_setzero_si128());   // c0, c1, c2, c3, c4, c5, c6, c7, 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0
             
-            store_3div2_interleaved_8bit((__m128i*)ptr, ab, c0);
+            __store_3div2_interleaved_8bit((__m128i*)ptr, ab, c0);
 #endif
         }
 
@@ -2019,7 +2067,7 @@ namespace c4 {
             __m128i ab = _mm_packus_epi16(v.val[0].v, v.val[1].v);            // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
             __m128i c0 = _mm_packus_epi16(v.val[2].v, _mm_setzero_si128());   // c0, c1, c2, c3, c4, c5, c6, c7, 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0
 
-            store_3div2_interleaved_8bit((__m128i*)ptr, ab, c0);
+            __store_3div2_interleaved_8bit((__m128i*)ptr, ab, c0);
 #endif
         }
 
@@ -2031,7 +2079,10 @@ namespace c4 {
             a.val[2] = vqmovn_s32(v.val[2].v);
             vst3_s16(ptr, a);
 #else
-            NOT_IMPLEMENTED;
+            __m128i ab = _mm_packs_epi32(v.val[0].v, v.val[1].v);
+            __m128i c0 = _mm_packs_epi32(v.val[2].v, _mm_setzero_si128());
+
+            __store_3div2_interleaved_16bit((__m128i*)ptr, ab, c0);
 #endif
         }
 
@@ -2043,7 +2094,10 @@ namespace c4 {
             a.val[2] = vqmovun_s32(v.val[2].v);
             vst3_u16(ptr, a);
 #else
-            NOT_IMPLEMENTED;
+            __m128i ab = _mm_packus_epi32(v.val[0].v, v.val[1].v);
+            __m128i c0 = _mm_packus_epi32(v.val[2].v, _mm_setzero_si128());
+
+            __store_3div2_interleaved_16bit((__m128i*)ptr, ab, c0);
 #endif
         }
 
@@ -2056,9 +2110,11 @@ namespace c4 {
             a.val[3] = vqmovn_s16(v.val[3].v);
             vst4_s8(ptr, a);
 #else
+            int16x8x2 v02i = interleave({ v.val[0], v.val[2] });
+            int16x8x2 v13i = interleave({ v.val[1], v.val[3] });
             int8x16x2 p;
-            p.val[0] = _mm_packs_epi16(v.val[0].v, v.val[2].v);
-            p.val[1] = _mm_packs_epi16(v.val[1].v, v.val[3].v);
+            p.val[0] = _mm_packs_epi16(v02i.val[0].v, v02i.val[1].v);
+            p.val[1] = _mm_packs_epi16(v13i.val[0].v, v13i.val[1].v);
 
             store_2_interleaved(ptr, p);
 #endif
@@ -2073,9 +2129,11 @@ namespace c4 {
             a.val[3] = vqmovun_s16(v.val[3].v);
             vst4_u8(ptr, a);
 #else
+            int16x8x2 v02i = interleave({ v.val[0], v.val[2] });
+            int16x8x2 v13i = interleave({ v.val[1], v.val[3] });
             uint8x16x2 p;
-            p.val[0] = _mm_packus_epi16(v.val[0].v, v.val[2].v);
-            p.val[1] = _mm_packus_epi16(v.val[1].v, v.val[3].v);
+            p.val[0] = _mm_packus_epi16(v02i.val[0].v, v02i.val[1].v);
+            p.val[1] = _mm_packus_epi16(v13i.val[0].v, v13i.val[1].v);
 
             store_2_interleaved(ptr, p);
 #endif
@@ -2090,9 +2148,11 @@ namespace c4 {
             a.val[3] = vqmovn_s32(v.val[3].v);
             vst4_s16(ptr, a);
 #else
+            int32x4x2 v02i = interleave({ v.val[0], v.val[2] });
+            int32x4x2 v13i = interleave({ v.val[1], v.val[3] });
             int16x8x2 p;
-            p.val[0] = _mm_packs_epi32(v.val[0].v, v.val[2].v);
-            p.val[1] = _mm_packs_epi32(v.val[1].v, v.val[3].v);
+            p.val[0] = _mm_packs_epi32(v02i.val[0].v, v02i.val[1].v);
+            p.val[1] = _mm_packs_epi32(v13i.val[0].v, v13i.val[1].v);
 
             store_2_interleaved(ptr, p);
 #endif
@@ -2107,7 +2167,13 @@ namespace c4 {
             a.val[3] = vqmovun_s32(v.val[3].v);
             vst4_u16(ptr, a);
 #else
-            NOT_IMPLEMENTED;
+            int32x4x2 v02i = interleave({ v.val[0], v.val[2] });
+            int32x4x2 v13i = interleave({ v.val[1], v.val[3] });
+            uint16x8x2 p;
+            p.val[0] = _mm_packus_epi32(v02i.val[0].v, v02i.val[1].v);
+            p.val[1] = _mm_packus_epi32(v13i.val[0].v, v13i.val[1].v);
+
+            store_2_interleaved(ptr, p);
 #endif
         }
 

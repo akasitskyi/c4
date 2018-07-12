@@ -220,8 +220,7 @@ void test_long_move() {
     auto vr = long_move(va);
     auto r = random_array<typename std::remove_reference<decltype(vr.val[0])>::type::base_t, n>();
 
-    store(r.data(), vr.val[0]);
-    store(r.data() + n / 2, vr.val[1]);
+    store_tuple(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
         ASSERT_EQUAL(r[i], a[i]);
@@ -378,6 +377,189 @@ void multitest_combine() {
     test_combine<uint8_t>();
     test_combine<int16_t>();
     test_combine<uint16_t>();
+}
+
+template<class T>
+void test_load_2_interleaved() {
+    constexpr int n = 32 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load_2_interleaved(a.data());
+
+    store_tuple(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[2 * i % n + 2 * i / n]);
+    }
+}
+
+void multitest_load_2_interleaved() {
+    test_load_2_interleaved<int8_t>();
+    test_load_2_interleaved<uint8_t>();
+    test_load_2_interleaved<int16_t>();
+    test_load_2_interleaved<uint16_t>();
+    test_load_2_interleaved<int32_t>();
+    test_load_2_interleaved<uint32_t>();
+}
+
+template<class T>
+void test_load_2_interleaved_long() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+
+    auto va = load_2_interleaved_long(a.data());
+
+    auto r = random_array<typename std::remove_reference<decltype(va.val[0])>::type::base_t, n>();
+
+    store_tuple(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[2 * i % n + 2 * i / n]);
+    }
+}
+
+void multitest_load_2_interleaved_long() {
+    test_load_2_interleaved_long<uint8_t>();
+}
+
+template<class T>
+void test_load_3_interleaved_long() {
+    constexpr int n = 24 / sizeof(T);
+    auto a = random_array<T, n>();
+
+    auto va = load_3_interleaved_long(a.data());
+
+    auto r = random_array<typename std::remove_reference<decltype(va.val[0])>::type::base_t, n>();
+
+    store_tuple(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[3 * i % n + 3 * i / n]);
+    }
+}
+
+void multitest_load_3_interleaved_long() {
+    test_load_3_interleaved_long<uint8_t>();
+}
+
+template<class T>
+void test_load_4_interleaved() {
+    constexpr int n = 64 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load_4_interleaved(a.data());
+
+    store_tuple(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[4 * i % n + 4 * i / n]);
+    }
+}
+
+void multitest_load_4_interleaved() {
+    test_load_4_interleaved<int8_t>();
+    test_load_4_interleaved<uint8_t>();
+    test_load_4_interleaved<int16_t>();
+    test_load_4_interleaved<uint16_t>();
+    test_load_4_interleaved<int32_t>();
+    test_load_4_interleaved<uint32_t>();
+    test_load_4_interleaved<float>();
+}
+
+template<class T>
+void test_store_2_interleaved() {
+    constexpr int n = 32 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load_tuple<2>(a.data());
+
+    store_2_interleaved(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(a[i], r[2 * i % n + 2 * i / n]);
+    }
+}
+
+void multitest_store_2_interleaved() {
+    test_store_2_interleaved<int8_t>();
+    test_store_2_interleaved<uint8_t>();
+    test_store_2_interleaved<int16_t>();
+    test_store_2_interleaved<uint16_t>();
+    test_store_2_interleaved<int32_t>();
+    test_store_2_interleaved<uint32_t>();
+    test_store_2_interleaved<float>();
+}
+
+template<class T>
+void test_store_4_interleaved() {
+    constexpr int n = 64 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load_tuple<4>(a.data());
+
+    store_4_interleaved(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(a[i], r[4 * i % n + 4 * i / n]);
+    }
+}
+
+void multitest_store_4_interleaved() {
+    test_store_4_interleaved<int8_t>();
+    test_store_4_interleaved<uint8_t>();
+    test_store_4_interleaved<int16_t>();
+    test_store_4_interleaved<uint16_t>();
+    test_store_4_interleaved<int32_t>();
+    test_store_4_interleaved<uint32_t>();
+    test_store_4_interleaved<float>();
+}
+
+template<class src_t, class dst_t>
+void test_store_3_interleaved_narrow_saturate() {
+    constexpr int n = 48 / sizeof(src_t);
+    auto a = random_array<src_t, n>();
+    auto r = random_array<dst_t, n>();
+
+    auto va = load_tuple<3>(a.data());
+
+    store_3_interleaved_narrow_saturate(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(saturate<dst_t>(a[i]), r[3 * i % n + 3 * i / n]);
+    }
+}
+
+void multitest_store_3_interleaved_narrow_saturate() {
+    test_store_3_interleaved_narrow_saturate<int16_t, int8_t>();
+    test_store_3_interleaved_narrow_saturate<int16_t, uint8_t>();
+    test_store_3_interleaved_narrow_saturate<int32_t, int16_t>();
+    test_store_3_interleaved_narrow_saturate<int32_t, uint16_t>();
+}
+
+template<class src_t, class dst_t>
+void test_store_4_interleaved_narrow_saturate() {
+    constexpr int n = 64 / sizeof(src_t);
+    auto a = random_array<src_t, n>();
+    auto r = random_array<dst_t, n>();
+
+    auto va = load_tuple<4>(a.data());
+
+    store_4_interleaved_narrow_saturate(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(saturate<dst_t>(a[i]), r[4 * i % n + 4 * i / n]);
+    }
+}
+
+void multitest_store_4_interleaved_narrow_saturate() {
+    test_store_4_interleaved_narrow_saturate<int16_t, int8_t>();
+    test_store_4_interleaved_narrow_saturate<int16_t, uint8_t>();
+    test_store_4_interleaved_narrow_saturate<int32_t, int16_t>();
+    test_store_4_interleaved_narrow_saturate<int32_t, uint16_t>();
 }
 
 
@@ -1134,14 +1316,14 @@ int main()
             multitest_get_low();
             multitest_get_high();
             multitest_combine();
-            // TODO: load_2_interleaved
-            // TODO: load_2_interleaved_long
-            // TODO: load_3_interleaved_long
-            // TODO: load_4_interleaved
-            // TODO: store_2_interleaved
-            // TODO: store_4_interleaved
-            // TODO: store_3_interleaved_narrow_saturate
-            // TODO: store_4_interleaved_narrow_saturate
+            multitest_load_2_interleaved();
+            multitest_load_2_interleaved_long();
+            multitest_load_3_interleaved_long();
+            multitest_load_4_interleaved();
+            multitest_store_2_interleaved();
+            multitest_store_4_interleaved();
+            multitest_store_3_interleaved_narrow_saturate();
+            multitest_store_4_interleaved_narrow_saturate();
             test_to_float();
             test_to_int();
             multitest_add();
