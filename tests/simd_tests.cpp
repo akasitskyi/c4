@@ -1357,6 +1357,8 @@ int main()
             test_look_up();
             multitest_clz();
         }
+
+        cout << "All tests passed OK" << endl;
     }
     catch (std::exception& e) {
         cout << e.what() << endl;
