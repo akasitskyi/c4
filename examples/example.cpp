@@ -1,5 +1,6 @@
 #include <c4/simd.hpp>
 
+#include <cmath>
 #include <vector>
 #include <iostream>
 

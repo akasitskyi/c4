@@ -3133,12 +3133,12 @@ namespace c4 {
         }
 
         // r[i] = q[i] < 16 * n ? t[q[i]] : undefined
-        template<int n>
+        template<size_t n>
         inline uint8x16 look_up(const std::array<uint8x16, n>& t, uint8x16 q) {
             static_assert(1 <= n && n <= 16, "we can only address up to 256 elements");
 
             uint8x16 r = look_up(t[0], q);
-            for (int i = 1; i < n; i++) {
+            for (size_t i = 1; i < n; i++) {
                 q = sub(q, c16);
                 r = look_up(r, t[i], q);
             }

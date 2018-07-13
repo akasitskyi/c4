@@ -2,6 +2,7 @@
 
 #include <array>
 #include <vector>
+#include <cstring>
 #include <iostream>
 
 #include <random>
@@ -57,6 +58,14 @@ T all_ones() {
     memset(&t, -1, sizeof(t));
     return t;
 }
+
+template<class dst_t, class src_t>
+dst_t saturate(src_t x) {
+    x = max<src_t>(x, std::numeric_limits<dst_t>::min());
+    x = min<src_t>(x, std::numeric_limits<dst_t>::max());
+    return (dst_t)x;
+}
+
 
 class Exception : public std::runtime_error {
 public:
@@ -628,7 +637,7 @@ void test_hadd() {
     auto va = load(a.data());
     auto vr = hadd(va);
 
-    auto r = random_array<decltype(vr)::base_t, n / 2>();
+    auto r = random_array<typename decltype(vr)::base_t, n / 2>();
 
     store(r.data(), vr);
 
@@ -758,13 +767,6 @@ void multitest_shift_left_v() {
     test_shift_left_v<uint16_t>();
     test_shift_left_v<int32_t>();
     test_shift_left_v<uint32_t>();
-}
-
-template<class dst_t, class src_t>
-dst_t saturate(src_t x) {
-    x = max<src_t>(x, std::numeric_limits<dst_t>::min());
-    x = min<src_t>(x, std::numeric_limits<dst_t>::max());
-    return (dst_t)x;
 }
 
 template<class T>
