@@ -2476,7 +2476,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vshlq_n_s8(a.v, n);
 #else
-            return _mm_and_si128(_mm_set1_epi8(0xff << n), _mm_slli_epi32(a.v, n));
+            return _mm_and_si128(_mm_set1_epi8(int8_t(0xff << n)), _mm_slli_epi32(a.v, n));
 #endif
         }
         
@@ -2485,7 +2485,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vshlq_n_u8(a.v, n);
 #else
-            return _mm_and_si128(_mm_set1_epi8(0xff << n), _mm_slli_epi32(a.v, n));
+            return _mm_and_si128(_mm_set1_epi8(int8_t(0xff << n)), _mm_slli_epi32(a.v, n));
 #endif
         }
 

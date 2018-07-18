@@ -716,10 +716,9 @@ void multitest_sub_div2() {
     test_sub_div2<uint32_t>();
 }
 
-template<class T, int b>
+template<class T, int tb>
 void test_shift_left() {
-    if (b >= sizeof(T) * 8)
-        return;
+    constexpr int b = tb % (sizeof(T) * 8);
 
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
@@ -782,10 +781,9 @@ void multitest_shift_left_v() {
     test_shift_left_v<uint32_t>();
 }
 
-template<class T, int b>
+template<class T, int tb>
 void test_shift_left_saturate() {
-    if (b >= sizeof(T) * 8)
-        return;
+    constexpr int b = tb % (sizeof(T) * 8);
 
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
@@ -819,8 +817,9 @@ void multitest_shift_left_saturate() {
     multitest1_shift_left_saturate<31>();
 }
 
-template<class T, int b>
+template<class T, int tb>
 void test_shift_right() {
+    constexpr int b = tb % (sizeof(T) * 8);
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto r = random_array<T, n>();
