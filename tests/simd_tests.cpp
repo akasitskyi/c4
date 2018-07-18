@@ -719,7 +719,6 @@ void multitest_sub_div2() {
 template<class T, int tb>
 void test_shift_left() {
     constexpr int b = tb % (sizeof(T) * 8);
-
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto r = random_array<T, n>();
@@ -730,7 +729,7 @@ void test_shift_left() {
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], T(a[i] << b));
+        ASSERT_EQUAL(r[i], T((int64_t)a[i] << b));
     }
 }
 
@@ -747,7 +746,7 @@ void multitest1_shift_left() {
 }
 
 template<>
-void multitest1_shift_left<-1>() {
+void multitest1_shift_left<0>() {
 }
 
 void multitest_shift_left() {
@@ -784,7 +783,6 @@ void multitest_shift_left_v() {
 template<class T, int tb>
 void test_shift_left_saturate() {
     constexpr int b = tb % (sizeof(T) * 8);
-
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto r = random_array<T, n>();
@@ -810,7 +808,7 @@ void multitest1_shift_left_saturate() {
 }
 
 template<>
-void multitest1_shift_left_saturate<-1>() {
+void multitest1_shift_left_saturate<0>() {
 }
 
 void multitest_shift_left_saturate() {
@@ -819,7 +817,7 @@ void multitest_shift_left_saturate() {
 
 template<class T, int tb>
 void test_shift_right() {
-    constexpr int b = tb % (sizeof(T) * 8);
+    constexpr int b = 1 + tb % (sizeof(T) * 8);
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto r = random_array<T, n>();
@@ -830,7 +828,7 @@ void test_shift_right() {
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], T(a[i] >> b));
+        ASSERT_EQUAL(r[i], T((int64_t)a[i] >> b));
     }
 }
 
@@ -847,11 +845,11 @@ void multitest1_shift_right() {
 }
 
 template<>
-void multitest1_shift_right<-1>() {
+void multitest1_shift_right<0>() {
 }
 
 void multitest_shift_right() {
-    multitest1_shift_right<31>();
+    multitest1_shift_right<32>();
 }
 
 template<class T>

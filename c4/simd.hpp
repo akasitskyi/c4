@@ -2473,6 +2473,7 @@ namespace c4 {
 
         template<int n>
         inline int8x16 shift_left(int8x16 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshlq_n_s8(a.v, n);
 #else
@@ -2482,6 +2483,7 @@ namespace c4 {
         
         template<int n>
         inline uint8x16 shift_left(uint8x16 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshlq_n_u8(a.v, n);
 #else
@@ -2491,6 +2493,7 @@ namespace c4 {
 
         template<int n>
         inline int16x8 shift_left(int16x8 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshlq_n_s16(a.v, n);
 #else
@@ -2500,6 +2503,7 @@ namespace c4 {
 
         template<int n>
         inline uint16x8 shift_left(uint16x8 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshlq_n_u16(a.v, n);
 #else
@@ -2509,6 +2513,7 @@ namespace c4 {
 
         template<int n>
         inline int32x4 shift_left(int32x4 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshlq_n_s32(a.v, n);
 #else
@@ -2518,6 +2523,7 @@ namespace c4 {
 
         template<int n>
         inline uint32x4 shift_left(uint32x4 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshlq_n_u32(a.v, n);
 #else
@@ -2527,6 +2533,7 @@ namespace c4 {
 
         template<int n>
         inline int8x16 shift_left_saturate(int8x16 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vqshlq_n_s8(a.v, n);
 #else
@@ -2540,6 +2547,7 @@ namespace c4 {
 
         template<int n>
         inline uint8x16 shift_left_saturate(uint8x16 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vqshlq_n_u8(a.v, n);
 #else
@@ -2553,6 +2561,7 @@ namespace c4 {
 
         template<int n>
         inline int16x8 shift_left_saturate(int16x8 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vqshlq_n_s16(a.v, n);
 #else
@@ -2566,6 +2575,7 @@ namespace c4 {
 
         template<int n>
         inline uint16x8 shift_left_saturate(uint16x8 a) {
+            static_assert(0 <= n && n < sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vqshlq_n_u16(a.v, n);
 #else
@@ -2643,6 +2653,7 @@ namespace c4 {
         // Shifting in zero bits for unsigned types
         template<int n>
         inline int8x16 shift_right(int8x16 a) {
+            static_assert(0 < n && n <= sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshrq_n_s8(a.v, n);
 #else
@@ -2655,6 +2666,7 @@ namespace c4 {
 
         template<int n>
         inline uint8x16 shift_right(uint8x16 a) {
+            static_assert(0 < n && n <= sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshrq_n_u8(a.v, n);
 #else
@@ -2667,6 +2679,7 @@ namespace c4 {
 
         template<int n>
         inline int16x8 shift_right(int16x8 a) {
+            static_assert(0 < n && n <= sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshrq_n_s16(a.v, n);
 #else
@@ -2676,6 +2689,7 @@ namespace c4 {
 
         template<int n>
         inline uint16x8 shift_right(uint16x8 a) {
+            static_assert(0 < n && n <= sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshrq_n_u16(a.v, n);
 #else
@@ -2685,6 +2699,7 @@ namespace c4 {
 
         template<int n>
         inline int32x4 shift_right(int32x4 a) {
+            static_assert(0 < n && n <= sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshrq_n_s32(a.v, n);
 #else
@@ -2694,6 +2709,7 @@ namespace c4 {
 
         template<int n>
         inline uint32x4 shift_right(uint32x4 a) {
+            static_assert(0 < n && n <= sizeof(decltype(a)::base_t) * 8, "");
 #ifdef USE_ARM_NEON
             return vshrq_n_u32(a.v, n);
 #else
