@@ -1,5 +1,7 @@
 #include <c4/simd.hpp>
 
+#include <c4/math.hpp>
+
 #include <cmath>
 #include <vector>
 #include <iostream>
@@ -48,6 +50,8 @@ std::vector<std::pair<float, float> > normalizeSimd(const std::vector<float>& x,
 
 int main()
 {
+    int t = 10;
+    float x = c4::math::clamp<float>(t);
     // vector normalization
     constexpr int n = 10;
     std::vector<float> x(n), y(n);

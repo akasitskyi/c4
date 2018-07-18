@@ -2471,7 +2471,8 @@ namespace c4 {
 
         // Shift left by a constant
 
-        inline int8x16 shift_left(int8x16 a, int8_t n) {
+        template<int n>
+        inline int8x16 shift_left(int8x16 a) {
 #ifdef USE_ARM_NEON
             return vshlq_n_s8(a.v, n);
 #else
@@ -2479,11 +2480,13 @@ namespace c4 {
 #endif
         }
         
-        inline uint8x16 shift_left(uint8x16 a, int8_t n) {
+        template<int n>
+        inline uint8x16 shift_left(uint8x16 a) {
             return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
         }
 
-        inline int16x8 shift_left(int16x8 a, int8_t n) {
+        template<int n>
+        inline int16x8 shift_left(int16x8 a) {
 #ifdef USE_ARM_NEON
             return vshlq_n_s16(a.v, n);
 #else
@@ -2491,11 +2494,13 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8 shift_left(uint16x8 a, int8_t n) {
+        template<int n>
+        inline uint16x8 shift_left(uint16x8 a) {
             return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
         }
 
-        inline int32x4 shift_left(int32x4 a, int8_t n) {
+        template<int n>
+        inline int32x4 shift_left(int32x4 a) {
 #ifdef USE_ARM_NEON
             return vshlq_n_s32(a.v, n);
 #else
@@ -2503,11 +2508,13 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4 shift_left(uint32x4 a, int8_t n) {
+        template<int n>
+        inline uint32x4 shift_left(uint32x4 a) {
             return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
         }
 
-        inline int8x16 shift_left_saturate(int8x16 a, int8_t n) {
+        template<int n>
+        inline int8x16 shift_left_saturate(int8x16 a) {
 #ifdef USE_ARM_NEON
             return vqshlq_n_s8(a.v, n);
 #else
@@ -2519,7 +2526,8 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16 shift_left_saturate(uint8x16 a, int8_t n) {
+        template<int n>
+        inline uint8x16 shift_left_saturate(uint8x16 a) {
 #ifdef USE_ARM_NEON
             return vqshlq_n_u8(a.v, n);
 #else
@@ -2531,7 +2539,8 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8 shift_left_saturate(int16x8 a, int8_t n) {
+        template<int n>
+        inline int16x8 shift_left_saturate(int16x8 a) {
 #ifdef USE_ARM_NEON
             return vqshlq_n_s16(a.v, n);
 #else
@@ -2543,7 +2552,8 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8 shift_left_saturate(uint16x8 a, int8_t n) {
+        template<int n>
+        inline uint16x8 shift_left_saturate(uint16x8 a) {
 #ifdef USE_ARM_NEON
             return vqshlq_n_u16(a.v, n);
 #else

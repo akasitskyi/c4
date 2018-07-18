@@ -716,11 +716,13 @@ void multitest_sub_div2() {
     test_sub_div2<uint32_t>();
 }
 
-template<class T>
+template<class T, int b>
 void test_shift_left() {
+    if (b >= sizeof(T) * 8)
+        return;
+
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
-    int b = random<int, 0, sizeof(T) * 8 - 1>();
     auto r = random_array<T, n>();
 
     auto va = load(a.data());
@@ -733,13 +735,24 @@ void test_shift_left() {
     }
 }
 
+template<int b>
+void multitest1_shift_left() {
+    test_shift_left<int8_t, b>();
+    test_shift_left<uint8_t, b>();
+    test_shift_left<int16_t, b>();
+    test_shift_left<uint16_t, b>();
+    test_shift_left<int32_t, b>();
+    test_shift_left<uint32_t, b>();
+
+    multitest1_shift_left<b - 1>();
+}
+
+template<>
+void multitest1_shift_left<0>() {
+}
+
 void multitest_shift_left() {
-    test_shift_left<int8_t>();
-    test_shift_left<uint8_t>();
-    test_shift_left<int16_t>();
-    test_shift_left<uint16_t>();
-    test_shift_left<int32_t>();
-    test_shift_left<uint32_t>();
+    multitest1_shift_left<31>();
 }
 
 template<class T>
@@ -769,15 +782,17 @@ void multitest_shift_left_v() {
     test_shift_left_v<uint32_t>();
 }
 
-template<class T>
+template<class T, int b>
 void test_shift_left_saturate() {
+    if (b >= sizeof(T) * 8)
+        return;
+
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
-    int b = random<int, 0, sizeof(T) * 8 - 1>();
     auto r = random_array<T, n>();
 
     auto va = load(a.data());
-    auto vr = shift_left_saturate(va, b);
+    auto vr = shift_left_saturate<b>(va);
 
     store(r.data(), vr);
 
@@ -786,11 +801,22 @@ void test_shift_left_saturate() {
     }
 }
 
+template<int b>
+void multitest1_shift_left_saturate() {
+    test_shift_left_saturate<int8_t, b>();
+    test_shift_left_saturate<uint8_t, b>();
+    test_shift_left_saturate<int16_t, b>();
+    test_shift_left_saturate<uint16_t, b>();
+    
+    multitest1_shift_left_saturate<b - 1>();
+}
+
+template<>
+void multitest1_shift_left_saturate<0>() {
+}
+
 void multitest_shift_left_saturate() {
-    test_shift_left_saturate<int8_t>();
-    test_shift_left_saturate<uint8_t>();
-    test_shift_left_saturate<int16_t>();
-    test_shift_left_saturate<uint16_t>();
+    multitest1_shift_left_saturate<31>();
 }
 
 template<class T>
