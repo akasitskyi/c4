@@ -103,11 +103,11 @@ namespace c4 {
             int8x16() = default;
 #ifdef USE_ARM_NEON
             int8x16_t v;
-            int8x16(int8_t x) : v(vdupq_n_s8(x)) {}
+            explicit int8x16(int8_t x) : v(vdupq_n_s8(x)) {}
             int8x16(int8x16_t v) : v(v) {}
 #else
             __m128i v;
-            int8x16(int8_t x) : v(_mm_set1_epi8(x)) {}
+            explicit int8x16(int8_t x) : v(_mm_set1_epi8(x)) {}
             int8x16(__m128i v) : v(v) {}
 #endif
         };
@@ -117,11 +117,11 @@ namespace c4 {
             uint8x16() = default;
 #ifdef USE_ARM_NEON
             uint8x16_t v;
-            uint8x16(uint8_t x) : v(vdupq_n_u8(x)) {}
+            explicit uint8x16(uint8_t x) : v(vdupq_n_u8(x)) {}
             uint8x16(uint8x16_t v) : v(v) {}
 #else
             __m128i v;
-            uint8x16(uint8_t x) : v(_mm_set1_epi8(x)) {}
+            explicit uint8x16(uint8_t x) : v(_mm_set1_epi8(x)) {}
             uint8x16(__m128i v) : v(v) {}
 #endif
         };
@@ -131,11 +131,11 @@ namespace c4 {
             int16x8() = default;
 #if defined(USE_ARM_NEON)
             int16x8_t v;
-            int16x8(int16_t x) : v(vdupq_n_s16(x)) {}
+            explicit int16x8(int16_t x) : v(vdupq_n_s16(x)) {}
             int16x8(int16x8_t v) : v(v) {}
 #else
             __m128i v;
-            int16x8(uint16_t x) : v(_mm_set1_epi16(x)) {}
+            explicit int16x8(uint16_t x) : v(_mm_set1_epi16(x)) {}
             int16x8(__m128i v) : v(v) {}
 #endif
         };
@@ -145,11 +145,11 @@ namespace c4 {
             uint16x8() = default;
 #if defined(USE_ARM_NEON)
             uint16x8_t v;
-            uint16x8(uint16_t x) : v(vdupq_n_u16(x)) {}
+            explicit uint16x8(uint16_t x) : v(vdupq_n_u16(x)) {}
             uint16x8(uint16x8_t v) : v(v) {}
 #else
             __m128i v;
-            uint16x8(uint16_t x) : v(_mm_set1_epi16(x)) {}
+            explicit uint16x8(uint16_t x) : v(_mm_set1_epi16(x)) {}
             uint16x8(__m128i v) : v(v) {}
 #endif
         };
@@ -159,11 +159,11 @@ namespace c4 {
             int32x4() = default;
 #ifdef USE_ARM_NEON
             int32x4_t v;
-            int32x4(int32_t x) : v(vdupq_n_s32(x)) {}
+            explicit int32x4(int32_t x) : v(vdupq_n_s32(x)) {}
             int32x4(int32x4_t v) : v(v) {}
 #else
             __m128i v;
-            int32x4(int32_t x) : v(_mm_set1_epi32(x)) {}
+            explicit int32x4(int32_t x) : v(_mm_set1_epi32(x)) {}
             int32x4(__m128i v) : v(v) {}
 #endif
         };
@@ -173,11 +173,11 @@ namespace c4 {
             uint32x4() = default;
 #ifdef USE_ARM_NEON
             uint32x4_t v;
-            uint32x4(uint32_t x) : v(vdupq_n_u32(x)) {}
+            explicit uint32x4(uint32_t x) : v(vdupq_n_u32(x)) {}
             uint32x4(uint32x4_t v) : v(v) {}
 #else
             __m128i v;
-            uint32x4(uint32_t x) : v(_mm_set1_epi32(x)) {}
+            explicit uint32x4(uint32_t x) : v(_mm_set1_epi32(x)) {}
             uint32x4(__m128i v) : v(v) {}
 #endif
         };
@@ -187,11 +187,11 @@ namespace c4 {
             float32x4() = default;
 #ifdef USE_ARM_NEON
             float32x4_t v;
-            float32x4(float x) : v(vdupq_n_f32(x)) {}
+            explicit float32x4(float x) : v(vdupq_n_f32(x)) {}
             float32x4(float32x4_t v) : v(v) {}
 #else
             __m128 v;
-            float32x4(float x) : v(_mm_set1_ps(x)) {}
+            explicit float32x4(float x) : v(_mm_set1_ps(x)) {}
             float32x4(__m128 v) : v(v) {}
 #endif
         };
@@ -2482,7 +2482,11 @@ namespace c4 {
         
         template<int n>
         inline uint8x16 shift_left(uint8x16 a) {
-            return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
+#ifdef USE_ARM_NEON
+            return vshlq_n_u8(a.v, n);
+#else
+            return _mm_and_si128(_mm_set1_epi8(0xff << n), _mm_slli_epi32(a.v, n));
+#endif
         }
 
         template<int n>
@@ -2496,7 +2500,11 @@ namespace c4 {
 
         template<int n>
         inline uint16x8 shift_left(uint16x8 a) {
-            return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
+#ifdef USE_ARM_NEON
+            return vshlq_n_u16(a.v, n);
+#else
+            return _mm_slli_epi16(a.v, n);
+#endif
         }
 
         template<int n>
@@ -2510,7 +2518,11 @@ namespace c4 {
 
         template<int n>
         inline uint32x4 shift_left(uint32x4 a) {
-            return reinterpret_unsigned(shift_left(reinterpret_signed(a), n));
+#ifdef USE_ARM_NEON
+            return vshlq_n_u32(a.v, n);
+#else
+            return _mm_slli_epi32(a.v, n);
+#endif
         }
 
         template<int n>
@@ -2629,8 +2641,8 @@ namespace c4 {
         // Shift right
         // Shifting in sign bits for signed types
         // Shifting in zero bits for unsigned types
-
-        inline int8x16 shift_right(int8x16 a, int8_t n) {
+        template<int n>
+        inline int8x16 shift_right(int8x16 a) {
 #ifdef USE_ARM_NEON
             return vshrq_n_s8(a.v, n);
 #else
@@ -2641,7 +2653,8 @@ namespace c4 {
 #endif
         }
 
-        inline uint8x16 shift_right(uint8x16 a, int8_t n) {
+        template<int n>
+        inline uint8x16 shift_right(uint8x16 a) {
 #ifdef USE_ARM_NEON
             return vshrq_n_u8(a.v, n);
 #else
@@ -2652,7 +2665,8 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8 shift_right(int16x8 a, int8_t n) {
+        template<int n>
+        inline int16x8 shift_right(int16x8 a) {
 #ifdef USE_ARM_NEON
             return vshrq_n_s16(a.v, n);
 #else
@@ -2660,7 +2674,8 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8 shift_right(uint16x8 a, int8_t n) {
+        template<int n>
+        inline uint16x8 shift_right(uint16x8 a) {
 #ifdef USE_ARM_NEON
             return vshrq_n_u16(a.v, n);
 #else
@@ -2668,7 +2683,8 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4 shift_right(int32x4 a, int8_t n) {
+        template<int n>
+        inline int32x4 shift_right(int32x4 a) {
 #ifdef USE_ARM_NEON
             return vshrq_n_s32(a.v, n);
 #else
@@ -2676,7 +2692,8 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4 shift_right(uint32x4 a, int8_t n) {
+        template<int n>
+        inline uint32x4 shift_right(uint32x4 a) {
 #ifdef USE_ARM_NEON
             return vshrq_n_u32(a.v, n);
 #else
@@ -3057,11 +3074,11 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vrhaddq_u32(a.v, b.v);
 #else
-            uint32x4 a2 = shift_right(a, 1);
-            uint32x4 b2 = shift_right(b, 1);
+            uint32x4 a2 = shift_right<1>(a);
+            uint32x4 b2 = shift_right<1>(b);
             uint32x4 rounding{ _mm_or_si128(a.v, b.v) };
-            rounding = shift_left(rounding, 31);
-            rounding = shift_right(rounding, 31);
+            rounding = shift_left<31>(rounding);
+            rounding = shift_right<31>(rounding);
             uint32x4 sum = add(a2, b2);
             return add(sum, rounding);
 #endif
@@ -3164,7 +3181,7 @@ namespace c4 {
             static const __m128i clz4 = _mm_setr_epi8( 4, 3, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 );
             
             __m128i lo_clz = _mm_shuffle_epi8(clz4, a.v);
-            a = shift_right(a, 4);
+            a = shift_right<4>(a);
             __m128i hi_clz = _mm_shuffle_epi8(clz4, a.v);
             
             // we need to add lo_clz only if hi is zero

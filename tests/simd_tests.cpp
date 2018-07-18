@@ -726,7 +726,7 @@ void test_shift_left() {
     auto r = random_array<T, n>();
 
     auto va = load(a.data());
-    auto vr = shift_left(va, b);
+    auto vr = shift_left<b>(va);
 
     store(r.data(), vr);
 
@@ -748,7 +748,7 @@ void multitest1_shift_left() {
 }
 
 template<>
-void multitest1_shift_left<0>() {
+void multitest1_shift_left<-1>() {
 }
 
 void multitest_shift_left() {
@@ -812,22 +812,21 @@ void multitest1_shift_left_saturate() {
 }
 
 template<>
-void multitest1_shift_left_saturate<0>() {
+void multitest1_shift_left_saturate<-1>() {
 }
 
 void multitest_shift_left_saturate() {
     multitest1_shift_left_saturate<31>();
 }
 
-template<class T>
+template<class T, int b>
 void test_shift_right() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
-    int b = random<int, 0, sizeof(T) * 8 - 1>();
     auto r = random_array<T, n>();
 
     auto va = load(a.data());
-    auto vr = shift_right(va, b);
+    auto vr = shift_right<b>(va);
 
     store(r.data(), vr);
 
@@ -836,15 +835,25 @@ void test_shift_right() {
     }
 }
 
-void multitest_shift_right() {
-    test_shift_right<int8_t>();
-    test_shift_right<uint8_t>();
-    test_shift_right<int16_t>();
-    test_shift_right<uint16_t>();
-    test_shift_right<int32_t>();
-    test_shift_right<uint32_t>();
+template<int b>
+void multitest1_shift_right() {
+    test_shift_right<int8_t, b>();
+    test_shift_right<uint8_t, b>();
+    test_shift_right<int16_t, b>();
+    test_shift_right<uint16_t, b>();
+    test_shift_right<int32_t, b>();
+    test_shift_right<uint32_t, b>();
+
+    multitest1_shift_right<b - 1>();
 }
 
+template<>
+void multitest1_shift_right<-1>() {
+}
+
+void multitest_shift_right() {
+    multitest1_shift_right<31>();
+}
 
 template<class T>
 void test_bitwise_and() {
