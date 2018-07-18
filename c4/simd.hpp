@@ -659,7 +659,7 @@ namespace c4 {
 
         inline int8x16 cmpgt(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
-            return vcgtq_s8(a.v, b.v);
+            return vreinterpretq_s8_u8(vcgtq_s8(a.v, b.v));
 #else
             return _mm_cmpgt_epi8(a.v, b.v);
 #endif
@@ -679,7 +679,7 @@ namespace c4 {
 
         inline int16x8 cmpgt(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
-            return vcgtq_s16(a.v, b.v);
+            return vreinterpretq_s16_u16(vcgtq_s16(a.v, b.v));
 #else
             return _mm_cmpgt_epi16(a.v, b.v);
 #endif
@@ -699,7 +699,7 @@ namespace c4 {
 
         inline int32x4 cmpgt(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
-            return vcgtq_s32(a.v, b.v);
+            return vreinterpretq_s32_u32(vcgtq_s32(a.v, b.v));
 #else
             return _mm_cmpgt_epi32(a.v, b.v);
 #endif
@@ -964,7 +964,7 @@ namespace c4 {
             int8x8_t hi = vget_high_s8(a.v);
             int8x8_t lo = vget_low_s8(a.v);
 
-            return int16x8x2{ vmovl_s8(hi), vmovl_s8(lo) };
+            return { vmovl_s8(lo), vmovl_s8(hi) };
 #else
             int8x16 sign = cmpgt({ _mm_setzero_si128() }, a);
             return { _mm_unpacklo_epi8(a.v, sign.v), _mm_unpackhi_epi8(a.v, sign.v) };
@@ -976,7 +976,7 @@ namespace c4 {
             int16x4_t hi = vget_high_s16(a.v);
             int16x4_t lo = vget_low_s16(a.v);
 
-            return { vmovl_s16(hi), vmovl_s16(lo) };
+            return { vmovl_s16(lo), vmovl_s16(hi) };
 #else
             int16x8 sign = cmpgt({ _mm_setzero_si128() }, a);
             __m128i r0 = _mm_unpacklo_epi16(a.v, sign.v);
@@ -991,7 +991,7 @@ namespace c4 {
             uint8x8_t hi = vget_high_u8(a.v);
             uint8x8_t lo = vget_low_u8(a.v);
 
-            return { vmovl_u8(hi), vmovl_u8(lo) };
+            return { vmovl_u8(lo), vmovl_u8(hi) };
 #else
             return { _mm_unpacklo_epi8(a.v, _mm_setzero_si128()), _mm_unpackhi_epi8(a.v, _mm_setzero_si128()) };
 #endif
@@ -1002,7 +1002,7 @@ namespace c4 {
             uint16x4_t hi = vget_high_u16(a.v);
             uint16x4_t lo = vget_low_u16(a.v);
 
-            return { vmovl_u16(hi), vmovl_u16(lo) };
+            return { vmovl_u16(lo), vmovl_u16(hi) };
 #else
             return { _mm_unpacklo_epi16(a.v, _mm_setzero_si128()), _mm_unpackhi_epi16(a.v, _mm_setzero_si128()) };
 #endif
@@ -1402,11 +1402,12 @@ namespace c4 {
         template<class T>
         inline T combine(half<T> a, half<T> b) {
 #ifdef USE_ARM_NEON
-            int8x16 a8 = reinterpret<int8x16_t>(a);
-            int8x16 b8 = reinterpret<int8x16_t>(a);
-            int8x8_t a8h = vget_low_s8(a8);
-            int8x8_t b8h = vget_low_s8(b8);
-            return vcombine_s8(a8h, b8h);
+            int8x16 a8 = reinterpret<int8x16>(extend(a));
+            int8x16 b8 = reinterpret<int8x16>(extend(b));
+            int8x8_t a8h = vget_low_s8(a8.v);
+            int8x8_t b8h = vget_low_s8(b8.v);
+            int8x16 r = vcombine_s8(a8h, b8h);
+            return reinterpret<T>(r);
 #else
             __m128i a0 = _mm_srli_si128(_mm_slli_si128(a.v, 8), 8);
             __m128i b0 = _mm_slli_si128(b.v, 8);
@@ -3007,7 +3008,7 @@ namespace c4 {
         // Same speed on NEON, but faster on SSE compared to 32-bit mul
         inline int32x4 mul_16_sub(int32x4 s, int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
-            return vmlaq_s32(s.v, a.v, b.v);
+            return vmlsq_s32(s.v, a.v, b.v);
 #else
             return sub(s, mul_16(a, b));
 #endif
@@ -3015,7 +3016,7 @@ namespace c4 {
 
         __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_sub(uint32x4 s, uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
-            return vmlaq_u32(s.v, a.v, b.v);
+            return vmlsq_u32(s.v, a.v, b.v);
 #else
             return sub(s, mul_lo(a, b));
 #endif
@@ -3023,7 +3024,7 @@ namespace c4 {
 
         inline float32x4 mul_sub(float32x4 s, float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
-            return vmlaq_f32(s.v, a.v, b.v);
+            return vmlsq_f32(s.v, a.v, b.v);
 #else
             return sub(s, mul(a, b));
 #endif
