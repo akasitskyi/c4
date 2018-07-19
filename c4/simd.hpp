@@ -1491,6 +1491,138 @@ namespace c4 {
 #endif
         }
 
+        inline int8x16x3 load_3_interleaved(const int8_t* ptr) {
+#ifdef USE_ARM_NEON
+            return make_tuple(vld3q_s8(ptr));
+#else
+            __m128i x0 = _mm_loadu_si128((__m128i*)ptr);            // a0, b0, c0, a1, b1, c1, a2, b2, c2, a3, b3, c3, a4, b4, c4, a5
+            __m128i x1 = _mm_loadu_si128((__m128i*)ptr + 1);        // b5, c5, a6, b6, c6, a7, b7, c7, a8, b8, c8, a9, b9, c9,a10,b10
+            __m128i x2 = _mm_loadu_si128((__m128i*)ptr + 2);        //c10,a11,b11,c11,a12,b12,c12,a13,b13,c13,a14,b14,c14,a15,b15,c15
+
+            static const __m128i mask_a0 = _mm_setr_epi8             (  0,  3,  6,  9, 12, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            __m128i a0 = _mm_shuffle_epi8(x0, mask_a0);             // a0, a1, a2, a3, a4, a5,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+            static const __m128i mask_a1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1,  2,  5,  8, 11, 14, -1, -1, -1, -1, -1);
+            __m128i a1 = _mm_shuffle_epi8(x1, mask_a1);             //  0,  0,  0,  0,  0,  0, a6, a7, a8, a9,a10,  0,  0,  0,  0,  0
+            static const __m128i mask_a2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  1,  4,  7, 10, 13);
+            __m128i a2 = _mm_shuffle_epi8(x2, mask_a2);             //  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,a11,a12,a13,a14,a15
+            __m128i a = _mm_or_si128(a0, _mm_or_si128(a1, a2));     // a0, a1, a2, a3, a4, a5, a6, a7, a8, a9,a10,a11,a12,a13,a14,a15
+
+            static const __m128i mask_b0 = _mm_setr_epi8             (  1,  4,  7, 10, 13, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            __m128i b0 = _mm_shuffle_epi8(x0, mask_b0);             // b0, b1, b2, b3, b4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+            static const __m128i mask_b1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1,  0,  3,  6,  9, 12, 15, -1, -1, -1, -1, -1);
+            __m128i b1 = _mm_shuffle_epi8(x1, mask_b1);             //  0,  0,  0,  0,  0, b5, b6, b7, b8, b9,b10,  0,  0,  0,  0,  0
+            static const __m128i mask_b2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  2,  5,  8, 11, 14);
+            __m128i b2 = _mm_shuffle_epi8(x2, mask_b2);             //  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,b11,b12,b13,b14,b15
+            __m128i b = _mm_or_si128(b0, _mm_or_si128(b1, b2));     // b0, b1, b2, b3, b4, b5, b6, b7, b8, b9,b10,b11,b12,b13,b14,b15
+
+            static const __m128i mask_c0 = _mm_setr_epi8             (  2,  5,  8, 11, 14, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            __m128i c0 = _mm_shuffle_epi8(x0, mask_c0);             // c0, c1, c2, c3, c4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+            static const __m128i mask_c1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1,  1,  4,  7, 10, 13, -1, -1, -1, -1, -1, -1);
+            __m128i c1 = _mm_shuffle_epi8(x1, mask_c1);             //  0,  0,  0,  0,  0, c5, c6, c7, c8, c9,  0,  0,  0,  0,  0,  0
+            static const __m128i mask_c2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  3,  6,  9, 12, 15);
+            __m128i c2 = _mm_shuffle_epi8(x2, mask_c2);             //  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,c10,c11,c12,c13,c14,c15
+            __m128i c = _mm_or_si128(c0, _mm_or_si128(c1, c2));     // c0, c1, c2, c3, c4, c5, c6, c7, c8, c9,c10,c11,c12,c13,c14,c15
+
+            return { a, b, c };
+#endif
+        }
+
+        inline uint8x16x3 load_3_interleaved(const uint8_t* ptr) {
+            return reinterpret_unsigned(load_3_interleaved((int8_t*)ptr));
+        }
+
+        inline int16x8x3 load_3_interleaved(const int16_t* ptr) {
+#ifdef USE_ARM_NEON
+            return make_tuple(vld3q_s16(ptr));
+#else
+            __m128i x0 = _mm_loadu_si128((__m128i*)ptr);            // a0, b0, c0, a1, b1, c1, a2, b2
+            __m128i x1 = _mm_loadu_si128((__m128i*)ptr + 1);        // c2, a3, b3, c3, a4, b4, c4, a5
+            __m128i x2 = _mm_loadu_si128((__m128i*)ptr + 2);        // b5, c5, a6, b6, c6, a7, b7, c7
+
+            static const __m128i mask_a0 = _mm_setr_epi8             (  0,  1,  6,  7, 12, 13, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            __m128i a0 = _mm_shuffle_epi8(x0, mask_a0);             //   a0,     a1,     a2,      0,      0,      0,      0,      0
+            static const __m128i mask_a1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1,  2,  3,  8,  9, 14, 15, -1, -1, -1, -1);
+            __m128i a1 = _mm_shuffle_epi8(x1, mask_a1);             //    0,      0,      0,     a3,     a4,     a5,      0,      0
+            static const __m128i mask_a2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  4,  5, 10, 11);
+            __m128i a2 = _mm_shuffle_epi8(x2, mask_a2);             //    0,      0,      0,      0,      0,      0,     a6,     a7
+            __m128i a = _mm_or_si128(a0, _mm_or_si128(a1, a2));     // a0, a1, a2, a3, a4, a5, a6, a7
+
+            static const __m128i mask_b0 = _mm_setr_epi8             (  2,  3,  8,  9, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            __m128i b0 = _mm_shuffle_epi8(x0, mask_b0);             //   b0,     b1,     b2,      0,      0,      0,      0,      0
+            static const __m128i mask_b1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1,  4,  5, 10, 11, -1, -1, -1, -1, -1, -1);
+            __m128i b1 = _mm_shuffle_epi8(x1, mask_b1);             //    0,      0,      0,     b3,     b4,      0,      0,      0
+            static const __m128i mask_b2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  6,  7, 12, 13);
+            __m128i b2 = _mm_shuffle_epi8(x2, mask_b2);             //    0,      0,      0,      0,      0,     b5,     b6,     b7
+            __m128i b = _mm_or_si128(b0, _mm_or_si128(b1, b2));     // b0, b1, b2, b3, b4, b5, b6, b7
+
+            static const __m128i mask_c0 = _mm_setr_epi8             (  4,  5, 10, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            __m128i c0 = _mm_shuffle_epi8(x0, mask_c0);             //   c0,     c1,      0,      0,      0,      0,      0,      0
+            static const __m128i mask_c1 = _mm_setr_epi8             ( -1, -1, -1, -1,  0,  1,  6,  7, 12, 13, -1, -1, -1, -1, -1, -1);
+            __m128i c1 = _mm_shuffle_epi8(x1, mask_c1);             //    0,      0,     c2,     c3,     c4,      0,      0,      0
+            static const __m128i mask_c2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  2,  3,  8,  9, 14, 15);
+            __m128i c2 = _mm_shuffle_epi8(x2, mask_c2);             //    0,      0,      0,      0,      0,     c5,     c6,     c7
+            __m128i c = _mm_or_si128(c0, _mm_or_si128(c1, c2));     // c0, c1, c2, c3, c4, c5, c6, c7
+
+            return { a, b, c };
+#endif
+        }
+
+        inline uint16x8x3 load_3_interleaved(const uint16_t* ptr) {
+            return reinterpret_unsigned(load_3_interleaved((int16_t*)ptr));
+        }
+
+        inline int32x4x3 load_3_interleaved(const int32_t* ptr) {
+#ifdef USE_ARM_NEON
+            return make_tuple(vld3q_s32(ptr));
+#else
+            __m128i x0 = _mm_loadu_si128((__m128i*)ptr);            // a0, b0, c0, a1
+            __m128i x1 = _mm_loadu_si128((__m128i*)ptr + 1);        // b1, c1, a2, b2
+            __m128i x2 = _mm_loadu_si128((__m128i*)ptr + 2);        // c2, a3, b3, c3
+
+            x0 = _mm_shuffle_epi32(x0, _MM_SHUFFLE(2, 1, 3, 0));    // a0, a1, b0, c0
+            x1 = _mm_swap_lo_hi_64(x1);                             // a2, b2, b1, c1
+            x2 = _mm_shuffle_epi32(x2, _MM_SHUFFLE(3, 0, 2, 1));    // a3, b3, c2, c3
+
+            __m128i x01 = _mm_unpackhi_epi32(x0, x1);               // b0, b1, c0, c1
+            __m128i x12 = _mm_unpacklo_epi32(x1, x2);               // a2, a3, b2, b3
+            __m128i x10 = _mm_swap_lo_hi_64(x01);                   // c0, c1, b0, b1
+
+            __m128i y0 = _mm_unpacklo_epi64(x0, x12);               // a0, a1, a2, a3
+            __m128i y1 = _mm_unpackhi_epi64(x10, x12);              // b0, b1, b2, b3
+            __m128i y2 = _mm_unpackhi_epi64(x01, x2);               // c0, c1, c2, c3
+
+            return { y0, y1, y2 };
+#endif
+        }
+
+        inline uint32x4x3 load_3_interleaved(const uint32_t* ptr) {
+            return reinterpret_unsigned(load_3_interleaved((int32_t*)ptr));
+        }
+
+        inline float32x4x3 load_3_interleaved(const float* ptr) {
+#ifdef USE_ARM_NEON
+            return make_tuple(vld3q_f32(ptr));
+#else
+            __m128i x0 = _mm_loadu_si128((__m128i*)ptr);            // a0, b0, c0, a1
+            __m128i x1 = _mm_loadu_si128((__m128i*)ptr + 1);        // b1, c1, a2, b2
+            __m128i x2 = _mm_loadu_si128((__m128i*)ptr + 2);        // c2, a3, b3, c3
+
+            x0 = _mm_shuffle_epi32(x0, _MM_SHUFFLE(2, 1, 3, 0));    // a0, a1, b0, c0
+            x1 = _mm_swap_lo_hi_64(x1);                             // a2, b2, b1, c1
+            x2 = _mm_shuffle_epi32(x2, _MM_SHUFFLE(3, 0, 2, 1));    // a3, b3, c2, c3
+
+            __m128i x01 = _mm_unpackhi_epi32(x0, x1);               // b0, b1, c0, c1
+            __m128i x12 = _mm_unpacklo_epi32(x1, x2);               // a2, a3, b2, b3
+            __m128i x10 = _mm_swap_lo_hi_64(x01);                   // c0, c1, b0, b1
+
+            __m128i y0 = _mm_unpacklo_epi64(x0, x12);               // a0, a1, a2, a3
+            __m128i y1 = _mm_unpackhi_epi64(x10, x12);              // b0, b1, b2, b3
+            __m128i y2 = _mm_unpackhi_epi64(x01, x2);               // c0, c1, c2, c3
+
+            return { _mm_castsi128_ps(y0), _mm_castsi128_ps(y1), _mm_castsi128_ps(y2) };
+#endif
+        }
+
         // read 24 bytes: a0, b0, c0, ... a7, b7, c7
         // return {A, B, C}
         inline uint16x8x3 load_3_interleaved_long(const uint8_t* ptr) {

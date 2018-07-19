@@ -410,6 +410,32 @@ void multitest_load_2_interleaved() {
     test_load_2_interleaved<uint16_t>();
     test_load_2_interleaved<int32_t>();
     test_load_2_interleaved<uint32_t>();
+    test_load_2_interleaved<float>();
+}
+
+template<class T>
+void test_load_3_interleaved() {
+    constexpr int n = 48 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load_3_interleaved(a.data());
+
+    store_tuple(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[3 * i % n + 3 * i / n]);
+    }
+}
+
+void multitest_load_3_interleaved() {
+    test_load_3_interleaved<int8_t>();
+    test_load_3_interleaved<uint8_t>();
+    test_load_3_interleaved<int16_t>();
+    test_load_3_interleaved<uint16_t>();
+    test_load_3_interleaved<int32_t>();
+    test_load_3_interleaved<uint32_t>();
+    test_load_3_interleaved<float>();
 }
 
 template<class T>
@@ -1351,6 +1377,7 @@ int main()
             multitest_get_high();
             multitest_combine();
             multitest_load_2_interleaved();
+            multitest_load_3_interleaved();
             multitest_load_2_interleaved_long();
             multitest_load_3_interleaved_long();
             multitest_load_4_interleaved();
