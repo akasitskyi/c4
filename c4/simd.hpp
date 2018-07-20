@@ -1676,10 +1676,6 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8x3 load_3_interleaved_long(const int8_t* ptr) {
-            return reinterpret_signed(load_3_interleaved_long((uint8_t*)ptr));
-        }
-
         inline uint32x4x3 load_3_interleaved_long(const uint16_t* ptr) {
 #ifdef USE_ARM_NEON
             uint16x4x3_t u16 = vld3_u16(ptr);
@@ -1717,10 +1713,6 @@ namespace c4 {
 
             return { a, b, c };
 #endif
-        }
-
-        inline int32x4x3 load_3_interleaved_long(const int16_t* ptr) {
-            return reinterpret_signed(load_3_interleaved_long((uint16_t*)ptr));
         }
 
 
