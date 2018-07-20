@@ -462,13 +462,27 @@ namespace c4 {
         // helpers
 
 #ifdef USE_SSE
+        template<int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7, int i8, int i9, int i10, int i11, int i12, int i13, int i14, int i15>
+        constexpr __m128i shuffle_mask() {
+            return _mm_setr_epi8(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15);
+        }
+
+#define A(I) I >= 0 ? 2 * I : -1
+#define B(I) I >= 0 ? 2 * I + 1 : -1
+        template<int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7>
+        constexpr __m128i shuffle_mask() {
+            return shuffle_mask<A(i0), B(i0), A(i1), B(i1), A(i2), B(i2), A(i3), B(i3), A(i4), B(i4), A(i5), B(i5), A(i6), B(i6), A(i7), B(i7)>();
+        }
+#undef A
+#undef B
+
         inline __m128i _mm_separate_even_odd_8(__m128i x) {
-            static const __m128i mask = _mm_setr_epi8(0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15);
+            static const __m128i mask = shuffle_mask<0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15>();
             return _mm_shuffle_epi8(x, mask);
         }
 
         inline __m128i _mm_separate_even_odd_16(__m128i x) {
-            static const __m128i mask = _mm_setr_epi8(0, 1, 4, 5, 8, 9, 12, 13, 2, 3, 6, 7, 10, 11, 14, 15);
+            static const __m128i mask = shuffle_mask<0, 2, 4, 6, 1, 3, 5, 7>();
             return _mm_shuffle_epi8(x, mask);
         }
 
@@ -1130,10 +1144,8 @@ namespace c4 {
 
             return vcombine_u8(lo, hi);
 #else
-            alignas(16) const static int8_t index[]{ 0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15 };
-            const static __m128i i = _mm_load_si128((const __m128i*)index);
-            __m128i al = _mm_shuffle_epi8(p.val[0].v, i);
-            __m128i bl = _mm_shuffle_epi8(p.val[1].v, i);
+            __m128i al = _mm_separate_even_odd_8(p.val[0].v);
+            __m128i bl = _mm_separate_even_odd_8(p.val[1].v);
 
             return _mm_unpacklo_epi64(al, bl);
 #endif
@@ -1499,27 +1511,27 @@ namespace c4 {
             __m128i x1 = _mm_loadu_si128((__m128i*)ptr + 1);        // b5, c5, a6, b6, c6, a7, b7, c7, a8, b8, c8, a9, b9, c9,a10,b10
             __m128i x2 = _mm_loadu_si128((__m128i*)ptr + 2);        //c10,a11,b11,c11,a12,b12,c12,a13,b13,c13,a14,b14,c14,a15,b15,c15
 
-            static const __m128i mask_a0 = _mm_setr_epi8             (  0,  3,  6,  9, 12, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            static const __m128i mask_a0 = shuffle_mask              <  0,  3,  6,  9, 12, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1>();
             __m128i a0 = _mm_shuffle_epi8(x0, mask_a0);             // a0, a1, a2, a3, a4, a5,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
-            static const __m128i mask_a1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1,  2,  5,  8, 11, 14, -1, -1, -1, -1, -1);
+            static const __m128i mask_a1 = shuffle_mask              < -1, -1, -1, -1, -1, -1,  2,  5,  8, 11, 14, -1, -1, -1, -1, -1>();
             __m128i a1 = _mm_shuffle_epi8(x1, mask_a1);             //  0,  0,  0,  0,  0,  0, a6, a7, a8, a9,a10,  0,  0,  0,  0,  0
-            static const __m128i mask_a2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  1,  4,  7, 10, 13);
+            static const __m128i mask_a2 = shuffle_mask              < -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  1,  4,  7, 10, 13>();
             __m128i a2 = _mm_shuffle_epi8(x2, mask_a2);             //  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,a11,a12,a13,a14,a15
             __m128i a = _mm_or_si128(a0, _mm_or_si128(a1, a2));     // a0, a1, a2, a3, a4, a5, a6, a7, a8, a9,a10,a11,a12,a13,a14,a15
 
-            static const __m128i mask_b0 = _mm_setr_epi8             (  1,  4,  7, 10, 13, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            static const __m128i mask_b0 = shuffle_mask              <  1,  4,  7, 10, 13, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1>();
             __m128i b0 = _mm_shuffle_epi8(x0, mask_b0);             // b0, b1, b2, b3, b4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
-            static const __m128i mask_b1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1,  0,  3,  6,  9, 12, 15, -1, -1, -1, -1, -1);
+            static const __m128i mask_b1 = shuffle_mask              < -1, -1, -1, -1, -1,  0,  3,  6,  9, 12, 15, -1, -1, -1, -1, -1>();
             __m128i b1 = _mm_shuffle_epi8(x1, mask_b1);             //  0,  0,  0,  0,  0, b5, b6, b7, b8, b9,b10,  0,  0,  0,  0,  0
-            static const __m128i mask_b2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  2,  5,  8, 11, 14);
+            static const __m128i mask_b2 = shuffle_mask              < -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  2,  5,  8, 11, 14>();
             __m128i b2 = _mm_shuffle_epi8(x2, mask_b2);             //  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,b11,b12,b13,b14,b15
             __m128i b = _mm_or_si128(b0, _mm_or_si128(b1, b2));     // b0, b1, b2, b3, b4, b5, b6, b7, b8, b9,b10,b11,b12,b13,b14,b15
 
-            static const __m128i mask_c0 = _mm_setr_epi8             (  2,  5,  8, 11, 14, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            static const __m128i mask_c0 = shuffle_mask              <  2,  5,  8, 11, 14, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1>();
             __m128i c0 = _mm_shuffle_epi8(x0, mask_c0);             // c0, c1, c2, c3, c4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
-            static const __m128i mask_c1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1,  1,  4,  7, 10, 13, -1, -1, -1, -1, -1, -1);
+            static const __m128i mask_c1 = shuffle_mask              < -1, -1, -1, -1, -1,  1,  4,  7, 10, 13, -1, -1, -1, -1, -1, -1>();
             __m128i c1 = _mm_shuffle_epi8(x1, mask_c1);             //  0,  0,  0,  0,  0, c5, c6, c7, c8, c9,  0,  0,  0,  0,  0,  0
-            static const __m128i mask_c2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  3,  6,  9, 12, 15);
+            static const __m128i mask_c2 = shuffle_mask              < -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  3,  6,  9, 12, 15>();
             __m128i c2 = _mm_shuffle_epi8(x2, mask_c2);             //  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,c10,c11,c12,c13,c14,c15
             __m128i c = _mm_or_si128(c0, _mm_or_si128(c1, c2));     // c0, c1, c2, c3, c4, c5, c6, c7, c8, c9,c10,c11,c12,c13,c14,c15
 
@@ -1539,28 +1551,28 @@ namespace c4 {
             __m128i x1 = _mm_loadu_si128((__m128i*)ptr + 1);        // c2, a3, b3, c3, a4, b4, c4, a5
             __m128i x2 = _mm_loadu_si128((__m128i*)ptr + 2);        // b5, c5, a6, b6, c6, a7, b7, c7
 
-            static const __m128i mask_a0 = _mm_setr_epi8             (  0,  1,  6,  7, 12, 13, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
-            __m128i a0 = _mm_shuffle_epi8(x0, mask_a0);             //   a0,     a1,     a2,      0,      0,      0,      0,      0
-            static const __m128i mask_a1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1,  2,  3,  8,  9, 14, 15, -1, -1, -1, -1);
-            __m128i a1 = _mm_shuffle_epi8(x1, mask_a1);             //    0,      0,      0,     a3,     a4,     a5,      0,      0
-            static const __m128i mask_a2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  4,  5, 10, 11);
-            __m128i a2 = _mm_shuffle_epi8(x2, mask_a2);             //    0,      0,      0,      0,      0,      0,     a6,     a7
+            static const __m128i mask_a0 = shuffle_mask              <  0,  3,  6, -1, -1, -1, -1, -1>();
+            __m128i a0 = _mm_shuffle_epi8(x0, mask_a0);             // a0, a1, a2,  0,  0,  0,  0,  0
+            static const __m128i mask_a1 = shuffle_mask              < -1, -1, -1,  1,  4,  7, -1, -1>();
+            __m128i a1 = _mm_shuffle_epi8(x1, mask_a1);             //  0,  0,  0, a3, a4, a5,  0,  0
+            static const __m128i mask_a2 = shuffle_mask              < -1, -1, -1, -1, -1, -1,  2,  5>();
+            __m128i a2 = _mm_shuffle_epi8(x2, mask_a2);             //  0,  0,  0,  0,  0,  0, a6, a7
             __m128i a = _mm_or_si128(a0, _mm_or_si128(a1, a2));     // a0, a1, a2, a3, a4, a5, a6, a7
 
-            static const __m128i mask_b0 = _mm_setr_epi8             (  2,  3,  8,  9, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
-            __m128i b0 = _mm_shuffle_epi8(x0, mask_b0);             //   b0,     b1,     b2,      0,      0,      0,      0,      0
-            static const __m128i mask_b1 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1,  4,  5, 10, 11, -1, -1, -1, -1, -1, -1);
-            __m128i b1 = _mm_shuffle_epi8(x1, mask_b1);             //    0,      0,      0,     b3,     b4,      0,      0,      0
-            static const __m128i mask_b2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  6,  7, 12, 13);
-            __m128i b2 = _mm_shuffle_epi8(x2, mask_b2);             //    0,      0,      0,      0,      0,     b5,     b6,     b7
+            static const __m128i mask_b0 = shuffle_mask              <  1,  4,  7, -1, -1, -1, -1, -1>();
+            __m128i b0 = _mm_shuffle_epi8(x0, mask_b0);             // b0, b1, b2,  0,  0,  0,  0,  0
+            static const __m128i mask_b1 = shuffle_mask              < -1, -1, -1,  2,  5, -1, -1, -1>();
+            __m128i b1 = _mm_shuffle_epi8(x1, mask_b1);             //  0,  0,  0, b3, b4,  0,  0,  0
+            static const __m128i mask_b2 = shuffle_mask              < -1, -1, -1, -1, -1,  0,  3,  6>();
+            __m128i b2 = _mm_shuffle_epi8(x2, mask_b2);             //  0,  0,  0,  0,  0, b5, b6, b7
             __m128i b = _mm_or_si128(b0, _mm_or_si128(b1, b2));     // b0, b1, b2, b3, b4, b5, b6, b7
 
-            static const __m128i mask_c0 = _mm_setr_epi8             (  4,  5, 10, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
-            __m128i c0 = _mm_shuffle_epi8(x0, mask_c0);             //   c0,     c1,      0,      0,      0,      0,      0,      0
-            static const __m128i mask_c1 = _mm_setr_epi8             ( -1, -1, -1, -1,  0,  1,  6,  7, 12, 13, -1, -1, -1, -1, -1, -1);
-            __m128i c1 = _mm_shuffle_epi8(x1, mask_c1);             //    0,      0,     c2,     c3,     c4,      0,      0,      0
-            static const __m128i mask_c2 = _mm_setr_epi8             ( -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  2,  3,  8,  9, 14, 15);
-            __m128i c2 = _mm_shuffle_epi8(x2, mask_c2);             //    0,      0,      0,      0,      0,     c5,     c6,     c7
+            static const __m128i mask_c0 = shuffle_mask              <  2,  5, -1, -1, -1, -1, -1, -1>();
+            __m128i c0 = _mm_shuffle_epi8(x0, mask_c0);             // c0, c1,  0,  0,  0,  0,  0,  0
+            static const __m128i mask_c1 = shuffle_mask              < -1, -1,  0,  3,  6, -1, -1, -1>();
+            __m128i c1 = _mm_shuffle_epi8(x1, mask_c1);             //  0,  0, c2, c3, c4,  0,  0,  0
+            static const __m128i mask_c2 = shuffle_mask              < -1, -1, -1, -1, -1,  1,  4,  7>();
+            __m128i c2 = _mm_shuffle_epi8(x2, mask_c2);             //  0,  0,  0,  0,  0, c5, c6, c7
             __m128i c = _mm_or_si128(c0, _mm_or_si128(c1, c2));     // c0, c1, c2, c3, c4, c5, c6, c7
 
             return { a, b, c };
@@ -1636,24 +1648,25 @@ namespace c4 {
             return u16;
 #else
             __m128i v0 = _mm_loadu_si128((__m128i*)ptr);        // a0, b0, c0, a1, b1, c1, a2, b2, c2, a3, b3, c3, a4, b4, c4, a5
-            __m128i v1 = _mm_loadl_epi64((__m128i*)(ptr + 16)); // b5, c5, a6, b6, c6, a7, b7, c7, ...
+            __m128i v1 = _mm_loadl_epi64((__m128i*)ptr + 1);    // b5, c5, a6, b6, c6, a7, b7, c7, ...
 
-            static const __m128i mask_a0 = _mm_setr_epi8(0, -1, 3, -1, 6, -1, 9, -1, 12, -1, 15, -1, -1, -1, -1, -1);
-            static const __m128i mask_a1 = _mm_setr_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 2, -1, 5, -1);
+            // TODO: we can use one mask and _mm_alignr_epi8
+            static const __m128i mask_a0 = shuffle_mask<0, -1, 3, -1, 6, -1, 9, -1, 12, -1, 15, -1, -1, -1, -1, -1>();
+            static const __m128i mask_a1 = shuffle_mask<-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 2, -1, 5, -1>();
             
             __m128i a0 = _mm_shuffle_epi8(v0, mask_a0);         // A0, A1, A2, A3, A4, A5,  0,  0
             __m128i a1 = _mm_shuffle_epi8(v1, mask_a1);         //  0,  0,  0,  0,  0,  0, A6, A7
             __m128i a = _mm_or_si128(a0, a1);                   // A0, A1, A2, A3, A4, A5, A6, A7
 
-            static const __m128i mask_b0 = _mm_setr_epi8(1, -1, 4, -1, 7, -1, 10, -1, 13, -1, -1, -1, -1, -1, -1, -1);
-            static const __m128i mask_b1 = _mm_setr_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, -1, 3, -1, 6, -1);
+            static const __m128i mask_b0 = shuffle_mask<1, -1, 4, -1, 7, -1, 10, -1, 13, -1, -1, -1, -1, -1, -1, -1>();
+            static const __m128i mask_b1 = shuffle_mask<-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, -1, 3, -1, 6, -1>();
 
             __m128i b0 = _mm_shuffle_epi8(v0, mask_b0);         // B0, B1, B2, B3, B4,  0,  0,  0
             __m128i b1 = _mm_shuffle_epi8(v1, mask_b1);         //  0,  0,  0,  0,  0, B5, B6, B7
             __m128i b = _mm_or_si128(b0, b1);                   // B0, B1, B2, B3, B4, B5, B6, B7
 
-            static const __m128i mask_c0 = _mm_setr_epi8(2, -1, 5, -1, 8, -1, 11, -1, 14, -1, -1, -1, -1, -1, -1, -1);
-            static const __m128i mask_c1 = _mm_setr_epi8(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 4, -1, 7, -1);
+            static const __m128i mask_c0 = shuffle_mask<2, -1, 5, -1, 8, -1, 11, -1, 14, -1, -1, -1, -1, -1, -1, -1>();
+            static const __m128i mask_c1 = shuffle_mask<-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 4, -1, 7, -1>();
 
             __m128i c0 = _mm_shuffle_epi8(v0, mask_c0);         // C0, C1, C2, C3, C4,  0,  0,  0
             __m128i c1 = _mm_shuffle_epi8(v1, mask_c1);         //  0,  0,  0,  0,  0, C5, C6, C7
@@ -1661,6 +1674,53 @@ namespace c4 {
 
             return { a, b, c };
 #endif
+        }
+
+        inline int16x8x3 load_3_interleaved_long(const int8_t* ptr) {
+            return reinterpret_signed(load_3_interleaved_long((uint8_t*)ptr));
+        }
+
+        inline uint32x4x3 load_3_interleaved_long(const uint16_t* ptr) {
+#ifdef USE_ARM_NEON
+            uint16x4x3_t u16 = vld3_u16(ptr);
+            uint32x4x3 u32;
+            u32.val[0] = vmovl_u16(u16.val[0]);
+            u32.val[1] = vmovl_u16(u16.val[1]);
+            u32.val[2] = vmovl_u16(u16.val[2]);
+
+            return u32;
+#else
+            __m128i v0 = _mm_loadu_si128((__m128i*)ptr);        // a0, b0, c0, a1, b1, c1, a2, b2
+            __m128i v1 = _mm_loadl_epi64((__m128i*)ptr + 1);    // c2, a3, b3, c3,  0,  0,  0,  0
+
+                                                                // TODO: we can use one mask and _mm_alignr_epi8
+            static const __m128i mask_a0 = shuffle_mask         <   0, -1,  3, -1,  6, -1, -1, -1>();
+            static const __m128i mask_a1 = shuffle_mask         <  -1, -1, -1, -1, -1, -1,  1, -1>();
+
+            __m128i a0 = _mm_shuffle_epi8(v0, mask_a0);         // A0, A1, A2,  0
+            __m128i a1 = _mm_shuffle_epi8(v1, mask_a1);         //  0,  0,  0, A3
+            __m128i a = _mm_or_si128(a0, a1);                   // A0, A1, A2, A3
+
+            static const __m128i mask_b0 = shuffle_mask         <   1, -1,  4, -1,  7, -1, -1, -1>();
+            static const __m128i mask_b1 = shuffle_mask         <  -1, -1, -1, -1, -1, -1,  2, -1>();
+
+            __m128i b0 = _mm_shuffle_epi8(v0, mask_b0);         // B0, B1, B2,  0
+            __m128i b1 = _mm_shuffle_epi8(v1, mask_b1);         //  0,  0,  0, B3
+            __m128i b = _mm_or_si128(b0, b1);                   // B0, B1, B2, B3
+
+            static const __m128i mask_c0 = shuffle_mask         <   2, -1,  5, -1, -1, -1, -1, -1>();
+            static const __m128i mask_c1 = shuffle_mask         <  -1, -1, -1, -1,  0, -1,  3, -1>();
+
+            __m128i c0 = _mm_shuffle_epi8(v0, mask_c0);         // C0, C1,  0,  0
+            __m128i c1 = _mm_shuffle_epi8(v1, mask_c1);         //  0,  0, C2, C3
+            __m128i c = _mm_or_si128(c0, c1);                   // C0, C1, C2, C3
+
+            return { a, b, c };
+#endif
+        }
+
+        inline int32x4x3 load_3_interleaved_long(const int16_t* ptr) {
+            return reinterpret_signed(load_3_interleaved_long((uint16_t*)ptr));
         }
 
 
@@ -2113,12 +2173,12 @@ namespace c4 {
             // actually a merge of two masks: (-1 means we don't care)
             //  0,  8, -1,  1,  9, -1,  2, 10, -1,  3, 11, -1,  4, 12, -1, 5
             // -1, -1,  0, -1, -1,  1, -1, -1,  2, -1, -1,  3, -1, -1,  4, -1
-            static const __m128i shuffle_mask0 = _mm_setr_epi8(0, 8, 0, 1, 9, 1, 2, 10, 2, 3, 11, 3, 4, 12, 4, 5);
+            static const __m128i shuffle_mask0 = shuffle_mask<0, 8, 0, 1, 9, 1, 2, 10, 2, 3, 11, 3, 4, 12, 4, 5>();
 
             // actually a merge of two masks: (-1 means we don't care)
             // 13, -1,  6, 14, -1, 7 , 15, -1, -1, -1, -1, -1, -1, -1, -1, -1
             // -1,  5, -1, -1,  6, -1, -1,  7, -1, -1, -1, -1, -1, -1, -1, -1
-            static const __m128i shuffle_mask1 = _mm_setr_epi8(13, 5, 6, 14, 6, 7, 15, 7, -1, -1, -1, -1, -1, -1, -1, -1);
+            static const __m128i shuffle_mask1 = shuffle_mask<13, 5, 6, 14, 6, 7, 15, 7, -1, -1, -1, -1, -1, -1, -1, -1>();
 
             __m128i sh0 = _mm_shuffle_epi8(ab, shuffle_mask0);               // a0, b0,  *, a1, b1,  *, a2, b2,  *, a3, b3,  *, a4, b4,  *, a5
             __m128i sh1 = _mm_shuffle_epi8(c0, shuffle_mask0);               //  *,  *, c0,  *,  *, c1,  *,  *, c2,  *,  *, c3,  *,  *, c4,  *
@@ -2144,20 +2204,14 @@ namespace c4 {
             // 16 bit masks: (-1 means we don't care)
             //  0,  4, -1,  1,  5, -1,  2,  6
             // -1, -1,  0, -1, -1,  1, -1, -1
-            // 8 bit masks: (-1 means we don't care)
-            //  0,  1,  8,  9, -1, -1,  2,  3, 10, 11, -1, -1,  4, 5,  12, 13
-            // -1, -1, -1, -1,  0,  1, -1, -1, -1, -1,  2,  3, -1, -1, -1, -1
             // merge two masks
-            static const __m128i shuffle_mask0 = _mm_setr_epi8(0, 1, 8, 9, 0, 1, 2, 3, 10, 11, 2, 3, 4, 5, 12, 13);
+            static const __m128i shuffle_mask0 = shuffle_mask<0, 4, 0, 1, 5, 1, 2, 6>();
 
             // 16 bit masks: (-1 means we don't care)
             // -1,  3,  7, -1, -1, -1, -1, -1
             //  2, -1, -1,  3, -1, -1, -1, -1
-            // 8 bit masks: (-1 means we don't care)
-            // -1, -1,  6,  7, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
-            //  4,  5, -1, -1, -1, -1,  6,  7, -1, -1, -1, -1, -1, -1, -1, -1
             // merge two masks
-            static const __m128i shuffle_mask1 = _mm_setr_epi8(4, 5, 6, 7, 14, 15, 6, 7, -1, -1, -1, -1, -1, -1, -1, -1);
+            static const __m128i shuffle_mask1 = shuffle_mask<2, 3, 7, 3, -1, -1, -1, -1>();
 
             __m128i sh0 = _mm_shuffle_epi8(ab, shuffle_mask0);               // a0, b0,  *, a1, b1,  *, a2, b2
             __m128i sh1 = _mm_shuffle_epi8(c0, shuffle_mask0);               //  *,  *, c0,  *,  *, c1,  *,  *

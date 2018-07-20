@@ -476,6 +476,7 @@ void test_load_3_interleaved_long() {
 
 void multitest_load_3_interleaved_long() {
     test_load_3_interleaved_long<uint8_t>();
+    test_load_3_interleaved_long<uint16_t>();
 }
 
 template<class T>
