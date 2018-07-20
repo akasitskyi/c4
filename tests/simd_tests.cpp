@@ -505,6 +505,27 @@ void multitest_load_4_interleaved() {
 }
 
 template<class T>
+void test_load_4_interleaved_long() {
+    constexpr int n = 32 / sizeof(T);
+    auto a = random_array<T, n>();
+
+    auto va = load_4_interleaved_long(a.data());
+
+    auto r = random_array<typename std::remove_reference<decltype(va.val[0])>::type::base_t, n>();
+
+    store_tuple(r.data(), va);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[4 * i % n + 4 * i / n]);
+    }
+}
+
+void multitest_load_4_interleaved_long() {
+    test_load_4_interleaved_long<uint8_t>();
+    test_load_4_interleaved_long<uint16_t>();
+}
+
+template<class T>
 void test_store_2_interleaved() {
     constexpr int n = 32 / sizeof(T);
     auto a = random_array<T, n>();
@@ -1382,6 +1403,7 @@ int main()
             multitest_load_2_interleaved_long();
             multitest_load_3_interleaved_long();
             multitest_load_4_interleaved();
+            multitest_load_4_interleaved_long();
             multitest_store_2_interleaved();
             multitest_store_4_interleaved();
             multitest_store_3_interleaved_narrow_saturate();

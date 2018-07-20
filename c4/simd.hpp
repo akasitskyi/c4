@@ -1497,7 +1497,7 @@ namespace c4 {
 #else
             uint8x16 a = load(ptr);                   // a0, b0, a1, b1, a2, b2, a3, b3, a4, b4, a5, b5, a6, b6, a7, b7
 
-            a.v = _mm_separate_even_odd_8(a.v);             // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
+            a.v = _mm_separate_even_odd_8(a.v);       // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
 
             return long_move(a);
 #endif
@@ -1844,6 +1844,73 @@ namespace c4 {
             x3 = _mm_movehl_ps(y3, y1);
 
             return { x0, x1, x2, x3 };
+#endif
+        }
+
+        // read 32 bytes: a0, b0, c0, d0, ... a7, b7, c7, d7
+        // return {A, B, C, D}
+        inline uint16x8x4 load_4_interleaved_long(const uint8_t* ptr) {
+#ifdef USE_ARM_NEON
+            uint8x8x4_t u8 = vld4_u8(ptr);
+            uint16x8x4 u16;
+            u16.val[0] = vmovl_u8(u8.val[0]);
+            u16.val[1] = vmovl_u8(u8.val[1]);
+            u16.val[2] = vmovl_u8(u8.val[2]);
+            u16.val[3] = vmovl_u8(u8.val[3]);
+
+            return u16;
+#else
+            __m128i v0 = _mm_loadu_si128((__m128i*)ptr);        // a0, b0, c0, d0, a1, b1, c1, d1, a2, b2, c2, d2, a3, b3, c3, d3
+            __m128i v1 = _mm_loadu_si128((__m128i*)ptr + 1);    // a4, b4, c4, d4, a5, b5, c5, d5, a6, b6, c6, d6, a7, b7, c7, d7
+
+            __m128i x0 = _mm_unpacklo_epi8(v0, v1);             // a0, a4, b0, b4, c0, c4, d0, d4, a1, a5, b1, b5, c1, c5, d1, d5
+            __m128i x1 = _mm_unpackhi_epi8(v0, v1);             // a2, a6, b2, b6, c2, c6, d2, d6, a3, a7, b3, b7, c3, c7, d3, d7
+
+            v0 = _mm_unpacklo_epi8(x0, x1);                     // a0, a2, a4, a6, b0, b2, b4, b6, c0, c2, c4, c6, d0, d2, d4, d6
+            v1 = _mm_unpackhi_epi8(x0, x1);                     // a1, a3, a5, a7, b1, b3, b5, b7, c1, c3, c5, c7, d1, d3, d5, d7
+
+            x0 = _mm_unpacklo_epi8(v0, v1);                     // a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7
+            x1 = _mm_unpackhi_epi8(v0, v1);                     // c0, c1, c2, c3, c4, c5, c6, c7, d0, d1, d2, d3, d4, d5, d6, d7
+
+            const __m128i zero = _mm_setzero_si128();
+            
+            __m128i a = _mm_unpacklo_epi8(x0, zero);            // A0, A1, A2, A3, A4, A5, A6, A7
+            __m128i b = _mm_unpackhi_epi8(x0, zero);            // B0, B1, B2, B3, B4, B5, B6, B7
+            __m128i c = _mm_unpacklo_epi8(x1, zero);            // C0, C1, C2, C3, C4, C5, C6, C7
+            __m128i d = _mm_unpackhi_epi8(x1, zero);            // D0, D1, D2, D3, D4, D5, D6, D7
+            
+            return { a, b, c, d };
+#endif
+        }
+
+        inline uint32x4x4 load_4_interleaved_long(const uint16_t* ptr) {
+#ifdef USE_ARM_NEON
+            uint16x4x4_t u16 = vld4_u16(ptr);
+            uint32x4x4 u32;
+            u32.val[0] = vmovl_u16(u16.val[0]);
+            u32.val[1] = vmovl_u16(u16.val[1]);
+            u32.val[2] = vmovl_u16(u16.val[2]);
+            u32.val[3] = vmovl_u16(u16.val[3]);
+
+            return u32;
+#else
+            __m128i v0 = _mm_loadu_si128((__m128i*)ptr);        // a0, b0, c0, d0, a1, b1, c1, d1
+            __m128i v1 = _mm_loadu_si128((__m128i*)ptr + 1);    // a2, b2, c2, d2, a3, b3, c3, d3
+
+            __m128i x0 = _mm_unpacklo_epi16(v0, v1);            // a0, a2, b0, b2, c0, c2, d0, d2
+            __m128i x1 = _mm_unpackhi_epi16(v0, v1);            // a1, a3, b1, b3, c1, c3, d1, d3
+
+            v0 = _mm_unpacklo_epi16(x0, x1);                    // a0, a1, a2, a3, b0, b1, b2, b3
+            v1 = _mm_unpackhi_epi16(x0, x1);                    // c0, c1, c2, c3, d0, d1, d2, d3
+
+            const __m128i zero = _mm_setzero_si128();
+
+            __m128i a = _mm_unpacklo_epi16(v0, zero);           // A0, A1, A2, A3
+            __m128i b = _mm_unpackhi_epi16(v0, zero);           // B0, B1, B2, B3
+            __m128i c = _mm_unpacklo_epi16(v1, zero);           // C0, C1, C2, C3
+            __m128i d = _mm_unpackhi_epi16(v1, zero);           // D0, D1, D2, D3
+
+            return { a, b, c, d };
 #endif
         }
 
