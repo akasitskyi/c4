@@ -889,6 +889,54 @@ void multitest_sub_div2() {
 }
 
 template<class T>
+void test_abs_diff() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = abs_diff(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], (T)std::abs((int64_t)a[i] - (int64_t)b[i]));
+    }
+}
+
+template<>
+void test_abs_diff<float>() {
+    constexpr int n = 16 / sizeof(float);
+    auto a = random_array<float, n>();
+    auto b = random_array<float, n>();
+    auto r = random_array<float, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = abs_diff(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], std::abs(a[i] - b[i]));
+    }
+}
+
+void multitest_abs_diff() {
+    test_abs_diff<int8_t>();
+    test_abs_diff<uint8_t>();
+    test_abs_diff<int16_t>();
+    test_abs_diff<uint16_t>();
+    test_abs_diff<int32_t>();
+    test_abs_diff<uint32_t>();
+    test_abs_diff<float>();
+}
+
+
+
+template<class T>
 void test_abs() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
@@ -1651,6 +1699,7 @@ int main()
             multitest_hadd();
             multitest_sub();
             multitest_sub_div2();
+            multitest_abs_diff();
             multitest_abs();
             multitest_neg();
             multitest_shift_left();

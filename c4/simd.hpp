@@ -1027,6 +1027,64 @@ namespace c4 {
 #endif
         }
 
+        // Select a[i] ? b[i] : c[i]; a[i] must be 0 or all ones
+        inline int8x16 select(uint8x16 a, int8x16 b, int8x16 c) {
+#ifdef USE_ARM_NEON
+            return vbslq_s8(a.v, b.v, c.v);
+#else
+            return _mm_blendv_si128(c.v, b.v, a.v);
+#endif
+        }
+
+        inline uint8x16 select(uint8x16 a, uint8x16 b, uint8x16 c) {
+#ifdef USE_ARM_NEON
+            return vbslq_u8(a.v, b.v, c.v);
+#else
+            return _mm_blendv_si128(c.v, b.v, a.v);
+#endif
+        }
+
+        inline int16x8 select(uint16x8 a, int16x8 b, int16x8 c) {
+#ifdef USE_ARM_NEON
+            return vbslq_s16(a.v, b.v, c.v);
+#else
+            return _mm_blendv_si128(c.v, b.v, a.v);
+#endif
+        }
+
+        inline uint16x8 select(uint16x8 a, uint16x8 b, uint16x8 c) {
+#ifdef USE_ARM_NEON
+            return vbslq_u16(a.v, b.v, c.v);
+#else
+            return _mm_blendv_si128(c.v, b.v, a.v);
+#endif
+        }
+
+        inline int32x4 select(uint32x4 a, int32x4 b, int32x4 c) {
+#ifdef USE_ARM_NEON
+            return vbslq_s32(a.v, b.v, c.v);
+#else
+            return _mm_blendv_si128(c.v, b.v, a.v);
+#endif
+        }
+
+        inline uint32x4 select(uint32x4 a, uint32x4 b, uint32x4 c) {
+#ifdef USE_ARM_NEON
+            return vbslq_u32(a.v, b.v, c.v);
+#else
+            return _mm_blendv_si128(c.v, b.v, a.v);
+#endif
+        }
+
+        inline float32x4 select(uint32x4 a, float32x4 b, float32x4 c) {
+#ifdef USE_ARM_NEON
+            return vbslq_f32(a.v, b.v, c.v);
+#else
+            __m128 mask = _mm_castsi128_ps(a.v);
+            return _mm_or_ps(_mm_andnot_ps(mask, c.v), _mm_and_ps(mask, b.v));
+#endif
+        }
+
 
         // Interleave
         inline int8x16x2 interleave(int8x16x2 p) {
@@ -2926,6 +2984,64 @@ namespace c4 {
 #endif
         }
 
+        // Absolute difference
+
+        inline int8x16 abs_diff(int8x16 a, int8x16 b) {
+#ifdef USE_ARM_NEON
+            return vabdq_s8(a.v, b.v);
+#else
+            return select(greater(a, b), sub(a, b), sub(b, a));
+#endif
+        }
+
+        inline uint8x16 abs_diff(uint8x16 a, uint8x16 b) {
+#ifdef USE_ARM_NEON
+            return vabdq_u8(a.v, b.v);
+#else
+            return _mm_max_epu8(_mm_subs_epu8(a.v, b.v), _mm_subs_epu8(b.v, a.v));
+#endif
+        }
+
+        inline int16x8 abs_diff(int16x8 a, int16x8 b) {
+#ifdef USE_ARM_NEON
+            return vabdq_s16(a.v, b.v);
+#else
+            return select(greater(a, b), sub(a, b), sub(b, a));
+#endif
+        }
+
+        inline uint16x8 abs_diff(uint16x8 a, uint16x8 b) {
+#ifdef USE_ARM_NEON
+            return vabdq_u16(a.v, b.v);
+#else
+            return _mm_max_epu16(_mm_subs_epu16(a.v, b.v), _mm_subs_epu16(b.v, a.v));
+#endif
+        }
+
+        inline int32x4 abs_diff(int32x4 a, int32x4 b) {
+#ifdef USE_ARM_NEON
+            return vabdq_s32(a.v, b.v);
+#else
+            return select(greater(a, b), sub(a, b), sub(b, a));
+#endif
+        }
+
+        inline uint32x4 abs_diff(uint32x4 a, uint32x4 b) {
+#ifdef USE_ARM_NEON
+            return vabdq_u32(a.v, b.v);
+#else
+            return select(greater(a, b), sub(a, b), sub(b, a));
+#endif
+        }
+
+        inline float32x4 abs_diff(float32x4 a, float32x4 b) {
+#ifdef USE_ARM_NEON
+            return vabdq_f32(a.v, b.v);
+#else
+            return abs(sub(a, b));
+#endif
+        }
+
         // Negate
 
         inline int8x16 neg(int8x16 a) {
@@ -3291,65 +3407,6 @@ namespace c4 {
             r8.v = _mm_or_si128(a8.v, bitwise_not(b8).v);
 #endif
             return reinterpret<T>(r8);
-        }
-
-        // Select a[i] ? b[i] : c[i]; a[i] must be 0 or all ones
-
-        inline int8x16 select(uint8x16 a, int8x16 b, int8x16 c) {
-#ifdef USE_ARM_NEON
-            return vbslq_s8(a.v, b.v, c.v);
-#else
-            return _mm_blendv_si128(c.v, b.v, a.v);
-#endif
-        }
-
-        inline uint8x16 select(uint8x16 a, uint8x16 b, uint8x16 c) {
-#ifdef USE_ARM_NEON
-            return vbslq_u8(a.v, b.v, c.v);
-#else
-            return _mm_blendv_si128(c.v, b.v, a.v);
-#endif
-        }
-
-        inline int16x8 select(uint16x8 a, int16x8 b, int16x8 c) {
-#ifdef USE_ARM_NEON
-            return vbslq_s16(a.v, b.v, c.v);
-#else
-            return _mm_blendv_si128(c.v, b.v, a.v);
-#endif
-        }
-
-        inline uint16x8 select(uint16x8 a, uint16x8 b, uint16x8 c) {
-#ifdef USE_ARM_NEON
-            return vbslq_u16(a.v, b.v, c.v);
-#else
-            return _mm_blendv_si128(c.v, b.v, a.v);
-#endif
-        }
-
-        inline int32x4 select(uint32x4 a, int32x4 b, int32x4 c) {
-#ifdef USE_ARM_NEON
-            return vbslq_s32(a.v, b.v, c.v);
-#else
-            return _mm_blendv_si128(c.v, b.v, a.v);
-#endif
-        }
-
-        inline uint32x4 select(uint32x4 a, uint32x4 b, uint32x4 c) {
-#ifdef USE_ARM_NEON
-            return vbslq_u32(a.v, b.v, c.v);
-#else
-            return _mm_blendv_si128(c.v, b.v, a.v);
-#endif
-        }
-
-        inline float32x4 select(uint32x4 a, float32x4 b, float32x4 c) {
-#ifdef USE_ARM_NEON
-            return vbslq_f32(a.v, b.v, c.v);
-#else
-            __m128 mask = _mm_castsi128_ps(a.v);
-            return _mm_or_ps(_mm_andnot_ps(mask, c.v), _mm_and_ps(mask, b.v));
-#endif
         }
 
         // Multiplication
