@@ -888,6 +888,53 @@ void multitest_sub_div2() {
     test_sub_div2<uint32_t>();
 }
 
+template<class T>
+void test_abs() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = abs(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], (T)std::abs(a[i]));
+    }
+}
+
+void multitest_abs() {
+    test_abs<int8_t>();
+    test_abs<int16_t>();
+    test_abs<int32_t>();
+    test_abs<float>();
+}
+
+template<class T>
+void test_neg() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = neg(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], (T)-a[i]);
+    }
+}
+
+void multitest_neg() {
+    test_neg<int8_t>();
+    test_neg<int16_t>();
+    test_neg<int32_t>();
+    test_neg<float>();
+}
+
+
 template<class T, int tb>
 void test_shift_left() {
     constexpr int b = tb % (sizeof(T) * 8);
@@ -1156,6 +1203,34 @@ void multitest_bitwise_xor() {
     test_bitwise_xor<int32_t>();
     test_bitwise_xor<uint32_t>();
 }
+
+template<class T>
+void test_bitwise_or_not() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = bitwise_or_not(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[i] | ~b[i]));
+    }
+}
+
+void multitest_bitwise_or_not() {
+    test_bitwise_or_not<int8_t>();
+    test_bitwise_or_not<uint8_t>();
+    test_bitwise_or_not<int16_t>();
+    test_bitwise_or_not<uint16_t>();
+    test_bitwise_or_not<int32_t>();
+    test_bitwise_or_not<uint32_t>();
+}
+
 
 template<class T>
 void test_select() {
@@ -1576,6 +1651,8 @@ int main()
             multitest_hadd();
             multitest_sub();
             multitest_sub_div2();
+            multitest_abs();
+            multitest_neg();
             multitest_shift_left();
             multitest_shift_left_v();
             multitest_shift_left_saturate();
@@ -1585,6 +1662,7 @@ int main()
             multitest_bitwise_not();
             multitest_bitwise_and_not();
             multitest_bitwise_xor();
+            multitest_bitwise_or_not();
             multitest_select();
             multitest_mul_lo();
             multitest_mul_hi();

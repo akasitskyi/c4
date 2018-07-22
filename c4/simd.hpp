@@ -499,27 +499,31 @@ namespace c4 {
             return _mm_or_si128(_mm_andnot_si128(mask, x), _mm_and_si128(mask, y));
         }
 
-        inline __m128i _mm_set_0xff_si128() {
+        inline __m128i _mm_set_0xff_epi8() {
             __m128i r = _mm_setzero_si128();
             r = _mm_cmpeq_epi8(r, r);
             return r;
         }
 
-        inline __m128i _mm_set_0x80_si128() {
+        inline __m128i _mm_set_0x80_epi8() {
             static const __m128i r = _mm_set1_epi8((int8_t)0x80);
             return r;
         }
 
-        inline __m128i _mm_set_0x8000_si128() {
-            return _mm_slli_epi16(_mm_set_0xff_si128(), 15);
+        inline __m128i _mm_set_0x8000_epi16() {
+            return _mm_slli_epi16(_mm_set_0xff_epi8(), 15);
         }
 
-        inline __m128i _mm_set_0x7fff_si128() {
-            return _mm_srli_epi16(_mm_set_0xff_si128(), 1);
+        inline __m128i _mm_set_0x80000000_epi32() {
+            return _mm_slli_epi32(_mm_set_0xff_epi8(), 31);
         }
 
-        inline __m128i _mm_set_0x80000000_si128() {
-            return _mm_slli_epi32(_mm_set_0xff_si128(), 31);
+        inline __m128i _mm_set_0x7fff_epi16() {
+            return _mm_srli_epi16(_mm_set_0xff_epi8(), 1);
+        }
+
+        inline __m128i _mm_set_0x7fffffff_epi32() {
+            return _mm_srli_epi32(_mm_set_0xff_epi8(), 1);
         }
 
 #ifndef USE_SSE4_1
@@ -563,7 +567,7 @@ namespace c4 {
         }
 
         inline __m128i _mm_max_epu16(__m128i a, __m128i b) {
-            __m128i c = _mm_set_0x8000_si128();
+            __m128i c = _mm_set_0x8000_epi16();
             __m128i a_s = _mm_sub_epi16(a, c);
             __m128i b_s = _mm_sub_epi16(b, c);
             __m128i mn = _mm_max_epi16(a_s, b_s);
@@ -571,7 +575,7 @@ namespace c4 {
         }
 
         inline __m128i _mm_max_epu32(__m128i a, __m128i b) {
-            __m128i c = _mm_set_0x80000000_si128();
+            __m128i c = _mm_set_0x80000000_epi32();
             __m128i a_s = _mm_sub_epi32(a, c);
             __m128i b_s = _mm_sub_epi32(b, c);
             __m128i mask = _mm_cmpgt_epi32(b_s, a_s);
@@ -590,7 +594,7 @@ namespace c4 {
         }
 
         inline __m128i _mm_min_epu16(__m128i a, __m128i b) {
-            __m128i c = _mm_set_0x8000_si128();
+            __m128i c = _mm_set_0x8000_epi16();
             __m128i a_s = _mm_sub_epi16(a, c);
             __m128i b_s = _mm_sub_epi16(b, c);
             __m128i mn = _mm_min_epi16(a_s, b_s);
@@ -598,7 +602,7 @@ namespace c4 {
         }
 
         inline __m128i _mm_min_epu32(__m128i a, __m128i b) {
-            __m128i c = _mm_set_0x80000000_si128();
+            __m128i c = _mm_set_0x80000000_epi32();
             __m128i a_s = _mm_sub_epi32(a, c);
             __m128i b_s = _mm_sub_epi32(b, c);
             __m128i mask = _mm_cmpgt_epi32(a_s, b_s);
@@ -739,7 +743,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vcgtq_u8(a.v, b.v);
 #else
-            __m128i c0x80 = _mm_set_0x80_si128();
+            __m128i c0x80 = _mm_set_0x80_epi8();
             __m128i as = _mm_sub_epi8(a.v, c0x80);
             __m128i bs = _mm_sub_epi8(b.v, c0x80);
 
@@ -759,7 +763,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vcgtq_u16(a.v, b.v);
 #else
-            __m128i c0x8000 = _mm_set_0x8000_si128();
+            __m128i c0x8000 = _mm_set_0x8000_epi16();
             __m128i as = _mm_sub_epi16(a.v, c0x8000);
             __m128i bs = _mm_sub_epi16(b.v, c0x8000);
 
@@ -779,7 +783,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vcgtq_u32(a.v, b.v);
 #else
-            __m128i c0x80000000 = _mm_set_0x80000000_si128();
+            __m128i c0x80000000 = _mm_set_0x80000000_epi32();
             __m128i as = _mm_sub_epi32(a.v, c0x80000000);
             __m128i bs = _mm_sub_epi32(b.v, c0x80000000);
 
@@ -2850,7 +2854,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vhsubq_s8(a.v, b.v);
 #else
-            const int8x16 c0x80 = _mm_set_0x80_si128(); // -128
+            const int8x16 c0x80 = _mm_set_0x80_epi8(); // -128
 
             uint8x16 au = reinterpret_unsigned(sub(a, c0x80));
             uint8x16 bu = reinterpret_unsigned(sub(b, c0x80));
@@ -2863,7 +2867,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vhsubq_s16(a.v, b.v);
 #else
-            const int16x8 c0x8000 = _mm_set_0x8000_si128();
+            const int16x8 c0x8000 = _mm_set_0x8000_epi16();
 
             uint16x8 au = reinterpret_unsigned(sub(a, c0x8000));
             uint16x8 bu = reinterpret_unsigned(sub(b, c0x8000));
@@ -2885,6 +2889,74 @@ namespace c4 {
             b_1 = _mm_srli_epi32(_mm_slli_epi32(b_1, 31), 31);
 
             return _mm_sub_epi32(r, b_1);
+#endif
+        }
+
+        // Absolute value
+
+        inline int8x16 abs(int8x16 a) {
+#ifdef USE_ARM_NEON
+            return vabsq_s8(a.v);
+#else
+            return _mm_abs_epi8(a.v);
+#endif
+        }
+
+        inline int16x8 abs(int16x8 a) {
+#ifdef USE_ARM_NEON
+            return vabsq_s16(a.v);
+#else
+            return _mm_abs_epi16(a.v);
+#endif
+        }
+
+        inline int32x4 abs(int32x4 a) {
+#ifdef USE_ARM_NEON
+            return vabsq_s32(a.v);
+#else
+            return _mm_abs_epi32(a.v);
+#endif
+        }
+
+        inline float32x4 abs(float32x4 a) {
+#ifdef USE_ARM_NEON
+            return vabsq_f32(a.v);
+#else
+            return _mm_and_ps(a.v, _mm_castsi128_ps(_mm_set_0x7fffffff_epi32()));
+#endif
+        }
+
+        // Negate
+
+        inline int8x16 neg(int8x16 a) {
+#ifdef USE_ARM_NEON
+            return vnegq_s8(a.v);
+#else
+            return _mm_sub_epi8(_mm_setzero_si128(), a.v);
+#endif
+        }
+
+        inline int16x8 neg(int16x8 a) {
+#ifdef USE_ARM_NEON
+            return vnegq_s16(a.v);
+#else
+            return _mm_sub_epi16(_mm_setzero_si128(), a.v);
+#endif
+        }
+
+        inline int32x4 neg(int32x4 a) {
+#ifdef USE_ARM_NEON
+            return vnegq_s32(a.v);
+#else
+            return _mm_sub_epi32(_mm_setzero_si128(), a.v);
+#endif
+        }
+
+        inline float32x4 neg(float32x4 a) {
+#ifdef USE_ARM_NEON
+            return vnegq_f32(a.v);
+#else
+            return _mm_xor_ps(a.v, _mm_castsi128_ps(_mm_set_0x80000000_epi32()));
 #endif
         }
 
@@ -3203,6 +3275,20 @@ namespace c4 {
             r8.v = veorq_s8(a8.v, b8.v);
 #else
             r8.v = _mm_xor_si128(a8.v, b8.v);
+#endif
+            return reinterpret<T>(r8);
+        }
+
+        // a | ~b
+        template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
+        inline T bitwise_or_not(T a, T b) {
+            int8x16 a8 = reinterpret<int8x16>(a);
+            int8x16 b8 = reinterpret<int8x16>(b);
+            int8x16 r8;
+#ifdef USE_ARM_NEON
+            r8.v = vornq_s8(a8.v, b8.v);
+#else
+            r8.v = _mm_or_si128(a8.v, bitwise_not(b8).v);
 #endif
             return reinterpret<T>(r8);
         }
@@ -3532,7 +3618,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vrhaddq_s8(a.v, b.v);
 #else
-            const int8x16 c0x80 = _mm_set_0x80_si128();
+            const int8x16 c0x80 = _mm_set_0x80_epi8();
             a = sub(a, c0x80);
             b = sub(b, c0x80);
             int8x16 sum = reinterpret_signed(avg(reinterpret_unsigned(a), reinterpret_unsigned(b)));
@@ -3544,7 +3630,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vrhaddq_s16(a.v, b.v);
 #else
-            const int16x8 c0x8000 = _mm_set_0x8000_si128();
+            const int16x8 c0x8000 = _mm_set_0x8000_epi16();
             a = sub(a, c0x8000);
             b = sub(b, c0x8000);
             int16x8 sum = reinterpret_signed(avg(reinterpret_unsigned(a), reinterpret_unsigned(b)));
