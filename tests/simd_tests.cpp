@@ -59,6 +59,16 @@ T all_ones() {
     return t;
 }
 
+template<class T>
+struct mask_t {
+    typedef typename std::make_unsigned<T>::type type;
+};
+
+template<>
+struct mask_t<float> {
+    typedef uint32_t type;
+};
+
 template<class dst_t, class src_t>
 dst_t saturate(src_t x) {
     x = max<src_t>(x, std::numeric_limits<dst_t>::min());
@@ -80,31 +90,145 @@ public:
 // ====================================================== TESTS =================================================================
 
 template<class T>
-void test_cmpgt() {
+void test_greater() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto b = random_array<T, n>();
-    auto r = random_array<T, n>();
+    auto r = random_array<mask_t<T>::type, n>();
 
     auto va = load(a.data());
     auto vb = load(b.data());
-    auto vr = cmpgt(va, vb);
+    auto vr = c4::simd::greater(va, vb);
 
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], a[i] > b[i] ? all_ones<T>() : 0);
+        ASSERT_EQUAL(r[i], a[i] > b[i] ? all_ones<mask_t<T>::type>() : 0);
     }
 }
 
-void multitest_cmpgt() {
-    test_cmpgt<int8_t>();
-    test_cmpgt<uint8_t>();
-    test_cmpgt<int16_t>();
-    test_cmpgt<uint16_t>();
-    test_cmpgt<int32_t>();
-    test_cmpgt<uint32_t>();
+void multitest_greater() {
+    test_greater<int8_t>();
+    test_greater<uint8_t>();
+    test_greater<int16_t>();
+    test_greater<uint16_t>();
+    test_greater<int32_t>();
+    test_greater<uint32_t>();
+    test_greater<float>();
 }
+
+template<class T>
+void test_less() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<mask_t<T>::type, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = c4::simd::less(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[i] < b[i] ? all_ones<mask_t<T>::type>() : 0);
+    }
+}
+
+void multitest_less() {
+    test_less<int8_t>();
+    test_less<uint8_t>();
+    test_less<int16_t>();
+    test_less<uint16_t>();
+    test_less<int32_t>();
+    test_less<uint32_t>();
+    test_less<float>();
+}
+
+template<class T>
+void test_greater_equal() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<mask_t<T>::type, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = c4::simd::greater_equal(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[i] >= b[i] ? all_ones<mask_t<T>::type>() : 0);
+    }
+}
+
+void multitest_greater_equal() {
+    test_greater_equal<int8_t>();
+    test_greater_equal<uint8_t>();
+    test_greater_equal<int16_t>();
+    test_greater_equal<uint16_t>();
+    test_greater_equal<int32_t>();
+    test_greater_equal<uint32_t>();
+    test_greater_equal<float>();
+}
+
+template<class T>
+void test_less_equal() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<mask_t<T>::type, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = c4::simd::less_equal(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[i] <= b[i] ? all_ones<mask_t<T>::type>() : 0);
+    }
+}
+
+void multitest_less_equal() {
+    test_less_equal<int8_t>();
+    test_less_equal<uint8_t>();
+    test_less_equal<int16_t>();
+    test_less_equal<uint16_t>();
+    test_less_equal<int32_t>();
+    test_less_equal<uint32_t>();
+    test_less_equal<float>();
+}
+
+template<class T>
+void test_equal() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<mask_t<T>::type, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = c4::simd::equal(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[i] == b[i] ? all_ones<mask_t<T>::type>() : 0);
+    }
+}
+
+void multitest_equal() {
+    test_equal<int8_t>();
+    test_equal<uint8_t>();
+    test_equal<int16_t>();
+    test_equal<uint16_t>();
+    test_equal<int32_t>();
+    test_equal<uint32_t>();
+    test_equal<float>();
+}
+
 
 template<class T>
 void test_min() {
@@ -1386,7 +1510,11 @@ int main()
         const int n_steps = 1000;
 
         for (int k = 0; k < n_steps; k++) {
-            multitest_cmpgt();
+            multitest_greater();
+            multitest_less();
+            multitest_greater_equal();
+            multitest_less_equal();
+            multitest_equal();
             multitest_min();
             multitest_max();
             multitest_interleave();

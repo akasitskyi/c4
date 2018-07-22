@@ -671,15 +671,71 @@ namespace c4 {
             return r;
         }
 
-        inline int8x16 cmpgt(int8x16 a, int8x16 b) {
+        inline uint8x16 equal(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
-            return vreinterpretq_s8_u8(vcgtq_s8(a.v, b.v));
+            return vceqq_s8(a.v, b.v);
+#else
+            return _mm_cmpeq_epi8(a.v, b.v);
+#endif
+        }
+
+        inline uint8x16 equal(uint8x16 a, uint8x16 b) {
+#ifdef USE_ARM_NEON
+            return vceqq_u8(a.v, b.v);
+#else
+            return _mm_cmpeq_epi8(a.v, b.v);
+#endif
+        }
+
+        inline uint16x8 equal(int16x8 a, int16x8 b) {
+#ifdef USE_ARM_NEON
+            return vceqq_s16(a.v, b.v);
+#else
+            return _mm_cmpeq_epi16(a.v, b.v);
+#endif
+        }
+
+        inline uint16x8 equal(uint16x8 a, uint16x8 b) {
+#ifdef USE_ARM_NEON
+            return vceqq_u16(a.v, b.v);
+#else
+            return _mm_cmpeq_epi16(a.v, b.v);
+#endif
+        }
+
+        inline uint32x4 equal(int32x4 a, int32x4 b) {
+#ifdef USE_ARM_NEON
+            return vceqq_s32(a.v, b.v);
+#else
+            return _mm_cmpeq_epi32(a.v, b.v);
+#endif
+        }
+
+        inline uint32x4 equal(uint32x4 a, uint32x4 b) {
+#ifdef USE_ARM_NEON
+            return vceqq_u32(a.v, b.v);
+#else
+            return _mm_cmpeq_epi32(a.v, b.v);
+#endif
+        }
+
+        inline uint32x4 equal(float32x4 a, float32x4 b) {
+#ifdef USE_ARM_NEON
+            return vceqq_f32(a.v, b.v);
+#else
+            return _mm_castps_si128(_mm_cmpeq_ps(a.v, b.v));
+#endif
+        }
+
+        inline uint8x16 greater(int8x16 a, int8x16 b) {
+#ifdef USE_ARM_NEON
+            return vcgtq_s8(a.v, b.v);
 #else
             return _mm_cmpgt_epi8(a.v, b.v);
 #endif
         }
 
-        inline uint8x16 cmpgt(uint8x16 a, uint8x16 b) {
+        inline uint8x16 greater(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vcgtq_u8(a.v, b.v);
 #else
@@ -691,15 +747,15 @@ namespace c4 {
 #endif
         }
 
-        inline int16x8 cmpgt(int16x8 a, int16x8 b) {
+        inline uint16x8 greater(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
-            return vreinterpretq_s16_u16(vcgtq_s16(a.v, b.v));
+            return vcgtq_s16(a.v, b.v);
 #else
             return _mm_cmpgt_epi16(a.v, b.v);
 #endif
         }
 
-        inline uint16x8 cmpgt(uint16x8 a, uint16x8 b) {
+        inline uint16x8 greater(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vcgtq_u16(a.v, b.v);
 #else
@@ -711,15 +767,15 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4 cmpgt(int32x4 a, int32x4 b) {
+        inline uint32x4 greater(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
-            return vreinterpretq_s32_u32(vcgtq_s32(a.v, b.v));
+            return vcgtq_s32(a.v, b.v);
 #else
             return _mm_cmpgt_epi32(a.v, b.v);
 #endif
         }
 
-        inline uint32x4 cmpgt(uint32x4 a, uint32x4 b) {
+        inline uint32x4 greater(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vcgtq_u32(a.v, b.v);
 #else
@@ -729,6 +785,126 @@ namespace c4 {
 
             return _mm_cmpgt_epi32(as, bs);
 #endif
+        }
+
+        inline uint32x4 greater(float32x4 a, float32x4 b) {
+#ifdef USE_ARM_NEON
+            return vcgtq_f32(a.v, b.v);
+#else
+            return _mm_castps_si128(_mm_cmpgt_ps(a.v, b.v));
+#endif
+        }
+
+        inline uint8x16 less(int8x16 a, int8x16 b) {
+            return greater(b, a);
+        }
+
+        inline uint8x16 less(uint8x16 a, uint8x16 b) {
+            return greater(b, a);
+        }
+
+        inline uint16x8 less(int16x8 a, int16x8 b) {
+            return greater(b, a);
+        }
+
+        inline uint16x8 less(uint16x8 a, uint16x8 b) {
+            return greater(b, a);
+        }
+
+        inline uint32x4 less(int32x4 a, int32x4 b) {
+            return greater(b, a);
+        }
+
+        inline uint32x4 less(uint32x4 a, uint32x4 b) {
+            return greater(b, a);
+        }
+
+        inline uint32x4 less(float32x4 a, float32x4 b) {
+            return greater(b, a);
+        }
+
+        inline uint8x16 greater_equal(int8x16 a, int8x16 b) {
+#ifdef USE_ARM_NEON
+            return vcgeq_s8(a.v, b.v);
+#else
+            return _mm_or_si128(_mm_cmpgt_epi8(a.v, b.v), _mm_cmpeq_epi8(a.v, b.v));
+#endif
+        }
+
+        inline uint8x16 greater_equal(uint8x16 a, uint8x16 b) {
+#ifdef USE_ARM_NEON
+            return vcgeq_u8(a.v, b.v);
+#else
+            return _mm_cmpeq_epi8(_mm_max_epu8(a.v, b.v), a.v);
+#endif
+        }
+
+        inline uint16x8 greater_equal(int16x8 a, int16x8 b) {
+#ifdef USE_ARM_NEON
+            return vcgeq_s16(a.v, b.v);
+#else
+            return _mm_or_si128(_mm_cmpgt_epi16(a.v, b.v), _mm_cmpeq_epi16(a.v, b.v));
+#endif
+        }
+
+        inline uint16x8 greater_equal(uint16x8 a, uint16x8 b) {
+#ifdef USE_ARM_NEON
+            return vcgeq_u16(a.v, b.v);
+#else
+            return _mm_cmpeq_epi16(_mm_max_epu16(a.v, b.v), a.v);
+#endif
+        }
+
+        inline uint32x4 greater_equal(int32x4 a, int32x4 b) {
+#ifdef USE_ARM_NEON
+            return vcgeq_s32(a.v, b.v);
+#else
+            return _mm_or_si128(_mm_cmpgt_epi32(a.v, b.v), _mm_cmpeq_epi32(a.v, b.v));
+#endif
+        }
+
+        inline uint32x4 greater_equal(uint32x4 a, uint32x4 b) {
+#ifdef USE_ARM_NEON
+            return vcgeq_u32(a.v, b.v);
+#else
+            return _mm_cmpeq_epi32(_mm_max_epu32(a.v, b.v), a.v);
+#endif
+        }
+
+        inline uint32x4 greater_equal(float32x4 a, float32x4 b) {
+#ifdef USE_ARM_NEON
+            return vcgeq_f32(a.v, b.v);
+#else
+            return _mm_castps_si128(_mm_cmpge_ps(a.v, b.v));
+#endif
+        }
+
+        inline uint8x16 less_equal(int8x16 a, int8x16 b) {
+            return greater_equal(b, a);
+        }
+
+        inline uint8x16 less_equal(uint8x16 a, uint8x16 b) {
+            return greater_equal(b, a);
+        }
+
+        inline uint16x8 less_equal(int16x8 a, int16x8 b) {
+            return greater_equal(b, a);
+        }
+
+        inline uint16x8 less_equal(uint16x8 a, uint16x8 b) {
+            return greater_equal(b, a);
+        }
+
+        inline uint32x4 less_equal(int32x4 a, int32x4 b) {
+            return greater_equal(b, a);
+        }
+
+        inline uint32x4 less_equal(uint32x4 a, uint32x4 b) {
+            return greater_equal(b, a);
+        }
+
+        inline uint32x4 less_equal(float32x4 a, float32x4 b) {
+            return greater_equal(b, a);
         }
 
         // Minimum
@@ -980,8 +1156,8 @@ namespace c4 {
 
             return { vmovl_s8(lo), vmovl_s8(hi) };
 #else
-            int8x16 sign = cmpgt({ _mm_setzero_si128() }, a);
-            return { _mm_unpacklo_epi8(a.v, sign.v), _mm_unpackhi_epi8(a.v, sign.v) };
+            __m128i sign = _mm_cmpgt_epi8(_mm_setzero_si128(), a.v);
+            return { _mm_unpacklo_epi8(a.v, sign), _mm_unpackhi_epi8(a.v, sign) };
 #endif
         }
 
@@ -992,9 +1168,9 @@ namespace c4 {
 
             return { vmovl_s16(lo), vmovl_s16(hi) };
 #else
-            int16x8 sign = cmpgt({ _mm_setzero_si128() }, a);
-            __m128i r0 = _mm_unpacklo_epi16(a.v, sign.v);
-            __m128i r1 = _mm_unpackhi_epi16(a.v, sign.v);
+            __m128i sign = _mm_cmpgt_epi16(_mm_setzero_si128(), a.v);
+            __m128i r0 = _mm_unpacklo_epi16(a.v, sign);
+            __m128i r1 = _mm_unpackhi_epi16(a.v, sign);
             
             return { r0, r1 };
 #endif
@@ -1033,8 +1209,8 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vmovl_s8(vget_low_s8(a.v));
 #else
-            int8x16 sign = cmpgt(_mm_setzero_si128(), a);
-            return _mm_unpacklo_epi8(a.v, sign.v);
+            __m128i sign = _mm_cmpgt_epi8(_mm_setzero_si128(), a.v);
+            return _mm_unpacklo_epi8(a.v, sign);
 #endif
         }
 
@@ -1042,8 +1218,8 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vmovl_s16(vget_low_s16(a.v));
 #else
-            int16x8 sign = cmpgt(_mm_setzero_si128(), a);
-            return _mm_unpacklo_epi16(a.v, sign.v);
+            __m128i sign = _mm_cmpgt_epi16(_mm_setzero_si128(), a.v);
+            return _mm_unpacklo_epi16(a.v, sign);
 #endif
         }
 
