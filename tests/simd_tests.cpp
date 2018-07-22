@@ -1158,6 +1158,40 @@ void multitest_bitwise_xor() {
 }
 
 template<class T>
+void test_select() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<mask_t<T>::type, n>();
+
+    for (auto& x : a)
+        x = x % 2 ? all_ones<mask_t<T>::type>() : 0;
+
+    auto b = random_array<T, n>();
+    auto c = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vc = load(c.data());
+    auto vr = select(va, vb, vc);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], a[i] ? b[i] : c[i]);
+    }
+}
+
+void multitest_select() {
+    test_select<int8_t>();
+    test_select<uint8_t>();
+    test_select<int16_t>();
+    test_select<uint16_t>();
+    test_select<int32_t>();
+    test_select<uint32_t>();
+    test_select<float>();
+}
+
+template<class T>
 void test_mul_lo() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
@@ -1551,6 +1585,7 @@ int main()
             multitest_bitwise_not();
             multitest_bitwise_and_not();
             multitest_bitwise_xor();
+            multitest_select();
             multitest_mul_lo();
             multitest_mul_hi();
             test_mul();
