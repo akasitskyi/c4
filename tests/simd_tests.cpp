@@ -94,7 +94,7 @@ void test_greater() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto b = random_array<T, n>();
-    auto r = random_array<mask_t<T>::type, n>();
+    auto r = random_array<typename mask_t<T>::type, n>();
 
     auto va = load(a.data());
     auto vb = load(b.data());
@@ -103,7 +103,7 @@ void test_greater() {
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], a[i] > b[i] ? all_ones<mask_t<T>::type>() : 0);
+        ASSERT_EQUAL(r[i], a[i] > b[i] ? all_ones<typename mask_t<T>::type>() : 0);
     }
 }
 
@@ -122,7 +122,7 @@ void test_less() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto b = random_array<T, n>();
-    auto r = random_array<mask_t<T>::type, n>();
+    auto r = random_array<typename mask_t<T>::type, n>();
 
     auto va = load(a.data());
     auto vb = load(b.data());
@@ -131,7 +131,7 @@ void test_less() {
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], a[i] < b[i] ? all_ones<mask_t<T>::type>() : 0);
+        ASSERT_EQUAL(r[i], a[i] < b[i] ? all_ones<typename mask_t<T>::type>() : 0);
     }
 }
 
@@ -150,7 +150,7 @@ void test_greater_equal() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto b = random_array<T, n>();
-    auto r = random_array<mask_t<T>::type, n>();
+    auto r = random_array<typename mask_t<T>::type, n>();
 
     auto va = load(a.data());
     auto vb = load(b.data());
@@ -159,7 +159,7 @@ void test_greater_equal() {
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], a[i] >= b[i] ? all_ones<mask_t<T>::type>() : 0);
+        ASSERT_EQUAL(r[i], a[i] >= b[i] ? all_ones<typename mask_t<T>::type>() : 0);
     }
 }
 
@@ -178,7 +178,7 @@ void test_less_equal() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto b = random_array<T, n>();
-    auto r = random_array<mask_t<T>::type, n>();
+    auto r = random_array<typename mask_t<T>::type, n>();
 
     auto va = load(a.data());
     auto vb = load(b.data());
@@ -187,7 +187,7 @@ void test_less_equal() {
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], a[i] <= b[i] ? all_ones<mask_t<T>::type>() : 0);
+        ASSERT_EQUAL(r[i], a[i] <= b[i] ? all_ones<typename mask_t<T>::type>() : 0);
     }
 }
 
@@ -206,7 +206,7 @@ void test_equal() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto b = random_array<T, n>();
-    auto r = random_array<mask_t<T>::type, n>();
+    auto r = random_array<typename mask_t<T>::type, n>();
 
     auto va = load(a.data());
     auto vb = load(b.data());
@@ -215,7 +215,7 @@ void test_equal() {
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], a[i] == b[i] ? all_ones<mask_t<T>::type>() : 0);
+        ASSERT_EQUAL(r[i], a[i] == b[i] ? all_ones<typename mask_t<T>::type>() : 0);
     }
 }
 
@@ -1283,10 +1283,10 @@ void multitest_bitwise_or_not() {
 template<class T>
 void test_select() {
     constexpr int n = 16 / sizeof(T);
-    auto a = random_array<mask_t<T>::type, n>();
+    auto a = random_array<typename mask_t<T>::type, n>();
 
     for (auto& x : a)
-        x = x % 2 ? all_ones<mask_t<T>::type>() : 0;
+        x = x % 2 ? all_ones<typename mask_t<T>::type>() : 0;
 
     auto b = random_array<T, n>();
     auto c = random_array<T, n>();
