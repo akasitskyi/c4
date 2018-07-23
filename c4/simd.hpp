@@ -2965,7 +2965,7 @@ namespace c4 {
 
         // Long pairwise add
 
-        inline int16x8 hadd(int8x16 a) {
+        inline int16x8 hadd_long(int8x16 a) {
 #ifdef USE_ARM_NEON
             return vpaddlq_s8(a.v);
 #else
@@ -2976,7 +2976,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8 hadd(uint8x16 a) {
+        inline uint16x8 hadd_long(uint8x16 a) {
 #ifdef USE_ARM_NEON
             return vpaddlq_u8(a.v);
 #else
@@ -2987,7 +2987,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4 hadd(int16x8 a) {
+        inline int32x4 hadd_long(int16x8 a) {
 #ifdef USE_ARM_NEON
             return vpaddlq_s16(a.v);
 #else
@@ -2998,7 +2998,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4 hadd(uint16x8 a) {
+        inline uint32x4 hadd_long(uint16x8 a) {
 #ifdef USE_ARM_NEON
             return vpaddlq_u16(a.v);
 #else
@@ -3006,6 +3006,88 @@ namespace c4 {
             __m128i r1 = _mm_cvtepu16_epi32(_mm_swap_lo_hi_64(a.v));
 
             return _mm_hadd_epi32(r0, r1);
+#endif
+        }
+
+        // Horizontal (pairwise) add
+
+        inline int16x8 hadd(int16x8 a, int16x8 b) {
+#ifdef USE_ARM_NEON
+            int16x4_t a0 = vget_low_s16(a.v);
+            int16x4_t a1 = vget_high_s16(a.v);
+            int16x4_t b0 = vget_low_s16(b.v);
+            int16x4_t b1 = vget_high_s16(b.v);
+
+            int16x4_t r0 = vpadd_s16(a0, a1);
+            int16x4_t r1 = vpadd_s16(b0, b1);
+
+            return vcombine_s16(r0, r1);
+#else
+            return _mm_hadd_epi16(a.v, b.v);
+#endif
+        }
+
+        inline uint16x8 hadd(uint16x8 a, uint16x8 b) {
+#ifdef USE_ARM_NEON
+            uint16x4_t a0 = vget_low_u16(a.v);
+            uint16x4_t a1 = vget_high_u16(a.v);
+            uint16x4_t b0 = vget_low_u16(b.v);
+            uint16x4_t b1 = vget_high_u16(b.v);
+
+            uint16x4_t r0 = vpadd_u16(a0, a1);
+            uint16x4_t r1 = vpadd_u16(b0, b1);
+
+            return vcombine_u16(r0, r1);
+#else
+            return _mm_hadd_epi16(a.v, b.v);
+#endif
+        }
+
+        inline int32x4 hadd(int32x4 a, int32x4 b) {
+#ifdef USE_ARM_NEON
+            int32x2_t a0 = vget_low_s32(a.v);
+            int32x2_t a1 = vget_high_s32(a.v);
+            int32x2_t b0 = vget_low_s32(b.v);
+            int32x2_t b1 = vget_high_s32(b.v);
+
+            int32x2_t r0 = vpadd_s32(a0, a1);
+            int32x2_t r1 = vpadd_s32(b0, b1);
+
+            return vcombine_s32(r0, r1);
+#else
+            return _mm_hadd_epi32(a.v, b.v);
+#endif
+        }
+
+        inline uint32x4 hadd(uint32x4 a, uint32x4 b) {
+#ifdef USE_ARM_NEON
+            uint32x2_t a0 = vget_low_u32(a.v);
+            uint32x2_t a1 = vget_high_u32(a.v);
+            uint32x2_t b0 = vget_low_u32(b.v);
+            uint32x2_t b1 = vget_high_u32(b.v);
+
+            uint32x2_t r0 = vpadd_u32(a0, a1);
+            uint32x2_t r1 = vpadd_u32(b0, b1);
+
+            return vcombine_u32(r0, r1);
+#else
+            return _mm_hadd_epi32(a.v, b.v);
+#endif
+        }
+
+        inline float32x4 hadd(float32x4 a, float32x4 b) {
+#ifdef USE_ARM_NEON
+            float32x2_t a0 = vget_low_f32(a.v);
+            float32x2_t a1 = vget_high_f32(a.v);
+            float32x2_t b0 = vget_low_f32(b.v);
+            float32x2_t b1 = vget_high_f32(b.v);
+
+            float32x2_t r0 = vpadd_f32(a0, a1);
+            float32x2_t r1 = vpadd_f32(b0, b1);
+
+            return vcombine_f32(r0, r1);
+#else
+            return _mm_hadd_ps(a.v, b.v);
 #endif
         }
 

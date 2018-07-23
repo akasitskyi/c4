@@ -812,11 +812,11 @@ void multitest_add() {
 }
 
 template<class T>
-void test_hadd() {
+void test_hadd_long() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
     auto va = load(a.data());
-    auto vr = hadd(va);
+    auto vr = hadd_long(va);
 
     auto r = random_array<typename decltype(vr)::base_t, n / 2>();
 
@@ -827,11 +827,38 @@ void test_hadd() {
     }
 }
 
+void multitest_hadd_long() {
+    test_hadd_long<int8_t>();
+    test_hadd_long<uint8_t>();
+    test_hadd_long<int16_t>();
+    test_hadd_long<uint16_t>();
+}
+
+template<class T>
+void test_hadd() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, 2 * n>();
+
+    auto va = load(a.data());
+    auto vb = load(a.data() + n);
+
+    auto vr = hadd(va, vb);
+
+    auto r = random_array<typename decltype(vr)::base_t, n>();
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], T(a[2 * i] + a[2 * i + 1]));
+    }
+}
+
 void multitest_hadd() {
-    test_hadd<int8_t>();
-    test_hadd<uint8_t>();
     test_hadd<int16_t>();
     test_hadd<uint16_t>();
+    test_hadd<int32_t>();
+    test_hadd<uint32_t>();
+    test_hadd<float>();
 }
 
 template<class T>
@@ -1705,6 +1732,7 @@ int main()
             test_to_float();
             test_to_int();
             multitest_add();
+            multitest_hadd_long();
             multitest_hadd();
             multitest_sub();
             multitest_sub_div2();
