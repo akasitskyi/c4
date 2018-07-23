@@ -510,6 +510,8 @@ void multitest_combine() {
     test_combine<uint8_t>();
     test_combine<int16_t>();
     test_combine<uint16_t>();
+    test_combine<int32_t>();
+    test_combine<uint32_t>();
 }
 
 template<class T>
@@ -579,7 +581,10 @@ void test_load_2_interleaved_long() {
 }
 
 void multitest_load_2_interleaved_long() {
+    test_load_2_interleaved_long<int8_t>();
     test_load_2_interleaved_long<uint8_t>();
+    test_load_2_interleaved_long<int16_t>();
+    test_load_2_interleaved_long<uint16_t>();
 }
 
 template<class T>
@@ -599,7 +604,9 @@ void test_load_3_interleaved_long() {
 }
 
 void multitest_load_3_interleaved_long() {
+    test_load_3_interleaved_long<int8_t>();
     test_load_3_interleaved_long<uint8_t>();
+    test_load_3_interleaved_long<int16_t>();
     test_load_3_interleaved_long<uint16_t>();
 }
 
@@ -645,7 +652,9 @@ void test_load_4_interleaved_long() {
 }
 
 void multitest_load_4_interleaved_long() {
+    test_load_4_interleaved_long<int8_t>();
     test_load_4_interleaved_long<uint8_t>();
+    test_load_4_interleaved_long<int16_t>();
     test_load_4_interleaved_long<uint16_t>();
 }
 
