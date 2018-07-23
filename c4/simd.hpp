@@ -4108,6 +4108,31 @@ namespace c4 {
             return reinterpret_signed(clz(reinterpret_unsigned(a)));
         }
 
+        inline uint16x8 clz(uint16x8 a) {
+#ifdef USE_ARM_NEON
+            return vclzq_u16(a.v);
+#else
+            __m128i a8d = _mm_separate_even_odd_8(a.v);
+            uint8x16 c8 = clz(uint8x16(a8d));
+
+            const __m128i zero = _mm_setzero_si128();
+
+            __m128i lo_clz = _mm_unpacklo_epi8(c8.v, zero);
+            __m128i hi_clz = _mm_unpackhi_epi8(c8.v, zero);
+
+            // we need to add lo_clz only if hi is zero
+            __m128i mask = _mm_cmpeq_epi8(a8d, zero);
+            mask = _mm_unpackhi_epi8(mask, zero);
+            lo_clz = _mm_and_si128(lo_clz, mask);
+
+            return _mm_add_epi8(lo_clz, hi_clz);
+#endif
+        }
+
+        inline int16x8 clz(int16x8 a) {
+            return reinterpret_signed(clz(reinterpret_unsigned(a)));
+        }
+
         // Operations on tuples
         template<class T, int n, class = typename std::enable_if<traits::is_simd<T>::value>::type>
         tuple<T, n> binary_operation(tuple<T, n> a, tuple<T, n> b, std::function<T(T, T)> f) {

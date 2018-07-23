@@ -1691,6 +1691,8 @@ void test_clz () {
 void multitest_clz() {
     test_clz<int8_t>();
     test_clz<uint8_t>();
+    test_clz<int16_t>();
+    test_clz<uint16_t>();
 }
 
 
