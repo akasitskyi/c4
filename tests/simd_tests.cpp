@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <numeric>
+#include <algorithm>
 #include <iostream>
 
 #include <random>
@@ -994,6 +996,48 @@ void test_sad() {
     }
 }
 
+void test_sad_16() {
+    constexpr int n = 16;
+    auto a = random_array<uint8_t, n>();
+    auto b = random_array<uint8_t, n>();
+    auto r = random_array<uint16_t, 8>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = sad_16(va, vb);
+
+    store(r.data(), vr);
+
+    uint16_t e = 0;
+    for (int i = 0; i < n; i++)
+        e += (uint16_t)std::abs(a[i] - b[i]);
+
+    uint16_t t = accumulate(begin(r), end(r), (uint16_t)0);
+    
+    ASSERT_EQUAL(t, e);
+}
+
+void test_sad_32() {
+    constexpr int n = 16;
+    auto a = random_array<uint8_t, n>();
+    auto b = random_array<uint8_t, n>();
+    auto r = random_array<uint32_t, 4>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = sad_32(va, vb);
+
+    store(r.data(), vr);
+
+    uint32_t e = 0;
+    for (int i = 0; i < n; i++)
+        e += (uint32_t)std::abs(a[i] - b[i]);
+
+    uint32_t t = accumulate(begin(r), end(r), (uint32_t)0);
+
+    ASSERT_EQUAL(t, e);
+}
+
 
 template<class T>
 void test_abs() {
@@ -1809,6 +1853,8 @@ int main()
             multitest_sub_div2();
             multitest_abs_diff();
             test_sad();
+            test_sad_16();
+            test_sad_32();
             multitest_abs();
             multitest_abs_saturate();
             multitest_neg();

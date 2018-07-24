@@ -3416,6 +3416,30 @@ namespace c4 {
 #endif
         }
 
+        // r[0] + ... + r[7] = |a[0] - b[0]| + ... + |a[15] - b[15]|, distribution is implementation specific
+        inline uint16x8 sad_16(uint8x16 a, uint8x16 b) {
+#ifdef USE_ARM_NEON
+            uint16x8_t r = vabdl_u8(vget_low_u8(a.v), vget_low_u8(b.v));
+            r = vabal_u8(r, vget_high_u8(a.v), vget_high_u8(b.v));
+
+            return r;
+#else
+            return _mm_sad_epu8(a.v, b.v);
+#endif
+        }
+
+        // r[0] + ... + r[3] = |a[0] - b[0]| + ... + |a[15] - b[15]|, distribution is implementation specific
+        inline uint32x4 sad_32(uint8x16 a, uint8x16 b) {
+#ifdef USE_ARM_NEON
+            uint16x8_t r = vabdl_u8(vget_low_u8(a.v), vget_low_u8(b.v));
+            r = vabal_u8(r, vget_high_u8(a.v), vget_high_u8(b.v));
+
+            return vpaddlq_u16(r);
+#else
+            return _mm_sad_epu8(a.v, b.v);
+#endif
+        }
+
 
         // Negate
 
