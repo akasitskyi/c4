@@ -2022,7 +2022,7 @@ namespace c4 {
             s16.val[1] = vmovl_s8(s8.val[1]);
             s16.val[2] = vmovl_s8(s8.val[2]);
 
-            return u16;
+            return s16;
 #else
             __m128i v0 = _mm_loadu_si128((__m128i*)ptr);        // a0, b0, c0, a1, b1, c1, a2, b2, c2, a3, b3, c3, a4, b4, c4, a5
             __m128i v1 = _mm_loadl_epi64((__m128i*)ptr + 1);    // b5, c5, a6, b6, c6, a7, b7, c7, ...
@@ -2303,7 +2303,7 @@ namespace c4 {
             s16.val[2] = vmovl_s8(s8.val[2]);
             s16.val[3] = vmovl_s8(s8.val[3]);
 
-            return u16;
+            return s16;
 #else
             __m128i v0 = _mm_loadu_si128((__m128i*)ptr);        // a0, b0, c0, d0, a1, b1, c1, d1, a2, b2, c2, d2, a3, b3, c3, d3
             __m128i v1 = _mm_loadu_si128((__m128i*)ptr + 1);    // a4, b4, c4, d4, a5, b5, c5, d5, a6, b6, c6, d6, a7, b7, c7, d7
@@ -3403,44 +3403,16 @@ namespace c4 {
         // r[3] = 0
         inline uint32x4 sad(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
-            uint16x8_t r = vabdl_u8(vget_low_u8(a.v), vget_low_u8(b.v));
-            r = vabal_u8(r, vget_hight_u8(a.v), vget_high_u8(b.v));
-            uint32x4_t r32 = vpaddlq_u16(r);
+            uint16x8_t r0 = vabdl_u8(vget_low_u8(a.v), vget_low_u8(b.v));
+            uint16x8_t r1 = vabdl_u8(vget_high_u8(a.v), vget_high_u8(b.v));
+            uint16x4_t r0p = vpadd_u16(vget_low_u16(r0), vget_high_u16(r0));
+            uint16x4_t r1p = vpadd_u16(vget_low_u16(r1), vget_high_u16(r1));
+            uint32x4_t r32 = vpaddlq_u16(vcombine_u16(r0p, r1p));
             uint64x2_t r64 = vpaddlq_u32(r32);
 
-            return r64;
+            return vreinterpretq_u32_u64(r64);
 #else
             return _mm_sad_epu8(a.v, b.v);
-#endif
-        }
-
-        // r[0] = |a[0][0] - b[0][0]| + ... + |a[0][7] - b[0][7]| + ...
-        // r[1] = 0
-        // r[2] = |a[0][8] - b[0][8]| + ... + |a[0][15] - b[0][15]| + ...
-        // r[3] = 0
-        template<int n>
-        inline uint32x4 sad(tuple<uint8x16, n> a, tuple<uint8x16, n> b) {
-            static_assert(1 <= n && n <= 128, "Error: 1 <= n && n <= 128");
-#ifdef USE_ARM_NEON
-            uint16x8_t r = vabdl_u8(vget_low_u8(a.val[0].v), vget_low_u8(b.val[0].v));
-            r = vabal_u8(r, vget_hight_u8(a.val[0].v), vget_high_u8(b.val[0].v));
-            for (int i = 1; i < n; i++) {
-                r = vabal_u8(r, vget_low_u8(a.val[i].v), vget_low_u8(b.val[i].v));
-                r = vabal_u8(r, vget_hight_u8(a.val[i].v), vget_high_u8(b.val[i].v));
-            }
-
-            uint32x4_t r32 = vpaddlq_u16(r);
-            uint64x2_t r64 = vpaddlq_u32(r32);
-
-            return r64;
-#else
-            __m128i r = _mm_sad_epu8(a.val[0].v, b.val[0].v);
-
-            for (int i = 1; i < n; i++) {
-                r = _mm_add_epi32(r, _mm_sad_epu8(a.val[i].v, b.val[i].v));
-            }
-
-            return r;
 #endif
         }
 
