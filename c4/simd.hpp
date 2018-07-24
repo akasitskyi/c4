@@ -526,91 +526,149 @@ namespace c4 {
             return _mm_srli_epi32(_mm_set_0xff_epi8(), 1);
         }
 
-#ifndef USE_SSE4_1
         // Implementing SSE 4.1 instructions using SSSE3 and lower
 
-        inline __m128i _mm_cvtepu8_epi16(__m128i a) {
+        inline __m128i _mm_cvtepu8_epi16_(__m128i a) {
+#ifdef USE_SSE4_1
+            reutrn _mm_cvtepu8_epi16(a);
+#else
             return _mm_unpacklo_epi8(a, _mm_setzero_si128());
+#endif
         }
 
-        inline __m128i _mm_cvtepu16_epi32(__m128i a) {
+        inline __m128i _mm_cvtepu16_epi32_(__m128i a) {
+#ifdef USE_SSE4_1
+            reutrn _mm_cvtepu16_epi32(a);
+#else
             return _mm_unpacklo_epi16(a, _mm_setzero_si128());
+#endif
         }
 
         inline __m128i _mm_cvtepu32_epi64(__m128i a) {
+#ifdef USE_SSE4_1
+            reutrn _mm_cvtepu32_epi64(a);
+#else
             return _mm_unpacklo_epi32(a, _mm_setzero_si128());
+#endif
         }
 
-        inline __m128i _mm_cvtepi8_epi16(__m128i a) {
+        inline __m128i _mm_cvtepi8_epi16_(__m128i a) {
+#ifdef USE_SSE4_1
+            reutrn _mm_cvtepi8_epi16(a);
+#else
             __m128i sign = _mm_cmpgt_epi8(_mm_setzero_si128(), a);
             return _mm_unpacklo_epi8(a, sign);
+#endif
         }
 
-        inline __m128i _mm_cvtepi16_epi32(__m128i a) {
+        inline __m128i _mm_cvtepi16_epi32_(__m128i a) {
+#ifdef USE_SSE4_1
+            reutrn _mm_cvtepi16_epi32(a);
+#else
             __m128i sign = _mm_cmpgt_epi16(_mm_setzero_si128(), a);
             return _mm_unpacklo_epi16(a, sign);
+#endif
         }
 
-        inline __m128i _mm_cvtepi32_epi64(__m128i a) {
+        inline __m128i _mm_cvtepi32_epi64_(__m128i a) {
+#ifdef USE_SSE4_1
+            reutrn _mm_cvtepi32_epi64(a);
+#else
             __m128i sign = _mm_cmpgt_epi32(_mm_setzero_si128(), a);
             return _mm_unpacklo_epi32(a, sign);
+#endif
         }
 
-        inline __m128i _mm_max_epi8(__m128i a, __m128i b) {
+        inline __m128i _mm_max_epi8_(__m128i a, __m128i b) {
+#ifdef USE_SSE4_1
+            reutrn _mm_max_epi8(a, b);
+#else
             __m128i mask = _mm_cmpgt_epi8(b, a);
             return _mm_blendv_si128(a, b, mask);
+#endif
         }
 
-        inline __m128i _mm_max_epi32(__m128i a, __m128i b) {
+        inline __m128i _mm_max_epi32_(__m128i a, __m128i b) {
+#ifdef USE_SSE4_1
+            reutrn _mm_max_epi32(a, b);
+#else
             __m128i mask = _mm_cmpgt_epi32(b, a);
             return _mm_blendv_si128(a, b, mask);
+#endif
         }
 
-        inline __m128i _mm_max_epu16(__m128i a, __m128i b) {
+        inline __m128i _mm_max_epu16_(__m128i a, __m128i b) {
+#ifdef USE_SSE4_1
+            reutrn _mm_max_epu16(a, b);
+#else
             __m128i c = _mm_set_0x8000_epi16();
             __m128i a_s = _mm_sub_epi16(a, c);
             __m128i b_s = _mm_sub_epi16(b, c);
             __m128i mn = _mm_max_epi16(a_s, b_s);
             return _mm_add_epi16(mn, c);
+#endif
         }
 
-        inline __m128i _mm_max_epu32(__m128i a, __m128i b) {
+        inline __m128i _mm_max_epu32_(__m128i a, __m128i b) {
+#ifdef USE_SSE4_1
+            reutrn _mm_max_epu32(a, b);
+#else
             __m128i c = _mm_set_0x80000000_epi32();
             __m128i a_s = _mm_sub_epi32(a, c);
             __m128i b_s = _mm_sub_epi32(b, c);
             __m128i mask = _mm_cmpgt_epi32(b_s, a_s);
 
             return _mm_blendv_si128(a, b, mask);
+#endif
         }
 
-        inline __m128i _mm_min_epi8(__m128i a, __m128i b) {
+        inline __m128i _mm_min_epi8_(__m128i a, __m128i b) {
+#ifdef USE_SSE4_1
+            reutrn _mm_min_epi8(a, b);
+#else
             __m128i mask = _mm_cmpgt_epi8(a, b);
             return _mm_blendv_si128(a, b, mask);
+#endif
         }
 
-        inline __m128i _mm_min_epi32(__m128i a, __m128i b) {
+        inline __m128i _mm_min_epi32_(__m128i a, __m128i b) {
+#ifdef USE_SSE4_1
+            reutrn _mm_min_epi32(a, b);
+#else
             __m128i mask = _mm_cmpgt_epi32(a, b);
             return _mm_blendv_si128(a, b, mask);
+#endif
         }
 
-        inline __m128i _mm_min_epu16(__m128i a, __m128i b) {
+        inline __m128i _mm_min_epu16_(__m128i a, __m128i b) {
+#ifdef USE_SSE4_1
+            reutrn _mm_min_epu16(a, b);
+#else
             __m128i c = _mm_set_0x8000_epi16();
             __m128i a_s = _mm_sub_epi16(a, c);
             __m128i b_s = _mm_sub_epi16(b, c);
             __m128i mn = _mm_min_epi16(a_s, b_s);
             return _mm_add_epi16(mn, c);
+#endif
         }
 
-        inline __m128i _mm_min_epu32(__m128i a, __m128i b) {
+        inline __m128i _mm_min_epu32_(__m128i a, __m128i b) {
+#ifdef USE_SSE4_1
+            reutrn _mm_min_epu32(a, b);
+#else
             __m128i c = _mm_set_0x80000000_epi32();
             __m128i a_s = _mm_sub_epi32(a, c);
             __m128i b_s = _mm_sub_epi32(b, c);
             __m128i mask = _mm_cmpgt_epi32(a_s, b_s);
 
             return _mm_blendv_si128(a, b, mask);
+#endif
         }
 
-        inline __m128i _mm_packus_epi32(__m128i a, __m128i b) {
+        inline __m128i _mm_packus_epi32_(__m128i a, __m128i b) {
+#ifdef USE_SSE4_1
+            reutrn _mm_packus_epi32(a, b);
+#else
             __m128i zero = _mm_setzero_si128();
             a = _mm_separate_even_odd_16(a);
             b = _mm_separate_even_odd_16(b);
@@ -620,9 +678,8 @@ namespace c4 {
             __m128i res = _mm_andnot_si128(negative_mask, lo);     //if mask is zero - do nothing, otherwise hi < 0 and the result is 0
             __m128i positive_mask = _mm_cmpgt_epi16(hi, zero);
             return _mm_or_si128(res, positive_mask);                //if hi > 0 we are out of 16bits need to saturaate to 0xffff
-        }
-            
 #endif
+        }
 #endif
 
         template<class dst_t, class src_t, class = typename std::enable_if<traits::is_integral<src_t>::value && traits::is_integral<dst_t>::value>::type>
@@ -855,7 +912,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vcgeq_u16(a.v, b.v);
 #else
-            return _mm_cmpeq_epi16(_mm_max_epu16(a.v, b.v), a.v);
+            return _mm_cmpeq_epi16(_mm_max_epu16_(a.v, b.v), a.v);
 #endif
         }
 
@@ -871,7 +928,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vcgeq_u32(a.v, b.v);
 #else
-            return _mm_cmpeq_epi32(_mm_max_epu32(a.v, b.v), a.v);
+            return _mm_cmpeq_epi32(_mm_max_epu32_(a.v, b.v), a.v);
 #endif
         }
 
@@ -917,7 +974,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vminq_s8(a.v, b.v);
 #else
-            return _mm_min_epi8(a.v, b.v);
+            return _mm_min_epi8_(a.v, b.v);
 #endif
         }
 
@@ -941,7 +998,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vminq_u16(a.v, b.v);
 #else
-            return _mm_min_epu16(a.v, b.v);
+            return _mm_min_epu16_(a.v, b.v);
 #endif
         }
 
@@ -949,7 +1006,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vminq_s32(a.v, b.v);
 #else
-            return _mm_min_epi32(a.v, b.v);
+            return _mm_min_epi32_(a.v, b.v);
 #endif
         }
 
@@ -957,7 +1014,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vminq_u32(a.v, b.v);
 #else
-            return _mm_min_epu32(a.v, b.v);
+            return _mm_min_epu32_(a.v, b.v);
 #endif
         }
 
@@ -975,7 +1032,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vmaxq_s8(a.v, b.v);
 #else
-            return _mm_max_epi8(a.v, b.v);
+            return _mm_max_epi8_(a.v, b.v);
 #endif
         }
 
@@ -999,7 +1056,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vmaxq_u16(a.v, b.v);
 #else
-            return _mm_max_epu16(a.v, b.v);
+            return _mm_max_epu16_(a.v, b.v);
 #endif
         }
 
@@ -1007,7 +1064,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vmaxq_s32(a.v, b.v);
 #else
-            return _mm_max_epi32(a.v, b.v);
+            return _mm_max_epi32_(a.v, b.v);
 #endif
         }
 
@@ -1015,7 +1072,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vmaxq_u32(a.v, b.v);
 #else
-            return _mm_max_epu32(a.v, b.v);
+            return _mm_max_epu32_(a.v, b.v);
 #endif
         }
 
@@ -1371,7 +1428,7 @@ namespace c4 {
             uint16x4_t t = vqmovun_s32(a.v);
             return uint16x8(vcombine_u16(t, t));
 #else
-            return uint16x8(_mm_packus_epi32(a.v, a.v));
+            return uint16x8(_mm_packus_epi32_(a.v, a.v));
 #endif
         }
 
@@ -1476,7 +1533,7 @@ namespace c4 {
 
             return vcombine_u16(lo, hi);
 #else
-            return _mm_packus_epi32(p.val[0].v, p.val[1].v);
+            return _mm_packus_epi32_(p.val[0].v, p.val[1].v);
 #endif
         }
 
@@ -1494,7 +1551,7 @@ namespace c4 {
                 p.val[i].v = _mm_or_si128(p.val[i].v, mask);
             }
 
-            return _mm_packus_epi32(p.val[0].v, p.val[1].v);
+            return _mm_packus_epi32_(p.val[0].v, p.val[1].v);
 #endif
         }
 
@@ -2770,8 +2827,8 @@ namespace c4 {
             a.val[2] = vqmovun_s32(v.val[2].v);
             vst3_u16(ptr, a);
 #else
-            __m128i ab = _mm_packus_epi32(v.val[0].v, v.val[1].v);
-            __m128i c0 = _mm_packus_epi32(v.val[2].v, _mm_setzero_si128());
+            __m128i ab = _mm_packus_epi32_(v.val[0].v, v.val[1].v);
+            __m128i c0 = _mm_packus_epi32_(v.val[2].v, _mm_setzero_si128());
 
             __store_3div2_interleaved_16bit((__m128i*)ptr, ab, c0);
 #endif
@@ -2846,8 +2903,8 @@ namespace c4 {
             int32x4x2 v02i = interleave({ v.val[0], v.val[2] });
             int32x4x2 v13i = interleave({ v.val[1], v.val[3] });
             uint16x8x2 p;
-            p.val[0] = _mm_packus_epi32(v02i.val[0].v, v02i.val[1].v);
-            p.val[1] = _mm_packus_epi32(v13i.val[0].v, v13i.val[1].v);
+            p.val[0] = _mm_packus_epi32_(v02i.val[0].v, v02i.val[1].v);
+            p.val[1] = _mm_packus_epi32_(v13i.val[0].v, v13i.val[1].v);
 
             store_2_interleaved(ptr, p);
 #endif
@@ -2969,8 +3026,8 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vpaddlq_s8(a.v);
 #else
-            __m128i r0 = _mm_cvtepi8_epi16(a.v);
-            __m128i r1 = _mm_cvtepi8_epi16(_mm_swap_lo_hi_64(a.v));
+            __m128i r0 = _mm_cvtepi8_epi16_(a.v);
+            __m128i r1 = _mm_cvtepi8_epi16_(_mm_swap_lo_hi_64(a.v));
 
             return _mm_hadd_epi16(r0, r1);
 #endif
@@ -2980,8 +3037,8 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vpaddlq_u8(a.v);
 #else
-            __m128i r0 = _mm_cvtepu8_epi16(a.v);
-            __m128i r1 = _mm_cvtepu8_epi16(_mm_swap_lo_hi_64(a.v));
+            __m128i r0 = _mm_cvtepu8_epi16_(a.v);
+            __m128i r1 = _mm_cvtepu8_epi16_(_mm_swap_lo_hi_64(a.v));
 
             return _mm_hadd_epi16(r0, r1);
 #endif
@@ -2991,8 +3048,8 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vpaddlq_s16(a.v);
 #else
-            __m128i r0 = _mm_cvtepi16_epi32(a.v);
-            __m128i r1 = _mm_cvtepi16_epi32(_mm_swap_lo_hi_64(a.v));
+            __m128i r0 = _mm_cvtepi16_epi32_(a.v);
+            __m128i r1 = _mm_cvtepi16_epi32_(_mm_swap_lo_hi_64(a.v));
 
             return _mm_hadd_epi32(r0, r1);
 #endif
@@ -3002,8 +3059,8 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vpaddlq_u16(a.v);
 #else
-            __m128i r0 = _mm_cvtepu16_epi32(a.v);
-            __m128i r1 = _mm_cvtepu16_epi32(_mm_swap_lo_hi_64(a.v));
+            __m128i r0 = _mm_cvtepu16_epi32_(a.v);
+            __m128i r1 = _mm_cvtepu16_epi32_(_mm_swap_lo_hi_64(a.v));
 
             return _mm_hadd_epi32(r0, r1);
 #endif
@@ -3288,7 +3345,7 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vabdq_u16(a.v, b.v);
 #else
-            return _mm_max_epu16(_mm_subs_epu16(a.v, b.v), _mm_subs_epu16(b.v, a.v));
+            return _mm_max_epu16_(_mm_subs_epu16(a.v, b.v), _mm_subs_epu16(b.v, a.v));
 #endif
         }
 
@@ -3421,8 +3478,8 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vqshlq_n_s8(a.v, n);
 #else
-            __m128i a16_0 = _mm_cvtepi8_epi16(a.v);
-            __m128i a16_1 = _mm_cvtepi8_epi16(_mm_swap_lo_hi_64(a.v));
+            __m128i a16_0 = _mm_cvtepi8_epi16_(a.v);
+            __m128i a16_1 = _mm_cvtepi8_epi16_(_mm_swap_lo_hi_64(a.v));
             __m128i r16_0 = _mm_slli_epi16(a16_0, n);
             __m128i r16_1 = _mm_slli_epi16(a16_1, n);
             return _mm_packs_epi16(r16_0, r16_1);
@@ -3435,8 +3492,8 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vqshlq_n_u8(a.v, n);
 #else
-            __m128i a16_0 = _mm_cvtepu8_epi16(a.v);
-            __m128i a16_1 = _mm_cvtepu8_epi16(_mm_swap_lo_hi_64(a.v));
+            __m128i a16_0 = _mm_cvtepu8_epi16_(a.v);
+            __m128i a16_1 = _mm_cvtepu8_epi16_(_mm_swap_lo_hi_64(a.v));
             __m128i r16_0 = _mm_slli_epi16(a16_0, n);
             __m128i r16_1 = _mm_slli_epi16(a16_1, n);
             return _mm_packus_epi16(r16_0, r16_1);
@@ -3449,8 +3506,8 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vqshlq_n_s16(a.v, n);
 #else
-            __m128i a16_0 = _mm_cvtepi16_epi32(a.v);
-            __m128i a16_1 = _mm_cvtepi16_epi32(_mm_swap_lo_hi_64(a.v));
+            __m128i a16_0 = _mm_cvtepi16_epi32_(a.v);
+            __m128i a16_1 = _mm_cvtepi16_epi32_(_mm_swap_lo_hi_64(a.v));
             __m128i r16_0 = _mm_slli_epi32(a16_0, n);
             __m128i r16_1 = _mm_slli_epi32(a16_1, n);
             return _mm_packs_epi32(r16_0, r16_1);
@@ -3463,11 +3520,11 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             return vqshlq_n_u16(a.v, n);
 #else
-            __m128i a16_0 = _mm_cvtepu16_epi32(a.v);
-            __m128i a16_1 = _mm_cvtepu16_epi32(_mm_swap_lo_hi_64(a.v));
+            __m128i a16_0 = _mm_cvtepu16_epi32_(a.v);
+            __m128i a16_1 = _mm_cvtepu16_epi32_(_mm_swap_lo_hi_64(a.v));
             __m128i r16_0 = _mm_slli_epi32(a16_0, n);
             __m128i r16_1 = _mm_slli_epi32(a16_1, n);
-            return _mm_packus_epi32(r16_0, r16_1);
+            return _mm_packus_epi32_(r16_0, r16_1);
 #endif
         }
 
