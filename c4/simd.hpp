@@ -61,11 +61,6 @@
 #include <nmmintrin.h>
 #endif
 
-#include <stdexcept>
-#include <string>
-
-#define NOT_IMPLEMENTED throw std::logic_error("Not implemented at " __FILE__ ":" + std::to_string(__LINE__))
-
 #define __C4_SIMD_WARNING_SLOW "The function may be slow due to the serial implementation"
 
 #ifdef __GNUC__
