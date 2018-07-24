@@ -3315,6 +3315,35 @@ namespace c4 {
 #endif
         }
 
+        inline int8x16 abs_saturate(int8x16 a) {
+#ifdef USE_ARM_NEON
+            return vqabsq_s8(a.v);
+#else
+            __m128i abs = _mm_abs_epi8(a.v);
+            __m128i mask = _mm_cmpeq_epi8(abs, _mm_set_0x80_epi8());
+            return _mm_xor_si128(abs, mask);
+#endif
+        }
+
+        inline int16x8 abs_saturate(int16x8 a) {
+#ifdef USE_ARM_NEON
+            return vqabsq_s16(a.v);
+#else
+            __m128i abs = _mm_abs_epi16(a.v);
+            __m128i mask = _mm_cmpeq_epi16(abs, _mm_set_0x8000_epi16());
+            return _mm_xor_si128(abs, mask);
+#endif
+        }
+
+        inline int32x4 abs_saturate(int32x4 a) {
+#ifdef USE_ARM_NEON
+            return vqabsq_s32(a.v);
+#else
+            __m128i abs = _mm_abs_epi32(a.v);
+            __m128i mask = _mm_cmpeq_epi32(abs, _mm_set_0x80000000_epi32());
+            return _mm_xor_si128(abs, mask);
+#endif
+        }
         // Absolute difference
 
         inline int8x16 abs_diff(int8x16 a, int8x16 b) {
@@ -3407,6 +3436,31 @@ namespace c4 {
 #endif
         }
 
+        inline int8x16 neg_saturate(int8x16 a) {
+#ifdef USE_ARM_NEON
+            return vqnegq_s8(a.v);
+#else
+            return _mm_subs_epi8(_mm_setzero_si128(), a.v);
+#endif
+        }
+
+        inline int16x8 neg_saturate(int16x8 a) {
+#ifdef USE_ARM_NEON
+            return vqnegq_s16(a.v);
+#else
+            return _mm_subs_epi16(_mm_setzero_si128(), a.v);
+#endif
+        }
+
+        inline int32x4 neg_saturate(int32x4 a) {
+#ifdef USE_ARM_NEON
+            return vqnegq_s32(a.v);
+#else
+            __m128i r = _mm_sub_epi32(_mm_setzero_si128(), a.v);
+            __m128i mask = _mm_cmpeq_epi32(a.v, _mm_set_0x80000000_epi32());
+            return _mm_xor_si128(r, mask);
+#endif
+        }
 
         // Shifts
 

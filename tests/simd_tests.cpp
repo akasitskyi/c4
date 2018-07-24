@@ -996,6 +996,28 @@ void multitest_abs() {
 }
 
 template<class T>
+void test_abs_saturate() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = abs_saturate(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], saturate<T>(std::abs((int64_t)a[i])));
+    }
+}
+
+void multitest_abs_saturate() {
+    test_abs_saturate<int8_t>();
+    test_abs_saturate<int16_t>();
+    test_abs_saturate<int32_t>();
+}
+
+template<class T>
 void test_neg() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
@@ -1016,6 +1038,28 @@ void multitest_neg() {
     test_neg<int16_t>();
     test_neg<int32_t>();
     test_neg<float>();
+}
+
+template<class T>
+void test_neg_saturate() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vr = neg_saturate(va);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], saturate<T>(-(int64_t)a[i]));
+    }
+}
+
+void multitest_neg_saturate() {
+    test_neg_saturate<int8_t>();
+    test_neg_saturate<int16_t>();
+    test_neg_saturate<int32_t>();
 }
 
 
@@ -1742,7 +1786,9 @@ int main()
             multitest_sub_div2();
             multitest_abs_diff();
             multitest_abs();
+            multitest_abs_saturate();
             multitest_neg();
+            multitest_neg_saturate();
             multitest_shift_left();
             multitest_shift_left_v();
             multitest_shift_left_saturate();
