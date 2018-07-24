@@ -970,6 +970,66 @@ void multitest_abs_diff() {
     test_abs_diff<float>();
 }
 
+void test_sad() {
+    constexpr int n = 16;
+    auto a = random_array<uint8_t, n>();
+    auto b = random_array<uint8_t, n>();
+    auto r = random_array<uint32_t, 4>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = sad(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < 4; i++) {
+        uint32_t e = 0;
+        if (i % 2 == 0) {
+            for (int j = 0; j < 8; j++)
+                e += std::abs(a[i * 4 + j] - b[i * 4 + j]);
+        }
+
+        ASSERT_EQUAL(r[i], e);
+    }
+}
+
+template<int m>
+void test_sad_tuple() {
+    constexpr int n = 16 * m;
+    auto a = random_array<uint8_t, n>();
+    auto b = random_array<uint8_t, n>();
+    auto r = random_array<uint32_t, 4>();
+
+    auto va = load_tuple<m>(a.data());
+    auto vb = load_tuple<m>(b.data());
+    auto vr = sad(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < 4; i++) {
+        uint32_t e = 0;
+        if (i % 2 == 0) {
+            for(int k = 0; k < m; k++)
+                for (int j = 0; j < 8; j++)
+                    e += std::abs(a[k * 16 + i * 4 + j] - b[k * 16 + i * 4 + j]);
+        }
+
+        ASSERT_EQUAL(r[i], e);
+    }
+}
+
+void multitest_sad_tuple() {
+    test_sad_tuple<1>();
+    test_sad_tuple<2>();
+    test_sad_tuple<3>();
+    test_sad_tuple<4>();
+    test_sad_tuple<8>();
+    test_sad_tuple<16>();
+    test_sad_tuple<32>();
+    test_sad_tuple<64>();
+    test_sad_tuple<128>();
+}
+
 
 
 template<class T>
@@ -1785,6 +1845,8 @@ int main()
             multitest_sub();
             multitest_sub_div2();
             multitest_abs_diff();
+            test_sad();
+            multitest_sad_tuple();
             multitest_abs();
             multitest_abs_saturate();
             multitest_neg();
