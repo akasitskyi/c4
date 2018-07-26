@@ -1509,7 +1509,7 @@ void test_mul_hi() {
 
 void multitest_mul_hi() {
     test_mul_hi<int16_t>();
-    test_mul_hi<int32_t>();
+    test_mul_hi<uint16_t>();
 }
 
 void test_mul() {
@@ -1526,23 +1526,6 @@ void test_mul() {
 
     for (int i = 0; i < n; i++) {
         ASSERT_EQUAL(r[i], a[i] * b[i]);
-    }
-}
-
-void test_mul_16() {
-    constexpr int n = 16 / sizeof(int32_t);
-    auto a = random_array<int16_t, n>();
-    auto b = random_array<int16_t, n>();
-    auto r = random_array<int32_t, n>();
-
-    auto va = load_long(a.data());
-    auto vb = load_long(b.data());
-    auto vr = mul_16(va, vb);
-
-    store(r.data(), vr);
-
-    for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], (int32_t)a[i] * (int32_t)b[i]);
     }
 }
 
@@ -1604,44 +1587,6 @@ void multitest_mul_sub() {
     test_mul_sub<int32_t>();
     test_mul_sub<uint32_t>();
     test_mul_sub<float>();
-}
-
-void test_mul_16_acc() {
-    constexpr int n = 16 / sizeof(int32_t);
-    auto s = random_array<int32_t, n>();
-    auto a = random_array<int16_t, n>();
-    auto b = random_array<int16_t, n>();
-    auto r = random_array<int32_t, n>();
-
-    auto vs = load(s.data());
-    auto va = load_long(a.data());
-    auto vb = load_long(b.data());
-    auto vr = mul_16_acc(vs, va, vb);
-
-    store(r.data(), vr);
-
-    for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], s[i] + (int32_t)a[i] * (int32_t)b[i]);
-    }
-}
-
-void test_mul_16_sub() {
-    constexpr int n = 16 / sizeof(int32_t);
-    auto s = random_array<int32_t, n>();
-    auto a = random_array<int16_t, n>();
-    auto b = random_array<int16_t, n>();
-    auto r = random_array<int32_t, n>();
-
-    auto vs = load(s.data());
-    auto va = load_long(a.data());
-    auto vb = load_long(b.data());
-    auto vr = mul_16_sub(vs, va, vb);
-
-    store(r.data(), vr);
-
-    for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], s[i] - (int32_t)a[i] * (int32_t)b[i]);
-    }
 }
 
 template<class T>
@@ -1865,11 +1810,8 @@ int main()
             multitest_mul_lo();
             multitest_mul_hi();
             test_mul();
-            test_mul_16();
             multitest_mul_acc();
             multitest_mul_sub();
-            test_mul_16_acc();
-            test_mul_16_sub();
             multitest_avg();
             test_rsqrt();
             test_reciprocal();

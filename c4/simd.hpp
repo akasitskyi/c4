@@ -30,9 +30,15 @@
 
 #ifdef __ARM_NEON__
 #define USE_ARM_NEON
-#else
-#define USE_SSE
+#define __C4_SIMD__
 #endif
+
+#if defined(__SSSE3__) || defined(_M_X64) || _M_IX86_FP == 2
+#define USE_SSE
+#define __C4_SIMD__
+#endif
+
+#ifdef __C4_SIMD__
 
 #if defined(__SSE4_1__) || defined(__AVX__)
 #define USE_SSE4_1
@@ -525,7 +531,7 @@ namespace c4 {
 
         inline __m128i _mm_cvtepu8_epi16_(__m128i a) {
 #ifdef USE_SSE4_1
-            reutrn _mm_cvtepu8_epi16(a);
+            return _mm_cvtepu8_epi16(a);
 #else
             return _mm_unpacklo_epi8(a, _mm_setzero_si128());
 #endif
@@ -533,23 +539,15 @@ namespace c4 {
 
         inline __m128i _mm_cvtepu16_epi32_(__m128i a) {
 #ifdef USE_SSE4_1
-            reutrn _mm_cvtepu16_epi32(a);
+            return _mm_cvtepu16_epi32(a);
 #else
             return _mm_unpacklo_epi16(a, _mm_setzero_si128());
 #endif
         }
 
-        inline __m128i _mm_cvtepu32_epi64(__m128i a) {
-#ifdef USE_SSE4_1
-            reutrn _mm_cvtepu32_epi64(a);
-#else
-            return _mm_unpacklo_epi32(a, _mm_setzero_si128());
-#endif
-        }
-
         inline __m128i _mm_cvtepi8_epi16_(__m128i a) {
 #ifdef USE_SSE4_1
-            reutrn _mm_cvtepi8_epi16(a);
+            return _mm_cvtepi8_epi16(a);
 #else
             __m128i sign = _mm_cmpgt_epi8(_mm_setzero_si128(), a);
             return _mm_unpacklo_epi8(a, sign);
@@ -558,25 +556,16 @@ namespace c4 {
 
         inline __m128i _mm_cvtepi16_epi32_(__m128i a) {
 #ifdef USE_SSE4_1
-            reutrn _mm_cvtepi16_epi32(a);
+            return _mm_cvtepi16_epi32(a);
 #else
             __m128i sign = _mm_cmpgt_epi16(_mm_setzero_si128(), a);
             return _mm_unpacklo_epi16(a, sign);
 #endif
         }
 
-        inline __m128i _mm_cvtepi32_epi64_(__m128i a) {
-#ifdef USE_SSE4_1
-            reutrn _mm_cvtepi32_epi64(a);
-#else
-            __m128i sign = _mm_cmpgt_epi32(_mm_setzero_si128(), a);
-            return _mm_unpacklo_epi32(a, sign);
-#endif
-        }
-
         inline __m128i _mm_max_epi8_(__m128i a, __m128i b) {
 #ifdef USE_SSE4_1
-            reutrn _mm_max_epi8(a, b);
+            return _mm_max_epi8(a, b);
 #else
             __m128i mask = _mm_cmpgt_epi8(b, a);
             return _mm_blendv_si128(a, b, mask);
@@ -585,7 +574,7 @@ namespace c4 {
 
         inline __m128i _mm_max_epi32_(__m128i a, __m128i b) {
 #ifdef USE_SSE4_1
-            reutrn _mm_max_epi32(a, b);
+            return _mm_max_epi32(a, b);
 #else
             __m128i mask = _mm_cmpgt_epi32(b, a);
             return _mm_blendv_si128(a, b, mask);
@@ -594,7 +583,7 @@ namespace c4 {
 
         inline __m128i _mm_max_epu16_(__m128i a, __m128i b) {
 #ifdef USE_SSE4_1
-            reutrn _mm_max_epu16(a, b);
+            return _mm_max_epu16(a, b);
 #else
             __m128i c = _mm_set_0x8000_epi16();
             __m128i a_s = _mm_sub_epi16(a, c);
@@ -606,7 +595,7 @@ namespace c4 {
 
         inline __m128i _mm_max_epu32_(__m128i a, __m128i b) {
 #ifdef USE_SSE4_1
-            reutrn _mm_max_epu32(a, b);
+            return _mm_max_epu32(a, b);
 #else
             __m128i c = _mm_set_0x80000000_epi32();
             __m128i a_s = _mm_sub_epi32(a, c);
@@ -619,7 +608,7 @@ namespace c4 {
 
         inline __m128i _mm_min_epi8_(__m128i a, __m128i b) {
 #ifdef USE_SSE4_1
-            reutrn _mm_min_epi8(a, b);
+            return _mm_min_epi8(a, b);
 #else
             __m128i mask = _mm_cmpgt_epi8(a, b);
             return _mm_blendv_si128(a, b, mask);
@@ -628,7 +617,7 @@ namespace c4 {
 
         inline __m128i _mm_min_epi32_(__m128i a, __m128i b) {
 #ifdef USE_SSE4_1
-            reutrn _mm_min_epi32(a, b);
+            return _mm_min_epi32(a, b);
 #else
             __m128i mask = _mm_cmpgt_epi32(a, b);
             return _mm_blendv_si128(a, b, mask);
@@ -637,7 +626,7 @@ namespace c4 {
 
         inline __m128i _mm_min_epu16_(__m128i a, __m128i b) {
 #ifdef USE_SSE4_1
-            reutrn _mm_min_epu16(a, b);
+            return _mm_min_epu16(a, b);
 #else
             __m128i c = _mm_set_0x8000_epi16();
             __m128i a_s = _mm_sub_epi16(a, c);
@@ -649,7 +638,7 @@ namespace c4 {
 
         inline __m128i _mm_min_epu32_(__m128i a, __m128i b) {
 #ifdef USE_SSE4_1
-            reutrn _mm_min_epu32(a, b);
+            return _mm_min_epu32(a, b);
 #else
             __m128i c = _mm_set_0x80000000_epi32();
             __m128i a_s = _mm_sub_epi32(a, c);
@@ -662,7 +651,7 @@ namespace c4 {
 
         inline __m128i _mm_packus_epi32_(__m128i a, __m128i b) {
 #ifdef USE_SSE4_1
-            reutrn _mm_packus_epi32(a, b);
+            return _mm_packus_epi32(a, b);
 #else
             __m128i zero = _mm_setzero_si128();
             a = _mm_separate_even_odd_16(a);
@@ -3910,34 +3899,25 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline int32x4 mul_hi(int32x4 a, int32x4 b) {
+        inline uint16x8 mul_hi(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
-            return vshrq_n_s32(vqdmulhq_s32(a.v, b.v), 1);
+            uint32x4_t lo32 = vmull_u16(vget_low_u16(a.v), vget_low_u16(b.v));
+            uint32x4_t hi32 = vmull_u16(vget_high_u16(a.v), vget_high_u16(b.v));
+
+            uint16x4_t lo16 = vshrn_n_u32(lo32, 16);
+            uint16x4_t hi16 = vshrn_n_u32(hi32, 16);
+
+            return vcombine_u16(lo16, hi16);
 #else
-            return serial(a, b, [](int32_t x, int32_t y) {return int32_t((int64_t(x) * int64_t(y)) >> 32); });
+            return _mm_mulhi_epu16(a.v, b.v);
 #endif
         }
-
 
         inline float32x4 mul(float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
             return vmulq_f32(a.v, b.v);
 #else
             return _mm_mul_ps(a.v, b.v);
-#endif
-        }
-
-        // Assumes 32-bit integers in a and b fit into 16-bit signed
-        // Same speed on NEON, but faster on SSE compared to 32-bit mul_lo
-        inline int32x4 mul_16(int32x4 a, int32x4 b) {
-#ifdef USE_ARM_NEON
-            return vmulq_s32(a.v, b.v);
-#else
-            // make sure we have zero in high 16-bit
-            __m128i x = _mm_srli_epi32(_mm_slli_epi32(a.v, 16), 16);
-            __m128i y = _mm_srli_epi32(_mm_slli_epi32(b.v, 16), 16);
-
-            return _mm_madd_epi16(x, y);
 #endif
         }
 
@@ -3982,16 +3962,6 @@ namespace c4 {
 #endif
         }
 
-        // Assumes 32-bit integers in a and b fit into 16-bit signed
-        // Same speed on NEON, but faster on SSE compared to 32-bit mul
-        inline int32x4 mul_16_acc(int32x4 s, int32x4 a, int32x4 b) {
-#ifdef USE_ARM_NEON
-            return vmlaq_s32(s.v, a.v, b.v);
-#else
-            return add(s, mul_16(a, b));
-#endif
-        }
-        
         __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_acc(uint32x4 s, uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_u32(s.v, a.v, b.v);
@@ -4046,16 +4016,6 @@ namespace c4 {
             return vmlsq_s32(s.v, a.v, b.v);
 #else
             return sub(s, mul_lo(a, b));
-#endif
-        }
-
-        // Assumes 32-bit integers in a and b fit into 16-bit signed
-        // Same speed on NEON, but faster on SSE compared to 32-bit mul
-        inline int32x4 mul_16_sub(int32x4 s, int32x4 a, int32x4 b) {
-#ifdef USE_ARM_NEON
-            return vmlsq_s32(s.v, a.v, b.v);
-#else
-            return sub(s, mul_16(a, b));
 #endif
         }
 
@@ -4421,3 +4381,4 @@ namespace c4 {
     }; // namespace simd
 }; // namespace c4
 
+#endif // __C4_SIMD__
