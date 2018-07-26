@@ -1,4 +1,5 @@
 #include <c4/simd.hpp>
+#include <c4/math.hpp>
 
 #include <array>
 #include <vector>
@@ -1775,15 +1776,6 @@ void test_look_up() {
 }
 
 template<class T>
-T clz_scalar(T x) {
-    constexpr int n = 8 * sizeof(T);
-    for (int i = 0; i < n; i++)
-        if (x & (1ll << (n - i - 1)))
-            return i;
-    return n;
-}
-
-template<class T>
 void test_clz () {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
@@ -1795,7 +1787,7 @@ void test_clz () {
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], clz_scalar(a[i]));
+        ASSERT_EQUAL(r[i], c4::math::clz(a[i]));
     }
 }
 
