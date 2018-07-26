@@ -23,12 +23,13 @@
 #pragma once
 
 #include <vector>
+#include <cassert>
 
 namespace c4{
-    template<typename T>
+    template<class T>
     class matrix_ref;
 
-    template<typename T>
+    template<class T>
     class vector_ref {
         friend class matrix_ref<T>;
     private:
@@ -112,7 +113,7 @@ namespace c4{
         }
     };
 
-    template<typename T>
+    template<class T>
 	class matrix_ref {
     private:
         matrix_ref(const matrix_ref& o) : height(o.height), width(o.width), stride(o.stride), ptr(o.ptr) {}
@@ -270,14 +271,14 @@ namespace c4{
         }
     };
 
-    template<typename T>
+    template<class T>
     class __matrix_buffer {
     protected:
         std::vector<T> v;
         __matrix_buffer(size_t size = 0) : v(size) {}
     };
 
-	template<typename T>
+	template<class T>
 	class matrix : private __matrix_buffer<T>, public matrix_ref<T> {
 	public:
         matrix(int height, int width, int stride) : __matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, v.data()) {}
@@ -300,7 +301,7 @@ namespace c4{
             resize(b);
 
             for (int i = 0; i < b.height(); i++)
-                std::copy(b[i], b[i] + b.width(), (*this)[i]);
+                std::copy(b[i].begin(), b[i].end(), (*this)[i].begin());
 
             return *this;
         }
@@ -333,9 +334,203 @@ namespace c4{
             v.shrink_to_fit();
         }
 
-        template<typename T2>
+        template<class T2>
 		void resize(const matrix_ref<T2>& b){
 			resize(b.height(), b.width(), b.stride());
 		}
     };
+
+    template<class T1, class T2, class T3>
+    void add(const matrix_ref<T1>& a, const matrix_ref<T2>& b, matrix_ref<T3>& r) {
+        assert(a.height() == b.height() && a.width() == b.width() && r.height() == a.height() && r.width() == a.width());
+
+        for (int i = 0; i < a.height(); i++) {
+            for (int j = 0; j < a.width(); j++) {
+                r[i][j] = T3(a[i][j] + b[i][j]);
+            }
+        }
+    }
+
+    template<class T1, class T2, class T3>
+    void add(const matrix_ref<T1>& a, const matrix_ref<T2>& b, matrix<T3>& r) {
+        r.resize(a);
+
+        add(a, b, static_cast<matrix_ref<T3>&>(r));
+    }
+
+    template<class T1, class T2>
+    void operator+=(matrix_ref<T1>& a, const matrix_ref<T2>& b) {
+        assert(a.height() == b.height() && a.width() == b.width());
+
+        for (int i = 0; i < a.height(); i++) {
+            for (int j = 0; j < a.width(); j++) {
+                a[i][j] += b[i][j];
+            }
+        }
+    }
+
+    template<class T1, class T2>
+    matrix<decltype(T1() + T2())> operator+(const matrix_ref<T1>& a, const matrix_ref<T2>& b) {
+        matrix<decltype(T1() + T2())> r;
+
+        add(a, b, r);
+
+        return r;
+    }
+
+    template<class T1, class T2, class T3>
+    void sub(const matrix_ref<T1>& a, const matrix_ref<T2>& b, matrix_ref<T3>& r) {
+        assert(a.height() == b.height() && a.width() == b.width() && r.height() == a.height() && r.width() == a.width());
+
+        for (int i = 0; i < a.height(); i++) {
+            for (int j = 0; j < a.width(); j++) {
+                r[i][j] = T3(a[i][j] - b[i][j]);
+            }
+        }
+    }
+
+    template<class T1, class T2, class T3>
+    void sub(const matrix_ref<T1>& a, const matrix_ref<T2>& b, matrix<T3>& r) {
+        r.resize(a);
+
+        sub(a, b, static_cast<matrix_ref<T3>&>(r));
+    }
+
+    template<class T1, class T2>
+    void operator-=(matrix<T1>& a, const matrix<T2>& b) {
+        assert(a.height() == b.height() && a.width() == b.width());
+
+        for (int i = 0; i < a.height(); i++) {
+            for (int j = 0; j < a.width(); j++) {
+                a[i][j] -= b[i][j];
+            }
+        }
+    }
+
+    template<class T1, class T2>
+    matrix<decltype(T1() - T2())> operator-(const matrix_ref<T1>& a, const matrix_ref<T2>& b) {
+        matrix<decltype(T1() - T2())> r;
+
+        sub(a, b, r);
+
+        return r;
+    }
+
+    template<class T1, class T2, class T3>
+    void entrywise_mul(const matrix_ref<T1>& a, const matrix_ref<T2>& b, matrix_ref<T3>& r) {
+        assert(a.height() == b.height() && a.width() == b.width() && r.height() == a.height() && r.width() == a.width());
+
+        for (int i = 0; i < a.height(); i++) {
+            for (int j = 0; j < a.width(); j++) {
+                r[i][j] = T3(a[i][j] * b[i][j]);
+            }
+        }
+    }
+
+    template<class T1, class T2, class T3>
+    void entrywise_mul(const matrix_ref<T1>& a, const matrix_ref<T2>& b, matrix<T3>& r) {
+        r.resize(a);
+
+        entrywise_mul(a, b, static_cast<matrix_ref<T3>&>(r));
+    }
+
+    template<class T1, class T2>
+    void entrywise_mul_assign(matrix_ref<T1>& a, const matrix_ref<T2>& b) {
+        assert(a.height() == b.height() && a.width() == b.width());
+
+        for (int i = 0; i < a.height(); i++) {
+            for (int j = 0; j < a.width(); j++) {
+                a[i][j] *= b[i][j];
+            }
+        }
+    }
+
+    template<class T1, class T2>
+    matrix<decltype(T1() * T2())> entrywise_mul(const matrix_ref<T1>& a, const matrix_ref<T2>& b) {
+        matrix<decltype(T1() * T2())> r;
+
+        entrywise_mul(a, b, r);
+
+        return r;
+    }
+
+    template<class T1, class T2, class T3>
+    void entrywise_div(const matrix_ref<T1>& a, const matrix_ref<T2>& b, matrix_ref<T3>& r) {
+        assert(a.height() == b.height() && a.width() == b.width() && r.height() == a.height() && r.width() == a.width());
+
+        for (int i = 0; i < a.height(); i++) {
+            for (int j = 0; j < a.width(); j++) {
+                r[i][j] = T3(a[i][j] / b[i][j]);
+            }
+        }
+    }
+
+    template<class T1, class T2, class T3>
+    void entrywise_div(const matrix_ref<T1>& a, const matrix_ref<T2>& b, matrix<T3>& r) {
+        r.resize(a);
+
+        entrywise_div(a, b, static_cast<matrix_ref<T3>&>(r));
+    }
+
+    template<class T1, class T2>
+    void entrywise_div_assign(matrix_ref<T1>& a, const matrix_ref<T2>& b) {
+        assert(a.height() == b.height() && a.width() == b.width());
+
+        for (int i = 0; i < a.height(); i++) {
+            for (int j = 0; j < a.width(); j++) {
+                a[i][j] /= b[i][j];
+            }
+        }
+    }
+
+    template<class T1, class T2>
+    matrix<decltype(T1() / T2())> entrywise_div(const matrix_ref<T1>& a, const matrix_ref<T2>& b) {
+        matrix<decltype(T1() / T2())> r;
+
+        entrywise_div(a, b, r);
+
+        return r;
+    }
+
+    template<typename T>
+    inline void rotate90cw(matrix<T>& mat) {
+        matrix<T> src = mat;
+
+        mat.resize(src.width(), src.height());
+
+        for (int i = 0; i < mat.height(); i++) {
+            for (int j = 0; j < mat.width(); j++) {
+                mat[i][j] = src[src.height() - j - 1][i];
+            }
+        }
+    }
+
+    template<typename T>
+    inline void rotate180(matrix<T>& mat) {
+        for (int i = 0; i < mat.height() / 2; i++) {
+            for (int j = 0; j < mat.width(); j++) {
+                swap(mat[i][j], mat[mat.height() - i - 1][mat.width() - j - 1]);
+            }
+        }
+
+        if (mat.height() % 2) {
+            for (int j = 0; j < mat.width() / 2; j++) {
+                swap(mat[mat.height() / 2][j], mat[mat.height() / 2][mat.width() - j - 1]);
+            }
+        }
+    }
+
+    template<typename T>
+    inline void rotate270cw(matrix<T>& mat) {
+        matrix<T> src = mat;
+
+        mat.resize(src.width(), src.height());
+
+        for (int i = 0; i < mat.height(); i++) {
+            for (int j = 0; j < mat.width(); j++) {
+                mat[i][j] = src[j][src.width() - i - 1];
+            }
+        }
+    }
+
 };
