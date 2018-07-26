@@ -129,7 +129,85 @@ namespace c4{
     public:
         matrix_ref(int height, int width, int stride, T* ptr) : height_(height), width_(width), stride_(stride), ptr_(ptr) {}
 
-		int height() const {
+        class iterator {
+            matrix_ref<T>& m;
+            int i;
+
+        public:
+            iterator& operator++() {
+                ++i;
+                return *this;
+            }
+
+            iterator operator++(int) {
+                iterator r = *this;
+                i++;
+                return r;
+            }
+
+            vector_ref<T> operator*() {
+                return m[i];
+            }
+
+            bool operator==(iterator other) const {
+                return i == other.i;
+            }
+            
+            bool operator!=(iterator other) const {
+                return !(*this == other);
+            }
+        };
+
+        iterator begin() {
+            return iterator{ *this, 0 };
+        }
+
+        iterator end() {
+            return iterator{ *this, height_ };
+        }
+
+        class const_iterator {
+            friend class matrix_ref<T>;
+
+            const matrix_ref<T>& m;
+            int i;
+
+            const_iterator(const matrix_ref<T>& m, int i) : m(m), i(i) {}
+
+        public:
+            const_iterator & operator++() {
+                ++i;
+                return *this;
+            }
+
+            const_iterator operator++(int) {
+                iterator r = *this;
+                i++;
+                return r;
+            }
+
+            const vector_ref<T> operator*() {
+                return m[i];
+            }
+
+            bool operator==(const_iterator other) const {
+                return i == other.i;
+            }
+
+            bool operator!=(const_iterator other) const {
+                return !(*this == other);
+            }
+        };
+
+        const_iterator begin() const {
+            return const_iterator{ *this, 0 };
+        }
+
+        const_iterator end() const {
+            return const_iterator(*this, height_);
+        }
+
+        int height() const {
 			return height_;
 		}
 
@@ -176,6 +254,16 @@ namespace c4{
 
 			return operator[](i)[j];
 		}
+
+        matrix_ref<T> submatrix(int i, int j, int h, int w) {
+            assert(is_inside(i, j) && is_inside(i + h - 1 , j + w - 1));
+            return matrix_ref<T>(h, w, stride_, ptr_ + i * stride_ + j);
+        }
+
+        const matrix_ref<T> submatrix(int i, int j, int h, int w) const {
+            assert(is_inside(i, j) && is_inside(i + h - 1, j + w - 1));
+            return matrix_ref<T>(h, w, stride_, const_cast<T*>(ptr_ + i * stride_ + j));
+        }
 
         static const matrix_ref<T> create_const(int height, int width, int stride, const T* ptr) {
             return matrix_ref<T>(height, width, stride, const_cast<T*>(ptr));
