@@ -35,21 +35,21 @@ namespace c4 {
 
         template<class T2>
 		explicit pixel(const pixel<T2>& p) {
-            r = c4::math::clamp<T>(p.r);
-            g = c4::math::clamp<T>(p.g);
-            b = c4::math::clamp<T>(p.b);
+            r = c4::clamp<T>(p.r);
+            g = c4::clamp<T>(p.g);
+            b = c4::clamp<T>(p.b);
         }
 
 		template<class r_t, class g_t, class b_t>
 		pixel(r_t r, g_t g, b_t b){
-            this->r = c4::math::clamp<T>(r);
-            this->g = c4::math::clamp<T>(g);
-            this->b = c4::math::clamp<T>(b);
+            this->r = c4::clamp<T>(r);
+            this->g = c4::clamp<T>(g);
+            this->b = c4::clamp<T>(b);
         }
 
 		template<class T2>
 		explicit pixel(T2 rgb){
-			T crgb = c4::math::clamp<T>(rgb);
+			T crgb = c4::clamp<T>(rgb);
 			r = crgb;
 			g = crgb;
 			b = crgb;
@@ -243,16 +243,16 @@ namespace c4 {
 
 	template<class T1, class T2>
 	inline void operator+=(pixel<T1>& lhs, const pixel<T2>& rhs) {
-        lhs.r = c4::math::clamp<T1>(lhs.r + rhs.r);
-        lhs.g = c4::math::clamp<T1>(lhs.g + rhs.g);
-        lhs.b = c4::math::clamp<T1>(lhs.b + rhs.b);
+        lhs.r = c4::clamp<T1>(lhs.r + rhs.r);
+        lhs.g = c4::clamp<T1>(lhs.g + rhs.g);
+        lhs.b = c4::clamp<T1>(lhs.b + rhs.b);
     }
 
 	template<class T1, class T2>
 	inline void operator-=(pixel<T1>& lhs, const pixel<T2>& rhs) {
-        lhs.r = c4::math::clamp<T1>(lhs.r - rhs.r);
-        lhs.g = c4::math::clamp<T1>(lhs.g - rhs.g);
-        lhs.b = c4::math::clamp<T1>(lhs.b - rhs.b);
+        lhs.r = c4::clamp<T1>(lhs.r - rhs.r);
+        lhs.g = c4::clamp<T1>(lhs.g - rhs.g);
+        lhs.b = c4::clamp<T1>(lhs.b - rhs.b);
 	}
 
 	template<class T>

@@ -173,7 +173,7 @@ namespace c4 {
 
                 for (; j < width; j++){
                     for (int k : range(4)) {
-                        pdst[k][j] = math::clamp<uint8_t>((int)ptmp4[4 * j + k]);
+                        pdst[k][j] = clamp<uint8_t>((int)ptmp4[4 * j + k]);
                     }
                 }
 			}
