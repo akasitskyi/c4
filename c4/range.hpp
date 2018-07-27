@@ -22,8 +22,9 @@
 
 #pragma once
 
-#include <type_traits>
+#include <array>
 #include <vector>
+#include <type_traits>
 
 namespace c4{
 	struct range_proxy {
@@ -91,4 +92,11 @@ namespace c4{
 
 		return range_proxy{0, (int)v.size()};
 	}
+
+    template<class T, size_t n>
+    range_proxy range(const std::array<T, n>& v) {
+        assert(n <= (size_t)std::numeric_limits<int>::max());
+
+        return range_proxy{ 0, (int)n };
+    }
 };
