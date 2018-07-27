@@ -34,20 +34,6 @@
 #endif
 
 namespace c4 {
-#ifdef ANDROID
-#define __LOGE(S) __android_log_print(ANDROID_LOG_ERROR, "", "%s", (S))
-#define __LOGW(S) __android_log_print(ANDROID_LOG_WARN, "", "%s", (S))
-#define __LOGI(S) __android_log_print(ANDROID_LOG_INFO, "", "%s", (S))
-#define __LOGD(S) __android_log_print(ANDROID_LOG_DEBUG, "", "%s", (S))
-#define __LOGV(S) __android_log_print(ANDROID_LOG_VERBOSE, "", "%s", (S))
-#else
-#define __LOGE(S) std::cerr << "E: " << (S)
-#define __LOGW(S) std::cerr << "W: " << (S)
-#define __LOGI(S) std::cout << "I: " << (S)
-#define __LOGD(S) std::cout << "D: " << (S)
-#define __LOGV(S) std::cout << "V: " << (S)
-#endif
-
 	template<typename T1, typename T2>
 	std::ostream& operator<<(std::ostream &out, const std::pair<T1, T2> &t) {
 		out << "( " << t.first << " , " << t.second << " )";
@@ -89,24 +75,44 @@ namespace c4 {
 			
 			switch(level)
 			{
-			case LOG_ERROR :
-				__LOGE(ss.str().c_str());
+#ifdef ANDROID
+            case LOG_ERROR:
+                __android_log_print(ANDROID_LOG_ERROR, "", "%s", ss.str().c_str());
+                break;
+            case LOG_WARN:
+                __android_log_print(ANDROID_LOG_WARN, "", "%s", ss.str().c_str());
+                break;
+            case LOG_INFO:
+                __android_log_print(ANDROID_LOG_INFO, "", "%s", ss.str().c_str());
+                break;
+#ifndef C4_DEBUG_OUTPUT_DISABLED
+            case LOG_DEBUG:
+                __android_log_print(ANDROID_LOG_DEBUG, "", "%s", ss.str().c_str());
+                break;
+            case LOG_VERBOSE:
+                __android_log_print(ANDROID_LOG_VERBOSE, "", "%s", ss.str().c_str());
+                break;
+#endif
+#else
+            case LOG_ERROR :
+                std::cerr << "E: " << (ss.str().c_str());
 				break;
 			case LOG_WARN :
-				__LOGW(ss.str().c_str());
+                std::cerr << "W: " << (ss.str().c_str());
 				break;
 			case LOG_INFO :
-				__LOGI(ss.str().c_str());
+                std::cout << "I: " << (ss.str().c_str());
 				break;
 #ifndef C4_DEBUG_OUTPUT_DISABLED
 			case LOG_DEBUG :
-				__LOGD(ss.str().c_str());
+                std::cout << "D: " << (ss.str().c_str());
 				break;
 			case LOG_VERBOSE :
-				__LOGV(ss.str().c_str());
+                std::cout << "V: " << (ss.str().c_str());
 				break;
 #endif
-			}
+#endif
+            }
 		}
 	private:
 		std::stringstream ss;
