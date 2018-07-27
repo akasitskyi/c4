@@ -131,8 +131,12 @@ namespace c4{
         matrix_ref(int height, int width, int stride, T* ptr) : height_(height), width_(width), stride_(stride), ptr_(ptr) {}
 
         class iterator {
+            friend class matrix_ref<T>;
+
             matrix_ref<T>& m;
             int i;
+
+            iterator(matrix_ref<T>& m, int i) : m(m), i(i) {}
 
         public:
             iterator& operator++() {
@@ -490,6 +494,29 @@ namespace c4{
         entrywise_div(a, b, r);
 
         return r;
+    }
+
+    template<class T1, class T2, class T3>
+    void entrywise_madd_assign(matrix_ref<T1>& m, T2 alpha, T3 beta) {
+        for (auto& v : m) {
+            for (auto& e : v) {
+                e = T1(e * alpha + beta);
+            }
+        }
+    }
+
+    template<class T1, class T2, class T3>
+    c4::matrix<decltype(T1() * T2() + T3())> entrywise_madd(const c4::matrix_ref<T1>& img, T2 alpha, T3 beta) {
+        typedef decltype(T1() * T2() + T3()) dst_t;
+
+        c4::matrix<dst_t> res(img.height(), img.width());
+        for (int i = 0; i < img.height(); i++) {
+            for (int j = 0; j < img.width(); j++) {
+                res[i][j] = dst_t(img[i][j] * alpha + beta);
+            }
+        }
+
+        return res;
     }
 
     template<typename T>
