@@ -1,6 +1,6 @@
 #include <c4/simd.hpp>
-
 #include <c4/math.hpp>
+#include <c4/range.hpp>
 
 #include <cmath>
 #include <vector>
@@ -23,7 +23,7 @@ std::vector<std::pair<float, float> > normalizeSimd(const std::vector<float>& x,
 
     size_t i = 0;
 
-    for (; i < x.size(); i+=4) {
+    for (; i + 4 < x.size(); i += 4) {
         c4::simd::float32x4 xi = c4::simd::load(&x[i]);
         c4::simd::float32x4 yi = c4::simd::load(&y[i]);
 
@@ -52,9 +52,10 @@ int main()
 {
     // vector normalization
     constexpr int n = 10;
-    std::vector<float> x(n), y(n);
+    std::vector<float> x(n);
+    std::vector<float> y(n);
     
-    for (int i = 0; i < n; i++) {
+    for (int i : c4::range(n)) {
         x[i] = float(rand()) / RAND_MAX;
         y[i] = float(rand()) / RAND_MAX;
     }
