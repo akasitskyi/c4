@@ -26,6 +26,7 @@
 #include <vector>
 #include <sstream>
 #include <ostream>
+#include <chrono>
 
 #ifdef ANDROID
 #include <android/log.h>
@@ -126,5 +127,56 @@ namespace c4 {
 #define LOGV c4::Logger(c4::LOG_VERBOSE)
 
 #define PRINT_DEBUG(X) LOGD << #X << " = " << (X) << " "
+
+    class scoped_timer {
+#ifndef C4_TIMER_DISABLED
+        std::string name;
+        c4::LogLevel logLevel;
+        std::chrono::high_resolution_clock::time_point t0;
+#endif
+    public:
+        scoped_timer(std::string name, c4::LogLevel logLevel = c4::LOG_VERBOSE)
+#ifndef C4_TIMER_DISABLED
+            : name(name), logLevel(logLevel), t0(std::chrono::high_resolution_clock::now())
+#endif
+        {}
+
+#ifndef C4_TIMER_DISABLED
+        double elapsed() {
+            return std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count();
+        }
+
+        ~scoped_timer() {
+            c4::Logger(logLevel) << name << " time: " << elapsed() << " seconds.";
+        }
+#endif
+    };
+
+    class fps_counter {
+        std::chrono::high_resolution_clock::time_point t0;
+        int64_t n = -1;
+    public:
+        float fps() {
+            auto now = std::chrono::high_resolution_clock::now();
+
+            if (n == -1) {
+                t0 = now;
+                n = 0;
+                return -1.f;
+            }
+
+            n++;
+
+            float t = std::chrono::duration<float>(now - t0).count();
+
+            if (t > 1.f && !(n & (n - 1))) {
+                n /= 2;
+                t0 += (now - t0) / 2;
+                t /= 2;
+            }
+
+            return n / t;
+        }
+    };
 
 }; // namespace c4
