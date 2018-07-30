@@ -27,6 +27,7 @@
 #include <type_traits>
 
 namespace c4{
+    template<int step>
 	struct range_proxy {
 		int begin_;
 		int end_;
@@ -38,13 +39,13 @@ namespace c4{
 			iterator(int i) : i(i) {}
 			
             iterator& operator++() {
-                ++i;
+                i += step;
                 return *this;
             }
 
             iterator operator++(int) {
                 iterator r = *this;
-                i++;
+                i += step;
                 return r;
             }
 
@@ -68,35 +69,39 @@ namespace c4{
         iterator end() {
             return iterator(end_);
         }
+
+        range_proxy<-step> reverse() const {
+            return { end_ - step, begin_ - step };
+        }
 	};
 	
-	template<class T>
-	typename std::enable_if<std::is_integral<T>::value, range_proxy>::type range(T begin, T end) {
-		assert(begin <= end);
-		assert(std::numeric_limits<int>::min() <= begin && end <= std::numeric_limits<int>::max());
+	template<class T1, class T2>
+	typename std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value, range_proxy<1> >::type range(T1 begin, T2 end) {
+        assert(std::numeric_limits<int>::min() <= begin && end <= std::numeric_limits<int>::max());
+        assert((int)begin <= (int)end);
 		
-		return range_proxy{(int)begin, (int)end};
+		return range_proxy<1>{(int)begin, (int)end};
 	}
 	
     template<class T>
-    typename std::enable_if<std::is_integral<T>::value, range_proxy>::type range(T end) {
+    typename std::enable_if<std::is_integral<T>::value, range_proxy<1> >::type range(T end) {
         assert(0 <= end);
         assert(end <= std::numeric_limits<int>::max());
 
-        return range_proxy{ 0, (int)end };
+        return range_proxy<1>{ 0, (int)end };
     }
 
     template<class T>
-	range_proxy range(const std::vector<T>& v) {
+	range_proxy<1> range(const std::vector<T>& v) {
 		assert(v.size() <= (size_t)std::numeric_limits<int>::max());
 
-		return range_proxy{0, (int)v.size()};
+		return range_proxy<1>{0, (int)v.size()};
 	}
 
     template<class T, size_t n>
-    range_proxy range(const std::array<T, n>& v) {
+    range_proxy<1> range(const std::array<T, n>& v) {
         assert(n <= (size_t)std::numeric_limits<int>::max());
 
-        return range_proxy{ 0, (int)n };
+        return range_proxy<1>{ 0, (int)n };
     }
 };
