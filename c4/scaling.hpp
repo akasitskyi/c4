@@ -77,7 +77,7 @@ namespace c4 {
 	}
 
 	template<typename SrcPixelT, typename DstPixelT>
-	void scale_image_bilinear(const c4::matrix<SrcPixelT>& src, c4::matrix<DstPixelT>& dst, float q = 0){
+	void scale_bilinear(const c4::matrix<SrcPixelT>& src, c4::matrix<DstPixelT>& dst, float q = 0){
 		c4::scoped_timer timer("scaleBilinear");
 
 		int height0 = (int)src.height();

@@ -261,7 +261,7 @@ namespace c4 {
 	}
 
 	template<class T>
-	inline ostream& operator<<(ostream& out, const pixel<T>& p){
+	inline std::ostream& operator<<(std::ostream& out, const pixel<T>& p){
 		out << "( r: " <<  +p.r << " , g: " << +p.g << " , b: " << +p.b << " )";
 		return out;
 	}
