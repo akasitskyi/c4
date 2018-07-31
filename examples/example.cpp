@@ -1,25 +1,57 @@
+//MIT License
+//
+//Copyright(c) 2018 Alex Kasitskyi
+//
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files(the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions :
+//
+//The above copyright notice and this permission notice shall be included in all
+//copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//SOFTWARE.
+
 #include <c4/simd.hpp>
 #include <c4/math.hpp>
 #include <c4/range.hpp>
+#include <c4/parallel.hpp>
+#include <c4/logger.hpp>
 
 #include <cmath>
 #include <vector>
 #include <iostream>
 
-std::vector<std::pair<float, float> > normalizeSimple(const std::vector<float>& x, const std::vector<float>& y) {
-    std::vector<std::pair<float, float> > r(x.size());
-    
+void normalizeSimple(const std::vector<float>& x, const std::vector<float>& y, std::vector<std::pair<float, float>>& r) {
+    c4::scoped_timer t("normalizeSimple");
+
     for (size_t i = 0; i < x.size(); i++) {
         float inorm = 1.f / sqrt(x[i] * x[i] + y[i] * y[i]);
         r[i].first = x[i] * inorm;
         r[i].second = y[i] * inorm;
     }
-
-    return r;
 }
 
-std::vector<std::pair<float, float> > normalizeSimd(const std::vector<float>& x, const std::vector<float>& y) {
-    std::vector<std::pair<float, float> > r(x.size());
+void normalizeParallel(const std::vector<float>& x, const std::vector<float>& y, std::vector<std::pair<float, float>>& r) {
+    c4::scoped_timer t("normalizeParallel");
+
+    c4::parallel_for(c4::range(x), [&](int i){
+        float inorm = 1.f / sqrt(x[i] * x[i] + y[i] * y[i]);
+        r[i].first = x[i] * inorm;
+        r[i].second = y[i] * inorm;
+    });
+}
+
+void normalizeSimd(const std::vector<float>& x, const std::vector<float>& y, std::vector<std::pair<float, float>>& r) {
+    c4::scoped_timer t("normalizeSimd");
 
     size_t i = 0;
 
@@ -44,14 +76,37 @@ std::vector<std::pair<float, float> > normalizeSimd(const std::vector<float>& x,
         r[i].first = x[i] * inorm;
         r[i].second = y[i] * inorm;
     }
-
-    return r;
 }
 
-int main()
-{
-    // vector normalization
-    constexpr int n = 10;
+void normalizeParallelSimd(const std::vector<float>& x, const std::vector<float>& y, std::vector<std::pair<float, float>>& r) {
+    c4::scoped_timer t("normalizeParallelSimd");
+
+    c4::parallel_for(c4::range(x.size() / 4),[&](int i) {
+        c4::simd::float32x4 xi = c4::simd::load(x.data() + 4 * i);
+        c4::simd::float32x4 yi = c4::simd::load(y.data() + 4 * i);
+
+        c4::simd::float32x4 norm2 = xi * xi + yi * yi;
+
+        c4::simd::float32x4 inorm = c4::simd::rsqrt(norm2);
+
+        // multiply
+        xi = xi * inorm;
+        yi = yi * inorm;
+
+        // store interleaved
+        c4::simd::store_2_interleaved((float*)(r.data() + 4 * i), { xi, yi });
+    });
+
+    for (int i : c4::range(x.size() / 4 * 4, x.size())) {
+        float inorm = 1.f / sqrt(x[i] * x[i] + y[i] * y[i]);
+        r[i].first = x[i] * inorm;
+        r[i].second = y[i] * inorm;
+    }
+}
+
+// vector normalization
+int main() {
+    constexpr int n = 100000000;
     std::vector<float> x(n);
     std::vector<float> y(n);
     
@@ -60,18 +115,25 @@ int main()
         y[i] = float(rand()) / RAND_MAX;
     }
 
-    auto simple_res = normalizeSimple(x, y);
-    auto simd_res = normalizeSimd(x, y);
+    std::vector<std::pair<float, float> > res(n, std::pair<float, float>(-1.f, -1.f));
 
-    for (auto p : simple_res)
-        std::cout << "(" << p.first << ", " << p.second << ")\t";
+    const int random_check = rand() % n;
+
+    normalizeSimple(x, y, res);
+    std::cout << "(" << res[random_check].first << ", " << res[random_check].second << ")" << std::endl;
+    std::fill(res.begin(), res.end(), std::pair<float, float>(-1.f, -1.f));
     
-    std::cout << std::endl;
+    normalizeSimd(x, y, res);
+    std::cout << "(" << res[random_check].first << ", " << res[random_check].second << ")" << std::endl;
+    std::fill(res.begin(), res.end(), std::pair<float, float>(-1.f, -1.f));
 
-    for (auto p : simd_res)
-        std::cout << "(" << p.first << ", " << p.second << ")\t";
+    normalizeParallel(x, y, res);
+    std::cout << "(" << res[random_check].first << ", " << res[random_check].second << ")" << std::endl;
+    std::fill(res.begin(), res.end(), std::pair<float, float>(-1.f, -1.f));
 
-    std::cout << std::endl;
+    normalizeParallelSimd(x, y, res);
+    std::cout << "(" << res[random_check].first << ", " << res[random_check].second << ")" << std::endl;
+    std::fill(res.begin(), res.end(), std::pair<float, float>(-1.f, -1.f));
 
     return 0;
 }

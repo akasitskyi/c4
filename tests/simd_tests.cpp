@@ -1732,7 +1732,7 @@ void test_clz () {
     store(r.data(), vr);
 
     for (int i = 0; i < n; i++) {
-        ASSERT_EQUAL(r[i], c4::math::clz(a[i]));
+        ASSERT_EQUAL(r[i], c4::clz(a[i]));
     }
 }
 

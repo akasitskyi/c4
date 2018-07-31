@@ -36,6 +36,12 @@ namespace c4{
 			int i;
 			
 		public:
+            using iterator_category = std::random_access_iterator_tag;
+            using value_type = int;
+            using difference_type = int;
+            using pointer = int*;
+            using reference = int&;
+
 			iterator(int i) : i(i) {}
 			
             iterator& operator++() {
@@ -46,6 +52,16 @@ namespace c4{
             iterator operator++(int) {
                 iterator r = *this;
                 i += step;
+                return r;
+            }
+
+            int operator-(const iterator& other) const {
+                return i - other.i * step;
+            }
+
+            iterator operator+(int n) const {
+                iterator r = *this;
+                r.i += n * step;
                 return r;
             }
 
@@ -60,7 +76,12 @@ namespace c4{
             bool operator!=(iterator other) const {
                 return !(*this == other);
             }
-		};
+        
+            bool operator<(iterator other) const {
+                return i * step < other.i * step;
+            }
+
+        };
 		
         iterator begin() {
             return iterator(begin_);
