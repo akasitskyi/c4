@@ -26,7 +26,7 @@
 #include "range.hpp"
 #include "matrix.hpp"
 #include "logger.hpp"
-#include "fixed-point.hpp"
+#include "fixed_point.hpp"
 
 namespace c4 {
 	template<typename pixel_t>
