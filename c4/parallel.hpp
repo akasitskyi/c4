@@ -137,10 +137,23 @@ namespace c4 {
             parallel_for(c.begin(), c.end(), f);
         }
         
+        template<class F0, class... F>
+        void parallel_invoke(F0&& f0, F&&... f) {
+            std::future<void> future = enqueue(f0);
+
+            parallel_invoke(f...);
+
+            future.wait();
+        }
+
         static thread_pool& get_single() {
             static thread_pool tp;
             return tp;
         }
+
+    private:
+        
+        void parallel_invoke() {}
     };
 
     template<class iterator, class F>
@@ -151,5 +164,10 @@ namespace c4 {
     template<class iterable, class F>
     void parallel_for(iterable c, F f) {
         thread_pool::get_single().parallel_for(c, f);
+    }
+
+    template<class... F>
+    void parallel_invoke(F&&... f) {
+        thread_pool::get_single().parallel_invoke(f...);
     }
 };

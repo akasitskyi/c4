@@ -106,6 +106,8 @@ void normalizeParallelSimd(const std::vector<float>& x, const std::vector<float>
 
 // vector normalization
 int main() {
+    c4::parallel_invoke([] {std::cout << "A" << std::endl; }, [] {std::cout << "B" << std::endl; }, [] {std::cout << "C" << std::endl; });
+
     constexpr int n = 100000000;
     std::vector<float> x(n);
     std::vector<float> y(n);
