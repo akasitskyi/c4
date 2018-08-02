@@ -21,14 +21,14 @@
 //SOFTWARE.
 
 #include <c4/simd.hpp>
-#include <c4/math.hpp>
-#include <c4/range.hpp>
-#include <c4/parallel.hpp>
 #include <c4/logger.hpp>
+#include <c4/parallel.hpp>
 
 #include <cmath>
 #include <vector>
 #include <iostream>
+#include <numeric>
+#include <functional>
 
 void normalizeSimple(const std::vector<float>& x, const std::vector<float>& y, std::vector<std::pair<float, float>>& r) {
     c4::scoped_timer t("normalizeSimple");
@@ -106,12 +106,14 @@ void normalizeParallelSimd(const std::vector<float>& x, const std::vector<float>
 
 // vector normalization
 int main() {
-    c4::parallel_invoke([] {std::cout << "A" << std::endl; }, [] {std::cout << "B" << std::endl; }, [] {std::cout << "C" << std::endl; });
+    c4::parallel_invoke([] {std::cout << "A"; }, [] {std::cout << "B"; }, [] {std::cout << "C"; });
 
-    constexpr int n = 100000000;
+    std::cout << std::endl;
+
+    constexpr int n = 10000000;
     std::vector<float> x(n);
     std::vector<float> y(n);
-    
+
     for (int i : c4::range(n)) {
         x[i] = float(rand()) / RAND_MAX;
         y[i] = float(rand()) / RAND_MAX;
@@ -137,6 +139,21 @@ int main() {
     std::cout << "(" << res[random_check].first << ", " << res[random_check].second << ")" << std::endl;
     std::fill(res.begin(), res.end(), std::pair<float, float>(-1.f, -1.f));
 
+    {
+        c4::scoped_timer t("serial accumulate");
+        double acc_serial = std::accumulate(x.begin(), x.end(), 0.);
+
+        std::cout << "acc_serial = " << acc_serial << std::endl;
+    }
+
+    {
+        c4::scoped_timer t("parallel accumulate");
+        double acc_parallel = c4::parallel_reduce(x.begin(), x.end(), 0., std::plus<double>(), [](std::vector<float>::iterator first, std::vector<float>::iterator last) {
+            return std::accumulate(first, last, 0.);
+        });
+
+        std::cout << "acc_parallel = " << acc_parallel << std::endl;
+    }
+
     return 0;
 }
-

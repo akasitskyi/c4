@@ -29,6 +29,7 @@
 #include <queue>
 #include <array>
 #include <vector>
+#include <algorithm>
 #include <functional>
 #include <type_traits>
 
@@ -38,7 +39,7 @@ namespace c4 {
     class thread_pool {
         std::mutex mu;
         std::vector<std::thread> workers;
-        std::queue<std::packaged_task<void()> > tasks;
+        std::queue<std::function<void()> > tasks;
         std::condition_variable condition;
         bool stop;
 
@@ -50,7 +51,7 @@ namespace c4 {
             for (unsigned int i = 0; i < threads; i++) {
                 workers.emplace_back([this] {
                     for (;;) {
-                        std::packaged_task<void()> task;
+                        std::function<void()> task;
                         {
                             std::unique_lock<std::mutex> lock(this->mu);
                             condition.wait(lock, [this] { return stop || !tasks.empty(); });
@@ -68,18 +69,17 @@ namespace c4 {
         }
 
         template<class F>
-        auto enqueue(F f) -> std::future<typename std::result_of<F()>::type> {
+        auto enqueue(F&& f) -> std::future<typename std::result_of<F()>::type> {
             using return_type = typename std::result_of<F()>::type;
 
-            std::packaged_task<return_type()> task(f);
-            std::future<return_type> res = task.get_future();
+            auto task = std::make_shared<std::packaged_task<return_type()>>((f));
 
             std::lock_guard<std::mutex> lock(mu);
 
-            tasks.emplace(std::move(task));
+            tasks.emplace([task]() { (*task)(); });
             condition.notify_one();
 
-            return res;
+            return task->get_future();
         }
 
         void clear_queue() {
@@ -132,11 +132,42 @@ namespace c4 {
                 f.wait();
         }
 
+        template<class iterator, class T, class Reduction, class F>
+        T parallel_reduce(iterator first, iterator last, T init, Reduction reduction, F f) {
+            int size = (int)(last - first);
+            const int min_group_size = size / (int)workers.size();
+
+            std::vector<int> groups(workers.size(), min_group_size);
+            size -= (int)groups.size() * min_group_size;
+
+            for (int k = 0; size > 0; k++) {
+                groups[k]++;
+                size--;
+            }
+
+            std::vector<std::future<T>> futures;
+
+            for (int g : groups) {
+                iterator group_first = first;
+                iterator group_last = first + g;
+                first = group_last;
+
+                futures.emplace_back(enqueue([group_first, group_last, f] {
+                    return f(group_first, group_last);
+                }));
+            }
+
+            for (auto& f : futures)
+                init = reduction(init, f.get());
+
+            return init;
+        }
+
         template<class iterable, class F>
         void parallel_for(iterable c, F f) {
             parallel_for(c.begin(), c.end(), f);
         }
-        
+
         template<class F0, class... F>
         void parallel_invoke(F0&& f0, F&&... f) {
             std::future<void> future = enqueue(f0);
@@ -152,7 +183,7 @@ namespace c4 {
         }
 
     private:
-        
+
         void parallel_invoke() {}
     };
 
@@ -164,6 +195,11 @@ namespace c4 {
     template<class iterable, class F>
     void parallel_for(iterable c, F f) {
         thread_pool::get_single().parallel_for(c, f);
+    }
+
+    template<class iterator, class T, class Reduction, class F>
+    T parallel_reduce(iterator first, iterator last, T init, Reduction reduction, F f) {
+        return thread_pool::get_single().parallel_reduce(first, last, init, reduction, f);
     }
 
     template<class... F>

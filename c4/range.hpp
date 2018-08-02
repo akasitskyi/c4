@@ -24,6 +24,7 @@
 
 #include <array>
 #include <vector>
+#include <cassert>
 #include <type_traits>
 
 namespace c4{
@@ -31,10 +32,10 @@ namespace c4{
 	struct range_proxy {
 		int begin_;
 		int end_;
-		
+
 		class iterator {
 			int i;
-			
+
 		public:
             using iterator_category = std::random_access_iterator_tag;
             using value_type = int;
@@ -43,7 +44,7 @@ namespace c4{
             using reference = int&;
 
 			iterator(int i) : i(i) {}
-			
+
             iterator& operator++() {
                 i += step;
                 return *this;
@@ -72,17 +73,17 @@ namespace c4{
             bool operator==(iterator other) const {
                 return i == other.i;
             }
-            
+
             bool operator!=(iterator other) const {
                 return !(*this == other);
             }
-        
+
             bool operator<(iterator other) const {
                 return i * step < other.i * step;
             }
 
         };
-		
+
         iterator begin() {
             return iterator(begin_);
         }
@@ -95,15 +96,15 @@ namespace c4{
             return { end_ - step, begin_ - step };
         }
 	};
-	
+
 	template<class T1, class T2>
 	typename std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value, range_proxy<1> >::type range(T1 begin, T2 end) {
         assert(std::numeric_limits<int>::min() <= begin && end <= std::numeric_limits<int>::max());
         assert((int)begin <= (int)end);
-		
+
 		return range_proxy<1>{(int)begin, (int)end};
 	}
-	
+
     template<class T>
     typename std::enable_if<std::is_integral<T>::value, range_proxy<1> >::type range(T end) {
         assert(0 <= end);
