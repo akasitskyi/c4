@@ -68,6 +68,10 @@ namespace c4 {
             }
         }
 
+        int get_num_threads() const {
+            return (int)workers.size();
+        }
+
         template<class F>
         auto enqueue(F&& f) -> std::future<typename std::result_of<F()>::type> {
             using return_type = typename std::result_of<F()>::type;
@@ -186,6 +190,10 @@ namespace c4 {
 
         void parallel_invoke() {}
     };
+
+    inline int get_num_threads() {
+        return thread_pool::get_single().get_num_threads();
+    }
 
     template<class iterator, class F>
     void parallel_for(iterator first, iterator last, F f) {
