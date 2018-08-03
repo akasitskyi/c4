@@ -286,171 +286,171 @@ namespace c4 {
         typedef tuple<float32x4, 4> float32x4x4;
 
 #ifdef USE_ARM_NEON
-        int8x16x2 make_tuple(int8x16x2_t a) {
+        inline int8x16x2 make_tuple(int8x16x2_t a) {
             return { a.val[0], a.val[1] };
         }
 
-        uint8x16x2 make_tuple(uint8x16x2_t a) {
+        inline uint8x16x2 make_tuple(uint8x16x2_t a) {
             return { a.val[0], a.val[1] };
         }
         
-        int16x8x2 make_tuple(int16x8x2_t a) {
+        inline int16x8x2 make_tuple(int16x8x2_t a) {
             return { a.val[0], a.val[1] };
         }
 
-        uint16x8x2 make_tuple(uint16x8x2_t a) {
+        inline uint16x8x2 make_tuple(uint16x8x2_t a) {
             return { a.val[0], a.val[1] };
         }
 
-        int32x4x2 make_tuple(int32x4x2_t a) {
+        inline int32x4x2 make_tuple(int32x4x2_t a) {
             return { a.val[0], a.val[1] };
         }
 
-        uint32x4x2 make_tuple(uint32x4x2_t a) {
+        inline uint32x4x2 make_tuple(uint32x4x2_t a) {
             return { a.val[0], a.val[1] };
         }
 
-        float32x4x2 make_tuple(float32x4x2_t a) {
+        inline float32x4x2 make_tuple(float32x4x2_t a) {
             return { a.val[0], a.val[1] };
         }
 
-        int8x16x3 make_tuple(int8x16x3_t a) {
+        inline int8x16x3 make_tuple(int8x16x3_t a) {
             return { a.val[0], a.val[1], a.val[2] };
         }
 
-        uint8x16x3 make_tuple(uint8x16x3_t a) {
+        inline uint8x16x3 make_tuple(uint8x16x3_t a) {
             return { a.val[0], a.val[1], a.val[2] };
         }
 
-        int16x8x3 make_tuple(int16x8x3_t a) {
+        inline int16x8x3 make_tuple(int16x8x3_t a) {
             return { a.val[0], a.val[1], a.val[2] };
         }
 
-        uint16x8x3 make_tuple(uint16x8x3_t a) {
+        inline uint16x8x3 make_tuple(uint16x8x3_t a) {
             return { a.val[0], a.val[1], a.val[2] };
         }
 
-        int32x4x3 make_tuple(int32x4x3_t a) {
+        inline int32x4x3 make_tuple(int32x4x3_t a) {
             return { a.val[0], a.val[1], a.val[2] };
         }
 
-        uint32x4x3 make_tuple(uint32x4x3_t a) {
+        inline uint32x4x3 make_tuple(uint32x4x3_t a) {
             return { a.val[0], a.val[1], a.val[2] };
         }
 
-        float32x4x3 make_tuple(float32x4x3_t a) {
+        inline float32x4x3 make_tuple(float32x4x3_t a) {
             return { a.val[0], a.val[1], a.val[2] };
         }
 
-        int8x16x4 make_tuple(int8x16x4_t a) {
+        inline int8x16x4 make_tuple(int8x16x4_t a) {
             return { a.val[0], a.val[1], a.val[2], a.val[3] };
         }
 
-        uint8x16x4 make_tuple(uint8x16x4_t a) {
+        inline uint8x16x4 make_tuple(uint8x16x4_t a) {
             return { a.val[0], a.val[1], a.val[2], a.val[3] };
         }
 
-        int16x8x4 make_tuple(int16x8x4_t a) {
+        inline int16x8x4 make_tuple(int16x8x4_t a) {
             return { a.val[0], a.val[1], a.val[2], a.val[3] };
         }
 
-        uint16x8x4 make_tuple(uint16x8x4_t a) {
+        inline uint16x8x4 make_tuple(uint16x8x4_t a) {
             return { a.val[0], a.val[1], a.val[2], a.val[3] };
         }
 
-        int32x4x4 make_tuple(int32x4x4_t a) {
+        inline int32x4x4 make_tuple(int32x4x4_t a) {
             return { a.val[0], a.val[1], a.val[2], a.val[3] };
         }
 
-        uint32x4x4 make_tuple(uint32x4x4_t a) {
+        inline uint32x4x4 make_tuple(uint32x4x4_t a) {
             return { a.val[0], a.val[1], a.val[2], a.val[3] };
         }
 
-        float32x4x4 make_tuple(float32x4x4_t a) {
+        inline float32x4x4 make_tuple(float32x4x4_t a) {
             return { a.val[0], a.val[1], a.val[2], a.val[3] };
         }
 
-        int8x16x2_t make_neon(int8x16x2 a) {
+        inline int8x16x2_t make_neon(int8x16x2 a) {
             return { a.val[0].v, a.val[1].v };
         }
 
-        uint8x16x2_t make_neon(uint8x16x2 a) {
+        inline uint8x16x2_t make_neon(uint8x16x2 a) {
             return { a.val[0].v, a.val[1].v };
         }
 
-        int16x8x2_t make_neon(int16x8x2 a) {
+        inline int16x8x2_t make_neon(int16x8x2 a) {
             return { a.val[0].v, a.val[1].v };
         }
 
-        uint16x8x2_t make_neon(uint16x8x2 a) {
+        inline uint16x8x2_t make_neon(uint16x8x2 a) {
             return { a.val[0].v, a.val[1].v };
         }
 
-        int32x4x2_t make_neon(int32x4x2 a) {
+        inline int32x4x2_t make_neon(int32x4x2 a) {
             return { a.val[0].v, a.val[1].v };
         }
 
-        uint32x4x2_t make_neon(uint32x4x2 a) {
+        inline uint32x4x2_t make_neon(uint32x4x2 a) {
             return { a.val[0].v, a.val[1].v };
         }
 
-        float32x4x2_t make_neon(float32x4x2 a) {
+        inline float32x4x2_t make_neon(float32x4x2 a) {
             return { a.val[0].v, a.val[1].v };
         }
 
-        int8x16x3_t make_neon(int8x16x3 a) {
+        inline int8x16x3_t make_neon(int8x16x3 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v };
         }
 
-        uint8x16x3_t make_neon(uint8x16x3 a) {
+        inline uint8x16x3_t make_neon(uint8x16x3 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v };
         }
 
-        int16x8x3_t make_neon(int16x8x3 a) {
+        inline int16x8x3_t make_neon(int16x8x3 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v };
         }
 
-        uint16x8x3_t make_neon(uint16x8x3 a) {
+        inline uint16x8x3_t make_neon(uint16x8x3 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v };
         }
 
-        int32x4x3_t make_neon(int32x4x3 a) {
+        inline int32x4x3_t make_neon(int32x4x3 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v };
         }
 
-        uint32x4x3_t make_neon(uint32x4x3 a) {
+        inline uint32x4x3_t make_neon(uint32x4x3 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v };
         }
 
-        float32x4x3_t make_neon(float32x4x3 a) {
+        inline float32x4x3_t make_neon(float32x4x3 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v };
         }
 
-        int8x16x4_t make_neon(int8x16x4 a) {
+        inline int8x16x4_t make_neon(int8x16x4 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
         }
 
-        uint8x16x4_t make_neon(uint8x16x4 a) {
+        inline uint8x16x4_t make_neon(uint8x16x4 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
         }
 
-        int16x8x4_t make_neon(int16x8x4 a) {
+        inline int16x8x4_t make_neon(int16x8x4 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
         }
 
-        uint16x8x4_t make_neon(uint16x8x4 a) {
+        inline uint16x8x4_t make_neon(uint16x8x4 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
         }
 
-        int32x4x4_t make_neon(int32x4x4 a) {
+        inline int32x4x4_t make_neon(int32x4x4 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
         }
 
-        uint32x4x4_t make_neon(uint32x4x4 a) {
+        inline uint32x4x4_t make_neon(uint32x4x4 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
         }
 
-        float32x4x4_t make_neon(float32x4x4 a) {
+        inline float32x4x4_t make_neon(float32x4x4 a) {
             return { a.val[0].v, a.val[1].v, a.val[2].v, a.val[3].v };
         }
 #endif
@@ -464,14 +464,14 @@ namespace c4 {
 
 #ifdef USE_SSE
         template<int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7, int i8, int i9, int i10, int i11, int i12, int i13, int i14, int i15>
-        constexpr __m128i shuffle_mask() {
+        inline constexpr __m128i shuffle_mask() {
             return _mm_setr_epi8(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15);
         }
 
 #define A(I) I >= 0 ? 2 * I : -1
 #define B(I) I >= 0 ? 2 * I + 1 : -1
         template<int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7>
-        constexpr __m128i shuffle_mask() {
+        inline constexpr __m128i shuffle_mask() {
             return shuffle_mask<A(i0), B(i0), A(i1), B(i1), A(i2), B(i2), A(i3), B(i3), A(i4), B(i4), A(i5), B(i5), A(i6), B(i6), A(i7), B(i7)>();
         }
 #undef A

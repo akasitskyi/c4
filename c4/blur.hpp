@@ -59,7 +59,7 @@ namespace c4 {
     }
 
     template<typename PixelT>
-    void box_blur_horizontal(matrix_ref<PixelT>& image, int r){
+    inline void box_blur_horizontal(matrix_ref<PixelT>& image, int r){
         std::vector<PixelT> tmp(image.width());
 
         for(int i : range(image.height())) {
@@ -69,13 +69,13 @@ namespace c4 {
     }
 
     template<typename PixelT>
-    void box_blur_horizontal(const matrix_ref<PixelT>& src, matrix_ref<PixelT>& dst, int r){
+    inline void box_blur_horizontal(const matrix_ref<PixelT>& src, matrix_ref<PixelT>& dst, int r){
         for(int i : range(src))
             box_blur_1d(src[i], src[i] + src.width(), dst[i], r);
     }
 
     template<>
-    void box_blur_horizontal(const matrix_ref<uint8_t>& src, matrix_ref<uint8_t>& dst, int r) {
+    inline void box_blur_horizontal(const matrix_ref<uint8_t>& src, matrix_ref<uint8_t>& dst, int r) {
         int height = src.height();
         int width = src.width();
 
@@ -184,7 +184,7 @@ namespace c4 {
     }
 
     template<typename PixelT>
-    void box_blur_vertical(matrix_ref<PixelT>& image, int r){
+    inline void box_blur_vertical(matrix_ref<PixelT>& image, int r){
         int height = image.height();
         int width = image.width();
         int stride = image.stride();
@@ -210,7 +210,7 @@ namespace c4 {
     }
 
     template<>
-    void box_blur_vertical(matrix_ref<uint8_t>& image, int r) {
+    inline void box_blur_vertical(matrix_ref<uint8_t>& image, int r) {
         int height = image.height();
         int width = image.width();
         int stride = image.stride();
@@ -311,7 +311,7 @@ namespace c4 {
     }
 
     template<typename PixelT>
-    void box_blur(const matrix_ref<PixelT>& src, matrix<PixelT>& dst, int r){
+    inline void box_blur(const matrix_ref<PixelT>& src, matrix<PixelT>& dst, int r){
         dst.resize(src);
 
         box_blur_horizontal(src, dst, r);
@@ -319,7 +319,7 @@ namespace c4 {
     }
 
     template<typename PixelT>
-    void box_blur(matrix_ref<PixelT>& image, int r){
+    inline void box_blur(matrix_ref<PixelT>& image, int r){
         box_blur_horizontal(image, r);
         box_blur_vertical(image, r);
     }

@@ -27,7 +27,7 @@
 
 namespace c4 {
     template<class pixel_t, class coord_t>
-    void draw_line(matrix_ref<pixel_t>& img, coord_t x0, coord_t y0, coord_t x1, coord_t y1, pixel_t color, int thickness = 1){
+    inline void draw_line(matrix_ref<pixel_t>& img, coord_t x0, coord_t y0, coord_t x1, coord_t y1, pixel_t color, int thickness = 1){
         int T = (int)max(abs(x0 - x1), abs(y0 - y1));
 
         for(int t : range(T)){
@@ -41,12 +41,12 @@ namespace c4 {
     }
 
     template<class pixel_t>
-    void draw_line(matrix_ref<pixel_t>& img, c4::point<double> p0, c4::point<double> p1, pixel_t color, int thickness = 1){
+    inline void draw_line(matrix_ref<pixel_t>& img, c4::point<double> p0, c4::point<double> p1, pixel_t color, int thickness = 1){
         draw_line(img, p0.x, p0.y, p1.x, p1.y, color, thickness);
     }
 
     template<class pixel_t>
-    void draw_arc(matrix_ref<pixel_t>& img, c4::point<double> center, float R, float alpha0, float alpha1, pixel_t color, int thickness = 1){
+    inline void draw_arc(matrix_ref<pixel_t>& img, c4::point<double> center, float R, float alpha0, float alpha1, pixel_t color, int thickness = 1){
         int T = int(2 * R);
 
         for(int t : range(T)){
@@ -61,7 +61,7 @@ namespace c4 {
     }
 
     template<class pixel_t>
-    void draw_arc(matrix_ref<pixel_t>& img, c4::point<double> center, c4::point<double> p0, c4::point<double> p1, c4::pixel<uint8_t> color, int thickness = 1){
+    inline void draw_arc(matrix_ref<pixel_t>& img, c4::point<double> center, c4::point<double> p0, c4::point<double> p1, c4::pixel<uint8_t> color, int thickness = 1){
         double R = (dist(center, p0) + dist(center, p1)) / 2;
         double alpha0 = (p0 - center).polar_angle();
         double alpha1 = (p1 - center).polar_angle();
@@ -76,7 +76,7 @@ namespace c4 {
     }
 
     template<class pixel_t>
-    void draw_rect(matrix_ref<pixel_t>& img, int x0, int y0, int width, int height, pixel_t color, int thickness = 1){
+    inline void draw_rect(matrix_ref<pixel_t>& img, int x0, int y0, int width, int height, pixel_t color, int thickness = 1){
         y0 = max(y0, thickness / 2);
         x0 = max(x0, thickness / 2);
 
@@ -96,7 +96,7 @@ namespace c4 {
     }
 
     template<class pixel_t>
-    void draw_point(matrix_ref<pixel_t>& img, int y0, int x0, pixel_t color, int thickness = 1){
+    inline void draw_point(matrix_ref<pixel_t>& img, int y0, int x0, pixel_t color, int thickness = 1){
         FOR(d, -thickness / 2, thickness - thickness / 2){
             if( img.is_inside(y0, x0 + d) )
                 img[y0][x0 + d] = color;
@@ -106,7 +106,7 @@ namespace c4 {
     }
 
     template<class pixel_t>
-    void draw_digit(matrix_ref<pixel_t>& img, int x0, int y0, int d, pixel_t fg_color, pixel_t bg_color){
+    inline void draw_digit(matrix_ref<pixel_t>& img, int x0, int y0, int d, pixel_t fg_color, pixel_t bg_color){
         static const string digits[10] = {
             "......####"
             "..###..###"
@@ -234,7 +234,7 @@ namespace c4 {
     }
 
     template<class pixel_t>
-    void draw_number(matrix_ref<pixel_t>& img, int x0, int y0, int d, pixel_t fg_color, pixel_t bg_color){
+    inline void draw_number(matrix_ref<pixel_t>& img, int x0, int y0, int d, pixel_t fg_color, pixel_t bg_color){
         std::string s = std::to_string(d);
 
         for(int k : range(s))

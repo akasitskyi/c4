@@ -36,13 +36,13 @@
 
 namespace c4 {
     template<typename T1, typename T2>
-    std::ostream& operator<<(std::ostream &out, const std::pair<T1, T2> &t) {
+    inline std::ostream& operator<<(std::ostream &out, const std::pair<T1, T2> &t) {
         out << "( " << t.first << " , " << t.second << " )";
         return out;
     }
 
     template<typename T>
-    std::ostream& operator<<(std::ostream &out, const std::vector<T> &t) {
+    inline std::ostream& operator<<(std::ostream &out, const std::vector<T> &t) {
         out << "{ ";
         for(size_t i = 0; i < t.size(); i++) {
             if(i)

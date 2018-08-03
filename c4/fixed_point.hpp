@@ -54,21 +54,21 @@ namespace c4 {
     };
 
     template<class T, int shift>
-    fixed_point<T, shift> operator+(fixed_point<T, shift> a, fixed_point<T, shift> b) {
+    inline fixed_point<T, shift> operator+(fixed_point<T, shift> a, fixed_point<T, shift> b) {
         fixed_point<T, shift> r;
         r.base = a.base + b.base;
         return r;
     }
 
     template<class T, int shift>
-    fixed_point<T, shift> operator-(fixed_point<T, shift> a, fixed_point<T, shift> b) {
+    inline fixed_point<T, shift> operator-(fixed_point<T, shift> a, fixed_point<T, shift> b) {
         fixed_point<T, shift> r;
         r.base = a.base - b.base;
         return r;
     }
 
     template<class T, int shift>
-    fixed_point<T, 2 * shift> operator*(fixed_point<T, shift> a, fixed_point<T, shift> b) {
+    inline fixed_point<T, 2 * shift> operator*(fixed_point<T, shift> a, fixed_point<T, shift> b) {
         fixed_point<T, 2 * shift> r;
         r.base = a.base * b.base;
         return r;

@@ -202,27 +202,27 @@ namespace c4 {
     }
 
     template<class T1, class T2>
-    auto operator+(const pixel<T1>& lhs, const pixel<T2>& rhs)->pixel<decltype(T1() + T2())> {
+    inline auto operator+(const pixel<T1>& lhs, const pixel<T2>& rhs)->pixel<decltype(T1() + T2())> {
         return pixel<decltype(T1() + T2())>(lhs.r + rhs.r, lhs.g + rhs.g, lhs.b + rhs.b);
     }
 
     template<class T1, class T2>
-    auto operator-(const pixel<T1>& lhs, const pixel<T2>& rhs)->pixel<decltype(T1() - T2())> {
+    inline auto operator-(const pixel<T1>& lhs, const pixel<T2>& rhs)->pixel<decltype(T1() - T2())> {
         return pixel<decltype(T1() - T2())>(lhs.r - rhs.r, lhs.g - rhs.g, lhs.b - rhs.b);
     }
 
     template<class T1, class T2>
-    pixel<decltype(T1() * T2())> operator*(const pixel<T1>& p, T2 alpha) {
+    inline pixel<decltype(T1() * T2())> operator*(const pixel<T1>& p, T2 alpha) {
         return pixel<decltype(T1() * T2())>(p.r * alpha, p.g * alpha, p.b * alpha);
     }
 
     template<class T1, class T2>
-    pixel<decltype(T1() * T2())> operator*(T1 alpha, const pixel<T2>& p) {
+    inline pixel<decltype(T1() * T2())> operator*(T1 alpha, const pixel<T2>& p) {
         return p * alpha;
     }
 
     template<class T1, class T2>
-    pixel<decltype(T1() * T2())> operator*(const pixel<T1>& p1, const pixel<T2>& p2) {
+    inline pixel<decltype(T1() * T2())> operator*(const pixel<T1>& p1, const pixel<T2>& p2) {
         return pixel<decltype(T1() * T2())>(p1.r * p2.r, p1.g * p2.g, p1.b * p2.b);
     }
 
@@ -232,27 +232,35 @@ namespace c4 {
     }
 
     template<class T1, class T2>
-    void operator*=(pixel<T1>& p, T2 alpha){
+    inline pixel<T1>& operator*=(pixel<T1>& p, T2 alpha){
         p = pixel<T1>(p * alpha);
+
+        return p;
     }
 
     template<class T1, class T2>
-    inline void operator/=(pixel<T1>& p, T2 alpha){
+    inline pixel<T1>& operator/=(pixel<T1>& p, T2 alpha){
         p = pixel<T1>(p / alpha);
+
+        return p;
     }
 
     template<class T1, class T2>
-    inline void operator+=(pixel<T1>& lhs, const pixel<T2>& rhs) {
+    inline pixel<T1>& operator+=(pixel<T1>& lhs, const pixel<T2>& rhs) {
         lhs.r = c4::clamp<T1>(lhs.r + rhs.r);
         lhs.g = c4::clamp<T1>(lhs.g + rhs.g);
         lhs.b = c4::clamp<T1>(lhs.b + rhs.b);
+
+        return lhs;
     }
 
     template<class T1, class T2>
-    inline void operator-=(pixel<T1>& lhs, const pixel<T2>& rhs) {
+    inline pixel<T1>& operator-=(pixel<T1>& lhs, const pixel<T2>& rhs) {
         lhs.r = c4::clamp<T1>(lhs.r - rhs.r);
         lhs.g = c4::clamp<T1>(lhs.g - rhs.g);
         lhs.b = c4::clamp<T1>(lhs.b - rhs.b);
+
+        return lhs;
     }
 
     template<class T>
@@ -267,7 +275,7 @@ namespace c4 {
     }
 
     template<class T1, class T2>
-    float dist(const pixel<T1>& p1, const pixel<T2>& p2, rgb_weights w = rgb_weights::bt601() ){
+    inline float dist(const pixel<T1>& p1, const pixel<T2>& p2, rgb_weights w = rgb_weights::bt601() ){
         pixel<float> d((float)std::abs(p1.r - p2.r), (float)std::abs(p1.g - p2.g), (float)std::abs(p1.b - p2.b));
 
         return w.combine(d);

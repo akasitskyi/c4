@@ -46,7 +46,7 @@ namespace c4 {
 
 
 
-    static void img_to_rgb(const matrix_ref<pixel<uint8_t>>& img, uint8_t* ptr, int strideBytes, RgbByteOrder byteOrder) {
+    inline void img_to_rgb(const matrix_ref<pixel<uint8_t>>& img, uint8_t* ptr, int strideBytes, RgbByteOrder byteOrder) {
         for(int i : range(img.height())) {
             const c4::pixel<uint8_t>* psrc = img[i];
             uint8_t* pdst = ptr + i * strideBytes;
@@ -97,7 +97,7 @@ namespace c4 {
         }
     }
 
-    static void rgb_to_img(const uint8_t* ptr, int width, int height, int strideBytes, RgbByteOrder byteOrder, matrix<pixel<uint8_t>>& img) {
+    inline void rgb_to_img(const uint8_t* ptr, int width, int height, int strideBytes, RgbByteOrder byteOrder, matrix<pixel<uint8_t>>& img) {
         img.resize(height, width);
 
         for(int i : range(height)) {
@@ -289,7 +289,7 @@ namespace c4 {
     static yuv_to_rgb_coefficients ITU_R{359, -183, -88, 454 };
 
     template<UvByteOrder uvByteOrder, RgbByteOrder dstByteOrder>
-    void yuv420_to_rgb(const c4::matrix_ref<uint8_t>& Y, const c4::matrix_ref<std::pair<uint8_t, uint8_t> >& UV, uint8_t* dst, int dstStrideBytes, const yuv_to_rgb_coefficients c = ITU_R, const c4::pixel<int> add = c4::pixel<int>()) {
+    inline void yuv420_to_rgb(const c4::matrix_ref<uint8_t>& Y, const c4::matrix_ref<std::pair<uint8_t, uint8_t> >& UV, uint8_t* dst, int dstStrideBytes, const yuv_to_rgb_coefficients c = ITU_R, const c4::pixel<int> add = c4::pixel<int>()) {
         int w2 = Y.width() / 2;
         int h2 = Y.height() / 2;
 
@@ -370,7 +370,7 @@ namespace c4 {
     }
 
     template<RgbByteOrder dstByteOrder>
-    void y_to_rgb(const c4::matrix_ref<uint8_t>& Y, uint8_t* dst, int dstStrideBytes) {
+    inline void y_to_rgb(const c4::matrix_ref<uint8_t>& Y, uint8_t* dst, int dstStrideBytes) {
         c4::scoped_timer timer("yToARGB");
 
         int w = Y.width();
@@ -457,43 +457,4 @@ namespace c4 {
             THROW_EXCEPTION("Byte order not supported");
         }
     }
-
-    // NOTE: this is a test only function, NOT ready for production
-    //static void __imageToNV21(const matrix<pixel<uint8_t>>& src, uint8_t* dst) {
-    //  int w2 = src.width() / 2;
-    //  int h2 = src.height() / 2;
-
-    //  ASSERT_EQUAL(w2 * 2, src.width());
-    //  ASSERT_EQUAL(h2 * 2, src.height());
-
-    //  REP(i, h2) {
-    //      uint8_t* py0 = dst + (2 * i + 0) * src.width();
-    //      uint8_t* py1 = dst + (2 * i + 1) * src.width();
-
-    //      const c4::pixel<uint8_t>* prgb0 = src[2 * i];
-    //      const c4::pixel<uint8_t>* prgb1 = src[2 * i + 1];
-
-    //      uint8_t* puv = dst + src.height() * src.width() + i * src.width();
-
-    //      int j = 0;
-
-    //      for(; j < w2; j++) {
-    //          const c4::pixel<uint8_t> rgb00 = prgb0[2 * j + 0];
-    //          const c4::pixel<uint8_t> rgb01 = prgb0[2 * j + 1];
-    //          const c4::pixel<uint8_t> rgb10 = prgb1[2 * j + 0];
-    //          const c4::pixel<uint8_t> rgb11 = prgb1[2 * j + 1];
-
-    //          py0[2 * j + 0] = c4::clamp<uint8_t>(int(rgb00.getY()));
-    //          py0[2 * j + 1] = c4::clamp<uint8_t>(int(rgb01.getY()));
-    //          py1[2 * j + 0] = c4::clamp<uint8_t>(int(rgb10.getY()));
-    //          py1[2 * j + 1] = c4::clamp<uint8_t>(int(rgb11.getY()));
-
-    //          int v = int((rgb00.getCr() + rgb01.getCr() + rgb10.getCr() + rgb11.getCr()) / 4 + 128);
-    //          int u = int((rgb00.getCb() + rgb01.getCb() + rgb10.getCb() + rgb11.getCb()) / 4 + 128);
-
-    //          puv[2 * j + 0] = c4::clamp<uint8_t>(v);
-    //          puv[2 * j + 1] = c4::clamp<uint8_t>(u);
-    //      }
-    //  }
-    //}
 }; // namespace c4

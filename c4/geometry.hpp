@@ -59,7 +59,7 @@ namespace c4 {
     };
 
     template<class T>
-    ostream& operator<<(ostream &out, const point<T> &t ) {
+    inline ostream& operator<<(ostream &out, const point<T> &t ) {
         out << "( " <<  t.x << " , " << t.y << " )";
         return out;
     }
@@ -75,50 +75,56 @@ namespace c4 {
     }
 
     template<class T>
-    auto operator*(const point<T>& a, const point<T>& b) -> decltype(a.x*b.x + a.y*b.y) {
+    inline auto operator*(const point<T>& a, const point<T>& b) -> decltype(a.x*b.x + a.y*b.y) {
         return a.x*b.x + a.y*b.y;
     }
 
     template<class T>
-    auto operator^(const point<T>& a, const point<T>& b) -> decltype(a.x*b.x - a.y*b.y) {
+    inline auto operator^(const point<T>& a, const point<T>& b) -> decltype(a.x*b.x - a.y*b.y) {
         return a.x*b.y - a.y*b.x;
     }
 
     template<class T1, class T2>
-    point<decltype(T1() * T2())> operator*(const T1& a, const point<T2>& b) {
+    inline point<decltype(T1() * T2())> operator*(const T1& a, const point<T2>& b) {
         return { a * b.x, a * b.y };
     }
 
     template<class T1, class T2>
-    point<decltype(T1() * T2())> operator*(const point<T1>& b, const T2& a) {
+    inline point<decltype(T1() * T2())> operator*(const point<T1>& b, const T2& a) {
         return { a * b.x, a * b.y };
     }
 
     template<class T>
-    void operator+=(point<T>& a, const point<T>& b) {
+    inline point<T>& operator+=(point<T>& a, const point<T>& b) {
         a.x += b.x;
         a.y += b.y;
+
+        return a;
     }
 
     template<class T>
-    void operator-=(point<T>& a, const point<T>& b) {
+    inline point<T>& operator-=(point<T>& a, const point<T>& b) {
         a.x -= b.x;
         a.y -= b.y;
+
+        return a;
     }
 
     template<class T1, class T2>
-    void operator*=(point<T1>& a, const T2& b) {
+    inline point<T>& operator*=(point<T1>& a, const T2& b) {
         a.x *= b;
         a.y *= b;
+
+        return a;
     }
 
     template<class T>
-    auto dist_squared(const point<T>& a, const point<T>& b) -> decltype((a - b).length_squared()) {
+    inline auto dist_squared(const point<T>& a, const point<T>& b) -> decltype((a - b).length_squared()) {
         return (a-b).length_squared();
     }
 
     template<class T>
-    auto dist(const point<T>& a, const point<T>& b) -> decltype((a - b).length()) {
+    inline auto dist(const point<T>& a, const point<T>& b) -> decltype((a - b).length()) {
         return (a-b).length();
     }
 

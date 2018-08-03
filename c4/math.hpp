@@ -39,19 +39,19 @@ namespace c4 {
     }
 
     template<typename T>
-    bool almost_equal(T x, T x0, T eps) {
+    inline bool almost_equal(T x, T x0, T eps) {
         T r = abs_or_rel_error(x, x0);
 
         return r < eps;
     }
 
     template<typename T>
-    auto sqr(T q) -> decltype(q * q) {
+    inline auto sqr(T q) -> decltype(q * q) {
         return q * q;
     }
 
     template<typename T>
-    int sign(T x) {
+    inline int sign(T x) {
         constexpr T zero = T(0);
 
         if (x == zero)
@@ -80,12 +80,12 @@ namespace c4 {
     }
 
     template<class dst_t, class src_t>
-    typename std::enable_if<std::is_same<src_t, dst_t>::value, dst_t>::type clamp(src_t x) {
+    inline typename std::enable_if<std::is_same<src_t, dst_t>::value, dst_t>::type clamp(src_t x) {
         return x;
     }
 
     template<class dst_t, class src_t>
-    typename std::enable_if<!std::is_same<src_t, dst_t>::value && std::is_floating_point<dst_t>::value, dst_t>::type clamp(src_t x) {
+    inline typename std::enable_if<!std::is_same<src_t, dst_t>::value && std::is_floating_point<dst_t>::value, dst_t>::type clamp(src_t x) {
         return (dst_t)x;
     }
 
@@ -110,12 +110,12 @@ namespace c4 {
     }
 
     template<class dst_t, class src_t>
-    typename std::enable_if<!std::is_same<src_t, dst_t>::value && !std::is_arithmetic<dst_t>::value, dst_t>::type clamp(src_t x) {
+    inline typename std::enable_if<!std::is_same<src_t, dst_t>::value && !std::is_arithmetic<dst_t>::value, dst_t>::type clamp(src_t x) {
         return dst_t(x);
     }
 
     template<class T>
-    int clz(T x) {
+    inline int clz(T x) {
         constexpr int n = 8 * sizeof(T);
         constexpr T mask = T(1ll << (n - 1));
 

@@ -30,16 +30,9 @@
 
 namespace c4 {
     template<typename pixel_t>
-    void scale_image_nearest_neighbor(const c4::matrix_ref<pixel_t>& src, c4::matrix_ref<pixel_t>& dst, float q = 0){
-        c4::scoped_timer timer("scaleImageNN");
-
-        int height0 = (int)src.height();
-        int width0 = (int)src.width();
-        int height = (int)dst.height();
-        int width = (int)dst.width();
-
+    inline void scale_image_nearest_neighbor(const c4::matrix_ref<pixel_t>& src, c4::matrix_ref<pixel_t>& dst, float q = 0){
         if( q == 0 )
-            q = max<float>(float(height) / height0, float(width) / width0);
+            q = max<float>(float(dst.height()) / src.height(), float(dst.width()) / src.width());
 
         float iq = 1.f / q;
 
@@ -60,7 +53,7 @@ namespace c4 {
     }
 
     template<typename real>
-    void calc_bilinear_scaling_indexes(int height, int height0, float q, std::vector<int>& i0v, std::vector<int>& i1v, std::vector<real>& di0v){
+    inline void calc_bilinear_scaling_indexes(int height, int height0, float q, std::vector<int>& i0v, std::vector<int>& i1v, std::vector<real>& di0v){
         i0v.resize(height);
         i1v.resize(height);
         di0v.resize(height);
@@ -77,7 +70,7 @@ namespace c4 {
     }
 
     template<typename SrcPixelT, typename DstPixelT>
-    void scale_bilinear(const c4::matrix<SrcPixelT>& src, c4::matrix<DstPixelT>& dst, float q = 0){
+    inline void scale_bilinear(const c4::matrix<SrcPixelT>& src, c4::matrix<DstPixelT>& dst, float q = 0){
         c4::scoped_timer timer("scaleBilinear");
 
         int height0 = (int)src.height();
@@ -174,7 +167,7 @@ namespace c4 {
     }
 
     template<typename src_pixel_t, typename dst_pixel_t>
-    void downscale_nx(const c4::matrix_ref<src_pixel_t>& src, c4::matrix<dst_pixel_t>& dst, int n){
+    inline void downscale_nx(const c4::matrix_ref<src_pixel_t>& src, c4::matrix<dst_pixel_t>& dst, int n){
         c4::scoped_timer timer("downscaleNx");
 
         int height0 = src.height();
@@ -198,7 +191,7 @@ namespace c4 {
         }
     }
 
-    static void downscale_bilinear_2x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
+    inline void downscale_bilinear_2x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
         c4::scoped_timer timer("downscale2x");
 
         int height2 = src.height() / 2;
@@ -231,7 +224,7 @@ namespace c4 {
         }
     }
 
-    static void downscale_linear_2x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
+    inline void downscale_linear_2x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
         c4::scoped_timer timer("downscale2xFast");
 
         int height2 = src.height() / 2;
@@ -259,7 +252,7 @@ namespace c4 {
         }
     }
 
-    static void downscale_bilinear_2x(const c4::matrix_ref<std::pair<uint8_t, uint8_t> >& src, c4::matrix<std::pair<uint8_t, uint8_t> >& dst) {
+    inline void downscale_bilinear_2x(const c4::matrix_ref<std::pair<uint8_t, uint8_t> >& src, c4::matrix<std::pair<uint8_t, uint8_t> >& dst) {
         c4::scoped_timer timer("downscale2x");
 
         int height2 = src.height() / 2;
@@ -298,7 +291,7 @@ namespace c4 {
         }
     }
 
-    static void downscale_linear_2x(const c4::matrix_ref<std::pair<uint8_t, uint8_t> >& src, c4::matrix<std::pair<uint8_t, uint8_t> >& dst) {
+    inline void downscale_linear_2x(const c4::matrix_ref<std::pair<uint8_t, uint8_t> >& src, c4::matrix<std::pair<uint8_t, uint8_t> >& dst) {
         c4::scoped_timer timer("downscale2xFast");
 
         int height2 = src.height() / 2;
@@ -366,15 +359,8 @@ namespace c4 {
 
     template<typename SrcPixelT, typename DstPixelT>
     inline void scale_image_hq(const c4::matrix<SrcPixelT>& src, c4::matrix<DstPixelT>& dst, float q = 0){
-        c4::scoped_timer timer("scaleImageHQ");
-
-        int height0 = (int)src.height();
-        int width0 = (int)src.width();
-        int height = (int)dst.height();
-        int width = (int)dst.width();
-
         if( q == 0 )
-            q = max<float>(float(height) / height0, float(width) / width0);
+            q = max<float>(float(dst.height()) / src.height(), float(dst.width()) / src.width());
 
         float iq = 1.f / q;
 
