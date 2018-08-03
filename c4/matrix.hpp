@@ -25,7 +25,7 @@
 #include <vector>
 #include <cassert>
 
-namespace c4{
+namespace c4 {
     template<class T>
     class matrix_ref;
 
@@ -275,15 +275,17 @@ namespace c4{
         }
     };
 
-    template<class T>
-    class __matrix_buffer {
-    protected:
-        std::vector<T> v;
-        __matrix_buffer(size_t size = 0) : v(size) {}
+    namespace detail {
+        template<class T>
+        class matrix_buffer {
+        protected:
+            std::vector<T> v;
+            matrix_buffer(size_t size = 0) : v(size) {}
+        };
     };
 
     template<class T>
-    class matrix : private __matrix_buffer<T>, public matrix_ref<T> {
+    class matrix : private detail::matrix_buffer<T>, public matrix_ref<T> {
     public:
         matrix(int height, int width, int stride) : __matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, v.data()) {}
         matrix(int height, int width) : matrix(height, width, width) {}
@@ -363,7 +365,7 @@ namespace c4{
     }
 
     template<class T1, class T2>
-    void operator+=(matrix_ref<T1>& a, const matrix_ref<T2>& b) {
+    matrix_ref<T1>& operator+=(matrix_ref<T1>& a, const matrix_ref<T2>& b) {
         assert(a.height() == b.height() && a.width() == b.width());
 
         for (int i = 0; i < a.height(); i++) {
@@ -371,6 +373,8 @@ namespace c4{
                 a[i][j] += b[i][j];
             }
         }
+
+        return a;
     }
 
     template<class T1, class T2>
@@ -401,7 +405,7 @@ namespace c4{
     }
 
     template<class T1, class T2>
-    void operator-=(matrix<T1>& a, const matrix<T2>& b) {
+    matrix_ref<T1>& operator-=(matrix<T1>& a, const matrix<T2>& b) {
         assert(a.height() == b.height() && a.width() == b.width());
 
         for (int i = 0; i < a.height(); i++) {
@@ -409,6 +413,8 @@ namespace c4{
                 a[i][j] -= b[i][j];
             }
         }
+
+        return a;
     }
 
     template<class T1, class T2>
