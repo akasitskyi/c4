@@ -27,11 +27,18 @@
 #include <cassert>
 #include <type_traits>
 
-namespace c4{
-    template<int step>
-    struct range_proxy {
+namespace c4 {
+    class range_reverse {
+        friend class range;
+
         int begin_;
         int end_;
+
+        range_reverse(int begin, int end) : begin_((int)begin), end_((int)end) {
+            assert((int)begin >= (int)end);
+        }
+
+    public:
 
         class iterator {
             int i;
@@ -46,23 +53,23 @@ namespace c4{
             iterator(int i) : i(i) {}
 
             iterator& operator++() {
-                i += step;
+                --i;
                 return *this;
             }
 
             iterator operator++(int) {
                 iterator r = *this;
-                i += step;
+                i--;
                 return r;
             }
 
             int operator-(const iterator& other) const {
-                return i - other.i * step;
+                return -(i - other.i);
             }
 
             iterator operator+(int n) const {
                 iterator r = *this;
-                r.i += n * step;
+                r.i -= n;
                 return r;
             }
 
@@ -79,7 +86,95 @@ namespace c4{
             }
 
             bool operator<(iterator other) const {
-                return i * step < other.i * step;
+                return i > other.i;
+            }
+
+        };
+
+        iterator begin() {
+            return iterator(begin_);
+        }
+
+        iterator end() {
+            return iterator(end_);
+        }
+    };
+
+    class range {
+        int begin_;
+        int end_;
+
+    public:
+
+        template<class T1, class T2, class = std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value>::type>
+        range(T1 begin, T2 end) : begin_((int)begin), end_((int)end) {
+            assert(std::numeric_limits<int>::min() <= begin && end <= std::numeric_limits<int>::max());
+            assert((int)begin <= (int)end);
+        }
+
+        template<class T, class = std::enable_if<std::is_integral<T>::value>::type>
+        range(T end) : begin_(0), end_((int)end) {
+            assert(0 <= end);
+            assert(end <= std::numeric_limits<int>::max());
+        }
+
+        template<class T>
+        range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
+            assert(v.size() <= (size_t)std::numeric_limits<int>::max());
+        }
+
+        template<class T, size_t n>
+        range(const std::array<T, n>& v) : begin_(0), end_((int)n) {
+            assert(n <= (size_t)std::numeric_limits<int>::max());
+        }
+
+        class iterator {
+            int i;
+
+        public:
+            using iterator_category = std::random_access_iterator_tag;
+            using value_type = int;
+            using difference_type = int;
+            using pointer = int*;
+            using reference = int&;
+
+            iterator(int i) : i(i) {}
+
+            iterator& operator++() {
+                ++i;
+                return *this;
+            }
+
+            iterator operator++(int) {
+                iterator r = *this;
+                i++;
+                return r;
+            }
+
+            int operator-(const iterator& other) const {
+                return i - other.i;
+            }
+
+            iterator operator+(int n) const {
+                iterator r = *this;
+                r.i += n;
+                return r;
+            }
+
+            int operator*() {
+                return i;
+            }
+
+            bool operator==(iterator other) const {
+                return i == other.i;
+            }
+
+            bool operator!=(iterator other) const {
+                return !(*this == other);
+            }
+
+            bool operator<(iterator other) const {
+                return i < other.i;
             }
 
         };
@@ -92,38 +187,8 @@ namespace c4{
             return iterator(end_);
         }
 
-        range_proxy<-step> reverse() const {
-            return { end_ - step, begin_ - step };
+        range_reverse reverse() const {
+            return { end_ - 1, begin_ - 1 };
         }
     };
-
-    template<class T1, class T2>
-    typename std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value, range_proxy<1> >::type range(T1 begin, T2 end) {
-        assert(std::numeric_limits<int>::min() <= begin && end <= std::numeric_limits<int>::max());
-        assert((int)begin <= (int)end);
-
-        return range_proxy<1>{(int)begin, (int)end};
-    }
-
-    template<class T>
-    typename std::enable_if<std::is_integral<T>::value, range_proxy<1> >::type range(T end) {
-        assert(0 <= end);
-        assert(end <= std::numeric_limits<int>::max());
-
-        return range_proxy<1>{ 0, (int)end };
-    }
-
-    template<class T>
-    range_proxy<1> range(const std::vector<T>& v) {
-        assert(v.size() <= (size_t)std::numeric_limits<int>::max());
-
-        return range_proxy<1>{0, (int)v.size()};
-    }
-
-    template<class T, size_t n>
-    range_proxy<1> range(const std::array<T, n>& v) {
-        assert(n <= (size_t)std::numeric_limits<int>::max());
-
-        return range_proxy<1>{ 0, (int)n };
-    }
 };

@@ -110,7 +110,7 @@ int main() {
 
     std::cout << std::endl;
 
-    constexpr int n = 10000000;
+    constexpr int n = 100000000;
     std::vector<float> x(n);
     std::vector<float> y(n);
 
