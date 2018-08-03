@@ -111,7 +111,7 @@ namespace c4 {
     }
 
     template<class T1, class T2>
-    inline point<T>& operator*=(point<T1>& a, const T2& b) {
+    inline point<T1>& operator*=(point<T1>& a, const T2& b) {
         a.x *= b;
         a.y *= b;
 

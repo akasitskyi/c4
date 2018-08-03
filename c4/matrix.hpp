@@ -287,7 +287,7 @@ namespace c4 {
     template<class T>
     class matrix : private detail::matrix_buffer<T>, public matrix_ref<T> {
     public:
-        matrix(int height, int width, int stride) : __matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, v.data()) {}
+        matrix(int height, int width, int stride) : detail::matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, v.data()) {}
         matrix(int height, int width) : matrix(height, width, width) {}
         matrix() : matrix(0, 0, 0) {}
         
