@@ -69,6 +69,47 @@ namespace c4 {
         return 1.f / (1.f + std::exp(-k * (x - x0)));
     }
 
+    template<class T1, class T2>
+    inline typename std::enable_if<std::is_signed<T1>::value == std::is_signed<T2>::value, bool>::type safe_less(T1 a, T2 b) {
+        return a < b;
+    }
+
+    template<class T1, class T2>
+    inline typename std::enable_if<std::is_signed<T1>::value && std::is_unsigned<T2>::value, bool>::type safe_less(T1 a, T2 b) {
+        if (a < 0)
+            return true;
+        else
+            return std::make_unsigned<T1>(a) < b;
+    }
+
+    template<class T1, class T2>
+    inline typename std::enable_if<std::is_unsigned<T1>::value && std::is_signed<T2>::value, bool>::type safe_less(T1 a, T2 b) {
+        if (b < 0)
+            return false;
+        else
+            return a < std::make_unsigned<T1>(b);
+    }
+
+    template<class T1, class T2>
+    inline bool safe_greater(T1 a, T2 b) {
+        return safe_less(b, a);
+    }
+
+    template<class T1, class T2>
+    inline bool safe_less_equal(T1 a, T2 b) {
+        return !safe_greater(a, b);
+    }
+
+    template<class T1, class T2>
+    inline bool safe_greater_equal(T1 a, T2 b) {
+        return !safe_less(a, b);
+    }
+
+    template<class dst_t, class src_t>
+    inline bool fits_within(src_t x) {
+        return safe_less_equal(std::numeric_limits<dst_t>::min(), x) && safe_less_equal(x, std::numeric_limits<dst_t>::max());
+    }
+
     template<class dst_t, class src_t>
     inline typename std::enable_if<std::is_arithmetic<src_t>::value && std::is_arithmetic<dst_t>::value, dst_t>::type clamp(src_t x, dst_t x0, dst_t x1) {
         if (x < x0)
@@ -127,4 +168,29 @@ namespace c4 {
 
         return r;
     }
+
+    // https://en.wikipedia.org/wiki/Linear_congruential_generator
+    class fast_rand {
+        int seed;
+    public:
+        fast_rand(int seed = -1) : seed(seed) {}
+
+        inline int operator()() {
+            seed = 214013 * seed + 2531011;
+            return seed;
+        }
+
+        // this basically gives you a random array
+        inline int operator[](int i) const {
+            return 214013 * (seed + i) + 2531011;
+        }
+
+        static int min() {
+            return std::numeric_limits<int>::min();
+        }
+
+        static int max() {
+            return std::numeric_limits<int>::max();
+        }
+    };
 }; // namespace c4

@@ -21,6 +21,7 @@
 //SOFTWARE.
 
 #include <c4/simd.hpp>
+#include <c4/math.hpp>
 #include <c4/logger.hpp>
 #include <c4/parallel.hpp>
 
@@ -114,9 +115,23 @@ int main() {
     std::vector<float> x(n);
     std::vector<float> y(n);
 
-    for (int i : c4::range(n)) {
-        x[i] = float(rand()) / RAND_MAX;
-        y[i] = float(rand()) / RAND_MAX;
+    {
+        c4::scoped_timer t("serial random fill");
+
+        c4::fast_rand rnd(1);
+        
+        for (int i : c4::range(n))
+            x[i] = float(rnd[i]);
+    }
+
+    {
+        c4::scoped_timer t("parallel random fill");
+
+        c4::fast_rand rnd(2);
+
+        c4::parallel_for(c4::range(n), [&](int i) {
+            y[i] = float(rnd[i]);
+        });
     }
 
     std::vector<std::pair<float, float> > res(n, std::pair<float, float>(-1.f, -1.f));

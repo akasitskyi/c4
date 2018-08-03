@@ -133,13 +133,15 @@ namespace c4 {
                 return r;
             }
 
-            int operator-(const iterator& other) const {
-                return i - other.i;
+            ptrdiff_t operator-(const iterator& other) const {
+                return ptrdiff_t(i - other.i);
             }
 
-            iterator operator+(int n) const {
+            iterator operator+(ptrdiff_t n) const {
+                assert(fits_within<int>(r.i + n));
+
                 iterator r = *this;
-                r.i += n;
+                r.i += (int)n;
                 return r;
             }
 
@@ -166,7 +168,7 @@ namespace c4 {
 
         template<class T1, class T2, class = std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value>::type>
         range(T1 begin, T2 end) : begin_((int)begin), end_((int)end) {
-            assert(std::numeric_limits<int>::min() <= begin && end <= std::numeric_limits<int>::max());
+            assert(fits_within<int>(begin) && fits_within<int>(end));
             assert((int)begin <= (int)end);
         }
 
@@ -178,12 +180,12 @@ namespace c4 {
 
         template<class T>
         range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
-            assert(v.size() <= (size_t)std::numeric_limits<int>::max());
+            assert(fits_within<int>(v.size()));
         }
 
         template<class T, size_t n>
         range(const std::array<T, n>& v) : begin_(0), end_((int)n) {
-            assert(n <= (size_t)std::numeric_limits<int>::max());
+            assert(fits_within<int>(n));
         }
 
         iterator begin() {
