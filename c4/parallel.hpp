@@ -104,22 +104,30 @@ namespace c4 {
                 worker.join();
         }
 
-        template<class iterator, class F>
-        void parallel_for(iterator first, iterator last, F f) {
-            //TODO: check inception, etc
-            //std::thread::id caller_id = std::this_thread::get_id();
+    private:
+        std::vector<int> init_groups(int size, int grain_size) {
+            assert(size >= 0);
+            assert(grain_size > 0);
 
-            int size = last - first;
-            const int min_group_size = size / (int)workers.size();
-
-            std::vector<int> groups(workers.size(), min_group_size);
-            size -= (int)groups.size() * min_group_size;
+            std::vector<int> groups(size / grain_size, grain_size);
+            size -= (int)groups.size() * grain_size;
 
             for (int k = 0; size > 0; k++) {
                 groups[k]++;
                 size--;
             }
 
+            return groups;
+        }
+    
+    public:
+
+        template<class iterator, class F>
+        void parallel_for(iterator first, iterator last, int grain_size, F f) {
+            //TODO: check inception, etc
+            //std::thread::id caller_id = std::this_thread::get_id();
+
+            std::vector<int> groups = init_groups(last - first, grain_size);
             std::vector<std::future<void>> futures;
 
             for (int g : groups) {
@@ -137,18 +145,8 @@ namespace c4 {
         }
 
         template<class iterator, class T, class Reduction, class F>
-        T parallel_reduce(iterator first, iterator last, T init, Reduction reduction, F f) {
-            int size = (int)(last - first);
-            const int min_group_size = size / (int)workers.size();
-
-            std::vector<int> groups(workers.size(), min_group_size);
-            size -= (int)groups.size() * min_group_size;
-
-            for (int k = 0; size > 0; k++) {
-                groups[k]++;
-                size--;
-            }
-
+        T parallel_reduce(iterator first, iterator last, int grain_size, T init, Reduction reduction, F f) {
+            std::vector<int> groups = init_groups(last - first, grain_size);
             std::vector<std::future<T>> futures;
 
             for (int g : groups) {
@@ -165,6 +163,30 @@ namespace c4 {
                 init = reduction(init, f.get());
 
             return init;
+        }
+
+        template<class iterator, class F>
+        void parallel_for(iterator first, iterator last, F f) {
+            const int grain_size = (last - first) / get_num_threads();
+            parallel_for(first, last, grain_size, f);
+        }
+
+        template<class iterator, class T, class Reduction, class F>
+        T parallel_reduce(iterator first, iterator last, T init, Reduction reduction, F f) {
+            const int grain_size = (last - first) / get_num_threads();
+            return parallel_reduce(first, last, grain_size, init, reduction, f);
+        }
+        
+        template<class T, class Reduction, class F>
+        T parallel_reduce(range r, int grain_size, T init, Reduction reduction, F f) {
+            return parallel_reduce(r.begin(), r.end(), grain_size, init, reduction, [&](range::iterator first, range::iterator last) {
+                return f(range(first, last));
+            });
+        }
+
+        template<class iterable, class F>
+        void parallel_for(iterable c, int grain_size, F f) {
+            parallel_for(c.begin(), c.end(), grain_size, f);
         }
 
         template<class iterable, class F>
@@ -196,13 +218,33 @@ namespace c4 {
     }
 
     template<class iterator, class F>
+    void parallel_for(iterator first, iterator last, int grain_size, F f) {
+        thread_pool::get_single().parallel_for(first, last, grain_size, f);
+    }
+
+    template<class iterator, class F>
     void parallel_for(iterator first, iterator last, F f) {
         thread_pool::get_single().parallel_for(first, last, f);
     }
 
     template<class iterable, class F>
+    void parallel_for(iterable c, int grain_size, F f) {
+        thread_pool::get_single().parallel_for(c, grain_size, f);
+    }
+
+    template<class iterable, class F>
     void parallel_for(iterable c, F f) {
         thread_pool::get_single().parallel_for(c, f);
+    }
+
+    template<class iterator, class T, class Reduction, class F>
+    T parallel_reduce(iterator first, iterator last, int grain_size, T init, Reduction reduction, F f) {
+        return thread_pool::get_single().parallel_reduce(first, last, grain_size, init, reduction, f);
+    }
+    
+    template<class T, class Reduction, class F>
+    T parallel_reduce(range r, int grain_size, T init, Reduction reduction, F f) {
+        return thread_pool::get_single().parallel_reduce(r, grain_size, init, reduction, f);
     }
 
     template<class iterator, class T, class Reduction, class F>

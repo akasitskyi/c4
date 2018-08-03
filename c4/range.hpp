@@ -98,6 +98,10 @@ namespace c4 {
         iterator end() {
             return iterator(end_);
         }
+
+        int size() const {
+            return begin_ - end_;
+        }
     };
 
     class range {
@@ -105,28 +109,6 @@ namespace c4 {
         int end_;
 
     public:
-
-        template<class T1, class T2, class = std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value>::type>
-        range(T1 begin, T2 end) : begin_((int)begin), end_((int)end) {
-            assert(std::numeric_limits<int>::min() <= begin && end <= std::numeric_limits<int>::max());
-            assert((int)begin <= (int)end);
-        }
-
-        template<class T, class = std::enable_if<std::is_integral<T>::value>::type>
-        range(T end) : begin_(0), end_((int)end) {
-            assert(0 <= end);
-            assert(end <= std::numeric_limits<int>::max());
-        }
-
-        template<class T>
-        range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
-            assert(v.size() <= (size_t)std::numeric_limits<int>::max());
-        }
-
-        template<class T, size_t n>
-        range(const std::array<T, n>& v) : begin_(0), end_((int)n) {
-            assert(n <= (size_t)std::numeric_limits<int>::max());
-        }
 
         class iterator {
             int i;
@@ -176,8 +158,33 @@ namespace c4 {
             bool operator<(iterator other) const {
                 return i < other.i;
             }
-
         };
+
+        range(iterator begin, iterator end) : begin_(*begin), end_(*end) {
+            assert(begin_ <= end_);
+        }
+
+        template<class T1, class T2, class = std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value>::type>
+        range(T1 begin, T2 end) : begin_((int)begin), end_((int)end) {
+            assert(std::numeric_limits<int>::min() <= begin && end <= std::numeric_limits<int>::max());
+            assert((int)begin <= (int)end);
+        }
+
+        template<class T, class = std::enable_if<std::is_integral<T>::value>::type>
+        range(T end) : begin_(0), end_((int)end) {
+            assert(0 <= end);
+            assert(end <= std::numeric_limits<int>::max());
+        }
+
+        template<class T>
+        range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
+            assert(v.size() <= (size_t)std::numeric_limits<int>::max());
+        }
+
+        template<class T, size_t n>
+        range(const std::array<T, n>& v) : begin_(0), end_((int)n) {
+            assert(n <= (size_t)std::numeric_limits<int>::max());
+        }
 
         iterator begin() {
             return iterator(begin_);
@@ -185,6 +192,10 @@ namespace c4 {
 
         iterator end() {
             return iterator(end_);
+        }
+
+        int size() const {
+            return end_ - begin_;
         }
 
         range_reverse reverse() const {
