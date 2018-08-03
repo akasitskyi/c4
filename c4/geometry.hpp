@@ -25,13 +25,13 @@
 #include "math.hpp"
 
 namespace c4 {
-	template<class T>
-	struct point{
+    template<class T>
+    struct point{
         T x;
         T y;
 
-		point() : x(0), y(0) {}
-		point(T x, T y) : x(x),y(y) {}
+        point() : x(0), y(0) {}
+        point(T x, T y) : x(x),y(y) {}
     
         auto polar_angle() const -> decltype(atan2(y, x)) {
             return atan2(y, x);
@@ -60,9 +60,9 @@ namespace c4 {
 
     template<class T>
     ostream& operator<<(ostream &out, const point<T> &t ) {
-		out << "( " <<  t.x << " , " << t.y << " )";
-		return out;
-	}
+        out << "( " <<  t.x << " , " << t.y << " )";
+        return out;
+    }
 
     template<class T>
     inline point<T> operator+(const point<T>& a, const point<T>& b) {

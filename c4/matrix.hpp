@@ -114,16 +114,16 @@ namespace c4{
     };
 
     template<class T>
-	class matrix_ref {
+    class matrix_ref {
     private:
         matrix_ref(const matrix_ref& o) : height(o.height), width(o.width), stride(o.stride), ptr(o.ptr) {}
         matrix_ref& operator=(const matrix_ref&) = delete;
 
     protected:
-		int height_;
-		int width_;
-		int stride_;
-		T* ptr_;
+        int height_;
+        int width_;
+        int stride_;
+        T* ptr_;
 
         matrix_ref() : height_(0), width_(0), stride_(0), ptr_(nullptr) {}
 
@@ -213,20 +213,20 @@ namespace c4{
         }
 
         int height() const {
-			return height_;
-		}
+            return height_;
+        }
 
-		int width() const {
-			return width_;
-		}
+        int width() const {
+            return width_;
+        }
 
         int stride() const {
-			return stride_;
-		}
+            return stride_;
+        }
 
-		int stride_bytes() const {
-			return stride_ * sizeof(T);
-		}
+        int stride_bytes() const {
+            return stride_ * sizeof(T);
+        }
 
         bool is_inside(int y, int x) const {
             return 0 <= y && y < height_ && 0 <= x && x < width_;
@@ -237,8 +237,8 @@ namespace c4{
         }
 
         const T* data() const {
-			return ptr_;
-		}
+            return ptr_;
+        }
 
         vector_ref<T> operator[](int i) {
             assert(0 <= i && i < height_);
@@ -250,15 +250,15 @@ namespace c4{
             return vector_ref<T>::create_const(width_, ptr_ + i * stride_);
         }
 
-		const T& clamp_get(int i, int j) const {
+        const T& clamp_get(int i, int j) const {
             i = std::max(i, 0);
             i = std::min(i, height_ - 1);
 
             j = std::max(j, 0);
             j = std::min(j, width_ - 1);
 
-			return operator[](i)[j];
-		}
+            return operator[](i)[j];
+        }
 
         matrix_ref<T> submatrix(int i, int j, int h, int w) {
             assert(is_inside(i, j) && is_inside(i + h - 1 , j + w - 1));
@@ -282,13 +282,13 @@ namespace c4{
         __matrix_buffer(size_t size = 0) : v(size) {}
     };
 
-	template<class T>
-	class matrix : private __matrix_buffer<T>, public matrix_ref<T> {
-	public:
+    template<class T>
+    class matrix : private __matrix_buffer<T>, public matrix_ref<T> {
+    public:
         matrix(int height, int width, int stride) : __matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, v.data()) {}
         matrix(int height, int width) : matrix(height, width, width) {}
         matrix() : matrix(0, 0, 0) {}
-		
+        
         matrix& operator=(const matrix& b) {
             resize(b);
             std::copy(b.v.begin(), b.v.end(), v.begin());
@@ -318,20 +318,20 @@ namespace c4{
         }
 
         void resize(int height, int width, int stride){
-			this->height_ = height;
-			this->width_ = width;
-			this->stride_ = stride;
+            this->height_ = height;
+            this->width_ = width;
+            this->stride_ = stride;
             v.resize(height * stride);
-			this->ptr_ = v.data();
-		}
+            this->ptr_ = v.data();
+        }
 
-		void resize(int height, int width){
-			resize(height, width, width);
-		}
+        void resize(int height, int width){
+            resize(height, width, width);
+        }
 
-		void shrink_to_fit(){
+        void shrink_to_fit(){
             v.shrink_to_fit();
-		}
+        }
 
         void clear_and_shrink() {
             resize(0, 0);
@@ -339,9 +339,9 @@ namespace c4{
         }
 
         template<class T2>
-		void resize(const matrix_ref<T2>& b){
-			resize(b.height(), b.width(), b.stride());
-		}
+        void resize(const matrix_ref<T2>& b){
+            resize(b.height(), b.width(), b.stride());
+        }
     };
 
     template<class T1, class T2, class T3>

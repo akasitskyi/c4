@@ -35,47 +35,47 @@
 #endif
 
 namespace c4 {
-	template<typename T1, typename T2>
-	std::ostream& operator<<(std::ostream &out, const std::pair<T1, T2> &t) {
-		out << "( " << t.first << " , " << t.second << " )";
-		return out;
-	}
+    template<typename T1, typename T2>
+    std::ostream& operator<<(std::ostream &out, const std::pair<T1, T2> &t) {
+        out << "( " << t.first << " , " << t.second << " )";
+        return out;
+    }
 
-	template<typename T>
-	std::ostream& operator<<(std::ostream &out, const std::vector<T> &t) {
-		out << "{ ";
-		for(size_t i = 0; i < t.size(); i++) {
-			if(i)
-				out << ", ";
-			out << t[i];
-		}
-		out << " }";
-		return out;
-	}
+    template<typename T>
+    std::ostream& operator<<(std::ostream &out, const std::vector<T> &t) {
+        out << "{ ";
+        for(size_t i = 0; i < t.size(); i++) {
+            if(i)
+                out << ", ";
+            out << t[i];
+        }
+        out << " }";
+        return out;
+    }
 
-	enum LogLevel{
-		LOG_ERROR,
-		LOG_WARN,
-		LOG_INFO,
-		LOG_DEBUG,
-		LOG_VERBOSE
-	};
+    enum LogLevel{
+        LOG_ERROR,
+        LOG_WARN,
+        LOG_INFO,
+        LOG_DEBUG,
+        LOG_VERBOSE
+    };
 
-	class Logger {
-	public:
-		Logger(LogLevel level) : level(level) {}
-		
-		template<typename T>
-		Logger& operator<<(const T& v) {
-			ss << v;
-			return *this;
-		}
+    class Logger {
+    public:
+        Logger(LogLevel level) : level(level) {}
+        
+        template<typename T>
+        Logger& operator<<(const T& v) {
+            ss << v;
+            return *this;
+        }
 
-		~Logger(){
-			ss << "\n";
-			
-			switch(level)
-			{
+        ~Logger(){
+            ss << "\n";
+            
+            switch(level)
+            {
 #ifdef ANDROID
             case LOG_ERROR:
                 __android_log_print(ANDROID_LOG_ERROR, "", "%s", ss.str().c_str());
@@ -97,28 +97,28 @@ namespace c4 {
 #else
             case LOG_ERROR :
                 std::cerr << "E: " << (ss.str().c_str());
-				break;
-			case LOG_WARN :
+                break;
+            case LOG_WARN :
                 std::cerr << "W: " << (ss.str().c_str());
-				break;
-			case LOG_INFO :
+                break;
+            case LOG_INFO :
                 std::cout << "I: " << (ss.str().c_str());
-				break;
+                break;
 #ifndef C4_DEBUG_OUTPUT_DISABLED
-			case LOG_DEBUG :
+            case LOG_DEBUG :
                 std::cout << "D: " << (ss.str().c_str());
-				break;
-			case LOG_VERBOSE :
+                break;
+            case LOG_VERBOSE :
                 std::cout << "V: " << (ss.str().c_str());
-				break;
+                break;
 #endif
 #endif
             }
-		}
-	private:
-		std::stringstream ss;
-		LogLevel level;
-	};
+        }
+    private:
+        std::stringstream ss;
+        LogLevel level;
+    };
 
 #define LOGE c4::Logger(c4::LOG_ERROR)
 #define LOGW c4::Logger(c4::LOG_WARN)

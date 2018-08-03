@@ -29,21 +29,21 @@
 
 namespace c4{
     template<int step>
-	struct range_proxy {
-		int begin_;
-		int end_;
+    struct range_proxy {
+        int begin_;
+        int end_;
 
-		class iterator {
-			int i;
+        class iterator {
+            int i;
 
-		public:
+        public:
             using iterator_category = std::random_access_iterator_tag;
             using value_type = int;
             using difference_type = int;
             using pointer = int*;
             using reference = int&;
 
-			iterator(int i) : i(i) {}
+            iterator(int i) : i(i) {}
 
             iterator& operator++() {
                 i += step;
@@ -95,15 +95,15 @@ namespace c4{
         range_proxy<-step> reverse() const {
             return { end_ - step, begin_ - step };
         }
-	};
+    };
 
-	template<class T1, class T2>
-	typename std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value, range_proxy<1> >::type range(T1 begin, T2 end) {
+    template<class T1, class T2>
+    typename std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value, range_proxy<1> >::type range(T1 begin, T2 end) {
         assert(std::numeric_limits<int>::min() <= begin && end <= std::numeric_limits<int>::max());
         assert((int)begin <= (int)end);
 
-		return range_proxy<1>{(int)begin, (int)end};
-	}
+        return range_proxy<1>{(int)begin, (int)end};
+    }
 
     template<class T>
     typename std::enable_if<std::is_integral<T>::value, range_proxy<1> >::type range(T end) {
@@ -114,11 +114,11 @@ namespace c4{
     }
 
     template<class T>
-	range_proxy<1> range(const std::vector<T>& v) {
-		assert(v.size() <= (size_t)std::numeric_limits<int>::max());
+    range_proxy<1> range(const std::vector<T>& v) {
+        assert(v.size() <= (size_t)std::numeric_limits<int>::max());
 
-		return range_proxy<1>{0, (int)v.size()};
-	}
+        return range_proxy<1>{0, (int)v.size()};
+    }
 
     template<class T, size_t n>
     range_proxy<1> range(const std::array<T, n>& v) {

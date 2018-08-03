@@ -27,10 +27,10 @@
 
 namespace c4 {
 
-	class exception : public std::runtime_error {
-	public:
-		exception(std::string msg, std::string filename, int line) : runtime_error(msg + " at " + filename + ":" + std::to_string(line)) {}
-	};
+    class exception : public std::runtime_error {
+    public:
+        exception(std::string msg, std::string filename, int line) : runtime_error(msg + " at " + filename + ":" + std::to_string(line)) {}
+    };
 
 #define THROW_EXCEPTION(MSG) throw c4::exception(MSG, __FILE__, __LINE__)
 

@@ -28,52 +28,52 @@
 #include "geometry.hpp"
 
 namespace c4 {
-	class cubic_spline{
-		struct spline{
-			double a;
-			double b;
-			double c;
-			double d;
-			double x;
-		};
+    class cubic_spline{
+        struct spline{
+            double a;
+            double b;
+            double c;
+            double d;
+            double x;
+        };
 
-		std::vector<spline> splines;
+        std::vector<spline> splines;
 
-	public:
+    public:
         cubic_spline(const std::vector<c4::point<double>>& p) : splines(p.size()) {
-			int n = (int)p.size();
-			if( n < 3 )
-				THROW_EXCEPTION("We need at least 3 points to fit cubic spline");
+            int n = (int)p.size();
+            if( n < 3 )
+                THROW_EXCEPTION("We need at least 3 points to fit cubic spline");
 
-			for(int i : range(p)){
-				splines[i].x = p[i].x;
-				splines[i].a = p[i].y;
-			}
+            for(int i : range(p)){
+                splines[i].x = p[i].x;
+                splines[i].a = p[i].y;
+            }
 
             std::sort(splines.begin(), splines.end(), [](const spline& lhs, const spline& rhs) {return lhs.x < rhs.x; });
 
-			splines[0].c = 0;
+            splines[0].c = 0;
 
-			std::vector<double> alpha(n - 1);
+            std::vector<double> alpha(n - 1);
             std::vector<double> beta(n - 1);
-			
-			double A(0), B(0), C(0), F(0), h_i(0), h_i1(0), z(0);
-			
-			alpha[0] = 0;
-			beta[0] = 0;
+            
+            double A(0), B(0), C(0), F(0), h_i(0), h_i1(0), z(0);
+            
+            alpha[0] = 0;
+            beta[0] = 0;
 
             for (int i : range(1, n - 1)) {
-				h_i = splines[i].x - splines[i - 1].x, h_i1 = splines[i + 1].x - splines[i].x;
-				A = h_i;
-				C = 2. * (h_i + h_i1);
-				B = h_i1;
-				F = 6. * ((splines[i + 1].a - splines[i].a) / h_i1 - (splines[i].a - splines[i - 1].a) / h_i);
-				z = (A * alpha[i - 1] + C);
-				alpha[i] = -B / z;
-				beta[i] = (F - A * beta[i - 1]) / z;
-			}
+                h_i = splines[i].x - splines[i - 1].x, h_i1 = splines[i + 1].x - splines[i].x;
+                A = h_i;
+                C = 2. * (h_i + h_i1);
+                B = h_i1;
+                F = 6. * ((splines[i + 1].a - splines[i].a) / h_i1 - (splines[i].a - splines[i - 1].a) / h_i);
+                z = (A * alpha[i - 1] + C);
+                alpha[i] = -B / z;
+                beta[i] = (F - A * beta[i - 1]) / z;
+            }
 
-			splines[n - 1].c = (F - A * beta[n - 2]) / (C + A * alpha[n - 2]);
+            splines[n - 1].c = (F - A * beta[n - 2]) / (C + A * alpha[n - 2]);
             
             for (int i : range(1, n - 1).reverse()) {
                 splines[i].c = alpha[i] * splines[i + 1].c + beta[i];
@@ -81,19 +81,19 @@ namespace c4 {
 
             for (int i : range(1, n).reverse()) {
                 double h_i = splines[i].x - splines[i - 1].x;
-				splines[i].d = (splines[i].c - splines[i - 1].c) / h_i;
-				splines[i].b = h_i * (2. * splines[i].c + splines[i - 1].c) / 6. + (splines[i].a - splines[i - 1].a) / h_i;
-			}
-		}
+                splines[i].d = (splines[i].c - splines[i - 1].c) / h_i;
+                splines[i].b = h_i * (2. * splines[i].c + splines[i - 1].c) / 6. + (splines[i].a - splines[i - 1].a) / h_i;
+            }
+        }
 
-		double operator()(double x) const {
-			const spline& s = select_spline(x);
+        double operator()(double x) const {
+            const spline& s = select_spline(x);
 
-			double dx = (x - s.x);
-			double y = s.a + (s.b + (s.c / 2. + s.d * dx / 6.) * dx) * dx;
+            double dx = (x - s.x);
+            double y = s.a + (s.b + (s.c / 2. + s.d * dx / 6.) * dx) * dx;
 
-			return y;
-		}
+            return y;
+        }
 
     private:
         const spline& select_spline(double x) const {
@@ -115,7 +115,7 @@ namespace c4 {
 
             return splines[j];
         }
-	};
+    };
 
     class lagrange {
         std::vector<double> c;
