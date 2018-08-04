@@ -169,14 +169,14 @@ namespace c4 {
         template<class iterator, class F>
         void parallel_for(iterator first, iterator last, F f) {
             assert(first <= last);
-            const size_t grain_size = (last - first) / get_num_threads();
+            const size_t grain_size = std::max<size_t>((last - first) / get_num_threads(), 1);
             parallel_for(first, last, grain_size, f);
         }
 
         template<class iterator, class T, class Reduction, class F>
         T parallel_reduce(iterator first, iterator last, T init, Reduction reduction, F f) {
             assert(first <= last);
-            const size_t grain_size = (last - first) / get_num_threads();
+            const size_t grain_size = std::max<size_t>((last - first) / get_num_threads(), 1);
             return parallel_reduce(first, last, grain_size, init, reduction, f);
         }
         

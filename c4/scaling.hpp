@@ -71,25 +71,18 @@ namespace c4 {
 
     template<typename SrcPixelT, typename DstPixelT>
     inline void scale_bilinear(const c4::matrix<SrcPixelT>& src, c4::matrix<DstPixelT>& dst, float q = 0){
-        c4::scoped_timer timer("scaleBilinear");
-
-        int height0 = (int)src.height();
-        int width0 = (int)src.width();
-        int height = (int)dst.height();
-        int width = (int)dst.width();
-
         if( q == 0 )
-            q = float(height + width) / (height0 + width0);
+            q = float(dst.height() + dst.width()) / (src.height() + src.width());
 
         vector<int> i0v, i1v;
         vector<float> di0v;
-        calc_bilinear_scaling_indexes(height, height0, q, i0v, i1v, di0v);
+        calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
 
         vector<int> j0v, j1v;
         vector<float> dj0v;
-        calc_bilinear_scaling_indexes(width, width0, q, j0v, j1v, dj0v);
+        calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
 
-        for(int i : range(height)) {
+        for(int i : range(dst.height())) {
             int i0 = i0v[i];
             int i1 = i1v[i];
             float di0 = di0v[i];
@@ -99,7 +92,7 @@ namespace c4 {
             
             DstPixelT* pdst = dst[i];
 
-            for(int j : range(width)) {
+            for(int j : range(dst.width())) {
                 int j0 = j0v[j];
                 int j1 = j1v[j];
                 float dj0 = dj0v[j];
@@ -118,28 +111,21 @@ namespace c4 {
 
     template<typename PixelT1, typename PixelT2>
     inline void scale_image_bilinear(const c4::matrix_ref<PixelT1>& src, c4::matrix_ref<PixelT2>& dst, float q = 0){
-        c4::scoped_timer timer("scaleImageBilinear");
-
-        int height0 = src.height();
-        int width0 = src.width();
-        int height = dst.height();
-        int width = dst.width();
-
         if( q == 0 )
-            q = float(height + width) / (height0 + width0);
+            q = float(dst.height() + dst.width()) / (src.height() + src.width());
 
         constexpr int shift = 10;
         const int one = 1 << shift;
 
         vector<int> i0v, i1v;
         vector<c4::fixed_point<int, shift> > di0v;
-        calc_bilinear_scaling_indexes(height, height0, q, i0v, i1v, di0v);
+        calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
 
         vector<int> j0v, j1v;
         vector<c4::fixed_point<int, shift> > dj0v;
-        calc_bilinear_scaling_indexes(width, width0, q, j0v, j1v, dj0v);
+        calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
 
-        for(int i : range(height)) {
+        for(int i : range(dst.height())) {
             int i0 = i0v[i];
             int i1 = i1v[i];
             int di0 = di0v[i].base;
@@ -149,7 +135,7 @@ namespace c4 {
             
             auto* pdst = dst[i].data();
 
-            for(int j : range(width)) {
+            for(int j : range(dst.width())) {
                 int j0 = j0v[j];
                 int j1 = j1v[j];
                 int dj0 = dj0v[j].base;
@@ -168,14 +154,7 @@ namespace c4 {
 
     template<typename src_pixel_t, typename dst_pixel_t>
     inline void downscale_nx(const c4::matrix_ref<src_pixel_t>& src, c4::matrix<dst_pixel_t>& dst, int n){
-        c4::scoped_timer timer("downscaleNx");
-
-        int height0 = src.height();
-        int width0 = src.width();
-        int height = height0 / n;
-        int width = width0 / n;
-
-        dst.resize(height, width);
+        dst.resize(src.height() / n, src.width() / n);
 
         float normalizer = 1.f / (n * n);
 
@@ -192,8 +171,6 @@ namespace c4 {
     }
 
     inline void downscale_bilinear_2x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
-        c4::scoped_timer timer("downscale2x");
-
         int height2 = src.height() / 2;
         int width2 = src.width() / 2;
 
@@ -225,8 +202,6 @@ namespace c4 {
     }
 
     inline void downscale_linear_2x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
-        c4::scoped_timer timer("downscale2xFast");
-
         int height2 = src.height() / 2;
         int width2 = src.width() / 2;
 
@@ -253,8 +228,6 @@ namespace c4 {
     }
 
     inline void downscale_bilinear_2x(const c4::matrix_ref<std::pair<uint8_t, uint8_t> >& src, c4::matrix<std::pair<uint8_t, uint8_t> >& dst) {
-        c4::scoped_timer timer("downscale2x");
-
         int height2 = src.height() / 2;
         int width2 = src.width() / 2;
 
@@ -292,8 +265,6 @@ namespace c4 {
     }
 
     inline void downscale_linear_2x(const c4::matrix_ref<std::pair<uint8_t, uint8_t> >& src, c4::matrix<std::pair<uint8_t, uint8_t> >& dst) {
-        c4::scoped_timer timer("downscale2xFast");
-
         int height2 = src.height() / 2;
         int width2 = src.width() / 2;
 
@@ -325,8 +296,6 @@ namespace c4 {
 
     template<typename src_pixel_t, typename dst_pixel_t>
     inline void downscale_nearest_neighbor_nx(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst, float q){
-        c4::scoped_timer timer("downscaleNnNx");
-
         float iq = 1.f / q;
 
         int n = int(iq);

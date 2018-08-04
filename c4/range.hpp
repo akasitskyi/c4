@@ -138,11 +138,9 @@ namespace c4 {
             }
 
             iterator operator+(ptrdiff_t n) const {
-                assert(fits_within<int>(r.i + n));
-
-                iterator r = *this;
-                r.i += (int)n;
-                return r;
+                assert(fits_within<int>(i + n));
+                
+                return iterator(int(i + n));
             }
 
             int operator*() {
@@ -159,6 +157,18 @@ namespace c4 {
 
             bool operator<(iterator other) const {
                 return i < other.i;
+            }
+
+            bool operator>(iterator other) const {
+                return i > other.i;
+            }
+
+            bool operator<=(iterator other) const {
+                return i <= other.i;
+            }
+
+            bool operator>=(iterator other) const {
+                return i >= other.i;
             }
         };
 

@@ -79,7 +79,7 @@ namespace c4 {
         if (a < 0)
             return true;
         else
-            return std::make_unsigned<T1>(a) < b;
+            return std::make_unsigned<T1>::type(a) < b;
     }
 
     template<class T1, class T2>
@@ -87,7 +87,7 @@ namespace c4 {
         if (b < 0)
             return false;
         else
-            return a < std::make_unsigned<T1>(b);
+            return a < std::make_unsigned<T1>::type(b);
     }
 
     template<class T1, class T2>
