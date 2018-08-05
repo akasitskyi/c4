@@ -113,6 +113,11 @@ namespace c4 {
         }
     };
 
+    struct matrix_dimensions {
+        int height;
+        int width;
+    };
+
     template<class T>
     class matrix_ref {
     private:
@@ -129,6 +134,7 @@ namespace c4 {
 
     public:
         matrix_ref(int height, int width, int stride, T* ptr) : height_(height), width_(width), stride_(stride), ptr_(ptr) {}
+        matrix_ref(matrix_dimensions dims, int stride, T* ptr) : height_(dims.height), width_(dims.width), stride_(stride), ptr_(ptr) {}
 
         class iterator {
             friend class matrix_ref<T>;
@@ -212,6 +218,10 @@ namespace c4 {
             return const_iterator(*this, height_);
         }
 
+        matrix_dimensions dimensions() const {
+            return { height_, width_ };
+        }
+
         int height() const {
             return height_;
         }
@@ -289,6 +299,8 @@ namespace c4 {
     public:
         matrix(int height, int width, int stride) : detail::matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, v.data()) {}
         matrix(int height, int width) : matrix(height, width, width) {}
+        matrix(matrix_dimensions dims, int stride) : matrix(dims.height, dims.width, stride) {}
+        matrix(matrix_dimensions dims) : matrix(dims.height, dims.width) {}
         matrix() : matrix(0, 0, 0) {}
         
         matrix& operator=(const matrix& b) {
@@ -565,5 +577,31 @@ namespace c4 {
             }
         }
     }
+
+    template<class T1, class T2, class F>
+    inline void transform(const vector_ref<T1>& src, vector_ref<T2>& dst, F f) {
+        assert(src.size() == dst.size());
+
+        for (int i : range(src.size()))
+            dst[i] = f(src[i]);
+    }
+
+    template<class T1, class T2, class F>
+    inline void transform(const matrix_ref<T1>& src, matrix_ref<T2>& dst, F f) {
+        assert(src.height() == dst.height());
+
+        for (int i : range(src.height()))
+            transform(src[i], dst[i], f);
+    }
+
+    template<class T1, class T2, class F>
+    inline matrix<T1> transform(const matrix_ref<T2>& src, F f) {
+        matrix<T1> dst(src.width(), src.height());
+
+        transform(src, dst, f);
+
+        return dst;
+    }
+
 
 };

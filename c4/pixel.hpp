@@ -55,7 +55,8 @@ namespace c4 {
             b = crgb;
         }
 
-        float getY() const;
+        // return int for integral types and float for float types
+        auto getY() const -> decltype(T() + T());
 
         float getCb() const;
 
@@ -116,12 +117,12 @@ namespace c4 {
 
     struct rgb_weights{
         template<class T, class = enable_if<is_integral<T>::value>::type >
-        int combine(const pixel<T>& p) const {
+        auto combine(const pixel<T>& p) const -> decltype((p.r * iwr + p.g * iwg + p.b * iwb) >> 8) {
             return (p.r * iwr + p.g * iwg + p.b * iwb) >> 8;
         }
 
         template<class T, class = enable_if<is_floating_point<T>::value>::type >
-        float combine(const pixel<T>& p) const {
+        auto combine(const pixel<T>& p) const -> decltype(p.r * wr + p.g * wg + p.b * wb) {
             return p.r * wr + p.g * wg + p.b * wb;
         }
 
@@ -182,8 +183,8 @@ namespace c4 {
     };
 
     template<class T>
-    float pixel<T>::getY() const {
-        return (float)rgb_weights::bt601().combine(*this);
+    auto pixel<T>::getY() const -> decltype(T() + T()) {
+        return rgb_weights::bt601().combine(*this);
     }
 
     template<class T>
