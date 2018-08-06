@@ -66,86 +66,102 @@ namespace c4 {
         }
     }
 
-    //FIXME: wtf?
-    template<typename src_pixel_t, typename dst_pixel_t>
-    inline void scale_bilinear(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst){
-        float q = float(dst.height() + dst.width()) / (src.height() + src.width());
+    namespace detail {
+        template<typename src_pixel_t, typename dst_pixel_t>
+        inline void scale_bilinear_floating_point_weights(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst) {
+            float q = float(dst.height() + dst.width()) / (src.height() + src.width());
 
-        vector<int> i0v, i1v;
-        vector<float> di0v;
-        calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
+            vector<int> i0v, i1v;
+            vector<float> di0v;
+            calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
 
-        vector<int> j0v, j1v;
-        vector<float> dj0v;
-        calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
+            vector<int> j0v, j1v;
+            vector<float> dj0v;
+            calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
 
-        for(int i : range(dst.height())) {
-            int i0 = i0v[i];
-            int i1 = i1v[i];
-            float di0 = di0v[i];
+            for (int i : range(dst.height())) {
+                int i0 = i0v[i];
+                int i1 = i1v[i];
+                float di0 = di0v[i];
 
-            const src_pixel_t* psrc0 = src[i0];
-            const src_pixel_t* psrc1 = src[i1];
-            
-            dst_pixel_t* pdst = dst[i];
+                const src_pixel_t* psrc0 = src[i0];
+                const src_pixel_t* psrc1 = src[i1];
 
-            for(int j : range(dst.width())) {
-                int j0 = j0v[j];
-                int j1 = j1v[j];
-                float dj0 = dj0v[j];
+                dst_pixel_t* pdst = dst[i];
 
-                decltype(src_pixel_t() * 1.f) p(0);
-                
-                p += psrc0[j0] * ((1.f-di0) * (1.f-dj0));
-                p += psrc0[j1] * ((1.f-di0) * dj0);
-                p += psrc1[j0] * (di0 * (1.f-dj0));
-                p += psrc1[j1] * (di0 * dj0);
+                for (int j : range(dst.width())) {
+                    int j0 = j0v[j];
+                    int j1 = j1v[j];
+                    float dj0 = dj0v[j];
 
-                pdst[j] = dst_pixel_t(p);
+                    decltype(src_pixel_t() * 1.f) p(0);
+
+                    p += psrc0[j0] * ((1.f - di0) * (1.f - dj0));
+                    p += psrc0[j1] * ((1.f - di0) * dj0);
+                    p += psrc1[j0] * (di0 * (1.f - dj0));
+                    p += psrc1[j1] * (di0 * dj0);
+
+                    pdst[j] = dst_pixel_t(p);
+                }
             }
         }
+
+        template<typename src_pixel_t, typename dst_pixel_t>
+        inline void scale_bilinear_fixed_point_weights(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst) {
+            float q = float(dst.height() + dst.width()) / (src.height() + src.width());
+
+            constexpr int shift = 10;
+            const int one = 1 << shift;
+
+            vector<int> i0v, i1v;
+            vector<c4::fixed_point<int, shift> > di0v;
+            calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
+
+            vector<int> j0v, j1v;
+            vector<c4::fixed_point<int, shift> > dj0v;
+            calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
+
+            for (int i : range(dst.height())) {
+                int i0 = i0v[i];
+                int i1 = i1v[i];
+                int di0 = di0v[i].base;
+
+                const auto* psrc0 = src[i0].data();
+                const auto* psrc1 = src[i1].data();
+
+                auto* pdst = dst[i].data();
+
+                for (int j : range(dst.width())) {
+                    int j0 = j0v[j];
+                    int j1 = j1v[j];
+                    int dj0 = dj0v[j].base;
+
+                    decltype(src_pixel_t() + src_pixel_t()) p(0);
+
+                    p += psrc0[j0] * ((one - di0) * (one - dj0));
+                    p += psrc0[j1] * ((one - di0) * dj0);
+                    p += psrc1[j0] * (di0 * (one - dj0));
+                    p += psrc1[j1] * (di0 * dj0);
+
+                    pdst[j] = dst_pixel_t(p >> 2 * shift);
+                }
+            }
+        }
+    };
+
+    template<typename src_pixel_t, typename dst_pixel_t>
+    inline void scale_bilinear(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst) {
+        detail::scale_bilinear_floating_point_weights(src, dst);
     }
 
-    template<typename src_pixel_t, typename dst_pixel_t>
-    inline void scale_image_bilinear(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst){
-        float q = float(dst.height() + dst.width()) / (src.height() + src.width());
+    template<>
+    inline void scale_bilinear<uint8_t, uint8_t>(const c4::matrix_ref<uint8_t>& src, c4::matrix_ref<uint8_t>& dst) {
+        detail::scale_bilinear_fixed_point_weights(src, dst);
+    }
 
-        constexpr int shift = 10;
-        const int one = 1 << shift;
-
-        vector<int> i0v, i1v;
-        vector<c4::fixed_point<int, shift> > di0v;
-        calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
-
-        vector<int> j0v, j1v;
-        vector<c4::fixed_point<int, shift> > dj0v;
-        calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
-
-        for(int i : range(dst.height())) {
-            int i0 = i0v[i];
-            int i1 = i1v[i];
-            int di0 = di0v[i].base;
-
-            const auto* psrc0 = src[i0].data();
-            const auto* psrc1 = src[i1].data();
-            
-            auto* pdst = dst[i].data();
-
-            for(int j : range(dst.width())) {
-                int j0 = j0v[j];
-                int j1 = j1v[j];
-                int dj0 = dj0v[j].base;
-
-                decltype(src_pixel_t() + src_pixel_t()) p(0);
-                
-                p += psrc0[j0] * ((one-di0) * (one-dj0));
-                p += psrc0[j1] * ((one-di0) * dj0);
-                p += psrc1[j0] * (di0 * (one-dj0));
-                p += psrc1[j1] * (di0 * dj0);
-
-                pdst[j] = dst_pixel_t(p >> 2 * shift);
-            }
-        }
+    template<>
+    inline void scale_bilinear<pixel<uint8_t>, pixel<uint8_t>>(const c4::matrix_ref<pixel<uint8_t>>& src, c4::matrix_ref<pixel<uint8_t>>& dst) {
+        detail::scale_bilinear_fixed_point_weights(src, dst);
     }
 
     template<typename src_pixel_t, typename dst_pixel_t>
@@ -327,7 +343,7 @@ namespace c4 {
         int n = std::min(src.height() / dst.height(), src.width() / dst.width());
 
         if( n < 2 )
-            scale_image_bilinear(src, dst);
+            scale_bilinear(src, dst);
         else
             downscale_nearest_neighbor_nx(src, dst);
     }
