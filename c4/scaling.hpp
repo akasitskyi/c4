@@ -30,11 +30,8 @@
 
 namespace c4 {
     template<typename pixel_t>
-    inline void scale_image_nearest_neighbor(const c4::matrix_ref<pixel_t>& src, c4::matrix_ref<pixel_t>& dst, float q = 0){
-        if( q == 0 )
-            q = max<float>(float(dst.height()) / src.height(), float(dst.width()) / src.width());
-
-        float iq = 1.f / q;
+    inline void scale_image_nearest_neighbor(const c4::matrix_ref<pixel_t>& src, c4::matrix_ref<pixel_t>& dst){
+        float iq = std::min<float>(float(src.height()) / dst.height(), float(src.width()) / dst.width());
 
         std::vector<int> J0(dst.width() + 1);
         for(int j : range(J0))
@@ -69,10 +66,10 @@ namespace c4 {
         }
     }
 
-    template<typename SrcPixelT, typename DstPixelT>
-    inline void scale_bilinear(const c4::matrix<SrcPixelT>& src, c4::matrix<DstPixelT>& dst, float q = 0){
-        if( q == 0 )
-            q = float(dst.height() + dst.width()) / (src.height() + src.width());
+    //FIXME: wtf?
+    template<typename src_pixel_t, typename dst_pixel_t>
+    inline void scale_bilinear(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst){
+        float q = float(dst.height() + dst.width()) / (src.height() + src.width());
 
         vector<int> i0v, i1v;
         vector<float> di0v;
@@ -87,32 +84,31 @@ namespace c4 {
             int i1 = i1v[i];
             float di0 = di0v[i];
 
-            const SrcPixelT* psrc0 = src[i0];
-            const SrcPixelT* psrc1 = src[i1];
+            const src_pixel_t* psrc0 = src[i0];
+            const src_pixel_t* psrc1 = src[i1];
             
-            DstPixelT* pdst = dst[i];
+            dst_pixel_t* pdst = dst[i];
 
             for(int j : range(dst.width())) {
                 int j0 = j0v[j];
                 int j1 = j1v[j];
                 float dj0 = dj0v[j];
 
-                decltype(SrcPixelT() * 1.f) p(0);
+                decltype(src_pixel_t() * 1.f) p(0);
                 
                 p += psrc0[j0] * ((1.f-di0) * (1.f-dj0));
                 p += psrc0[j1] * ((1.f-di0) * dj0);
                 p += psrc1[j0] * (di0 * (1.f-dj0));
                 p += psrc1[j1] * (di0 * dj0);
 
-                pdst[j] = DstPixelT(p);
+                pdst[j] = dst_pixel_t(p);
             }
         }
     }
 
-    template<typename PixelT1, typename PixelT2>
-    inline void scale_image_bilinear(const c4::matrix_ref<PixelT1>& src, c4::matrix_ref<PixelT2>& dst, float q = 0){
-        if( q == 0 )
-            q = float(dst.height() + dst.width()) / (src.height() + src.width());
+    template<typename src_pixel_t, typename dst_pixel_t>
+    inline void scale_image_bilinear(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst){
+        float q = float(dst.height() + dst.width()) / (src.height() + src.width());
 
         constexpr int shift = 10;
         const int one = 1 << shift;
@@ -140,14 +136,14 @@ namespace c4 {
                 int j1 = j1v[j];
                 int dj0 = dj0v[j].base;
 
-                decltype(PixelT1() + PixelT1()) p(0);
+                decltype(src_pixel_t() + src_pixel_t()) p(0);
                 
                 p += psrc0[j0] * ((one-di0) * (one-dj0));
                 p += psrc0[j1] * ((one-di0) * dj0);
                 p += psrc1[j0] * (di0 * (one-dj0));
                 p += psrc1[j1] * (di0 * dj0);
 
-                pdst[j] = PixelT2(p >> 2 * shift);
+                pdst[j] = dst_pixel_t(p >> 2 * shift);
             }
         }
     }
@@ -295,8 +291,8 @@ namespace c4 {
     }
 
     template<typename src_pixel_t, typename dst_pixel_t>
-    inline void downscale_nearest_neighbor_nx(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst, float q){
-        float iq = 1.f / q;
+    inline void downscale_nearest_neighbor_nx(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst){
+        float iq = std::min<float>(float(src.height()) / dst.height(), float(src.width()) / dst.width());
 
         int n = int(iq);
 
@@ -326,18 +322,13 @@ namespace c4 {
         }
     }
 
-    template<typename SrcPixelT, typename DstPixelT>
-    inline void scale_image_hq(const c4::matrix<SrcPixelT>& src, c4::matrix<DstPixelT>& dst, float q = 0){
-        if( q == 0 )
-            q = max<float>(float(dst.height()) / src.height(), float(dst.width()) / src.width());
-
-        float iq = 1.f / q;
-
-        int n = int(iq);
+    template<typename src_pixel_t, typename dst_pixel_t>
+    inline void scale_image_hq(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst){
+        int n = std::min(src.height() / dst.height(), src.width() / dst.width());
 
         if( n < 2 )
-            scale_image_bilinear(src, dst, q);
+            scale_image_bilinear(src, dst);
         else
-            downscale_nearest_neighbor_nx(src, dst, q);
+            downscale_nearest_neighbor_nx(src, dst);
     }
 };
