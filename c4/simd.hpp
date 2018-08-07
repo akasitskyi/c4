@@ -666,12 +666,12 @@ namespace c4 {
         }
 #endif
 
-        template<class dst_t, class src_t, class = typename std::enable_if<traits::is_integral<src_t>::value && traits::is_integral<dst_t>::value>::type>
+        template<class dst_t, class src_t, class = typename std::enable_if<traits::is_simd<src_t>::value && traits::is_simd<dst_t>::value>::type>
         dst_t reinterpret(src_t a) {
-            return dst_t{ (decltype(dst_t::v))a.v };
+            return *reinterpret_cast<dst_t*>(&a);
         }
 
-        template<class dst_t, class src_t, int n, class = typename std::enable_if<traits::is_integral<src_t>::value && traits::is_integral<dst_t>::value>::type>
+        template<class dst_t, class src_t, int n, class = typename std::enable_if<traits::is_simd<src_t>::value && traits::is_simd<dst_t>::value>::type>
         tuple<dst_t, n> reinterpret(tuple<src_t, n> a) {
             return *reinterpret_cast<tuple<dst_t, n>*>(&a);
         }
@@ -714,6 +714,17 @@ namespace c4 {
             for (int i = 0; i < n; i++)
                 r.val[i] = reinterpret_unsigned(a.val[i]);
             return r;
+        }
+
+        template<class T, class = typename std::enable_if<traits::is_simd<T>::value>::type>
+        inline T set_zero() {
+#ifdef USE_ARM_NEON
+            int8x16 r8;
+            r8.v = veorq_s8(r8.v, r8.v);
+#else
+            int8x16 r8 = _mm_setzero_si128();
+#endif
+            return reinterpret<T>(r8);
         }
 
         inline uint8x16 equal(int8x16 a, int8x16 b) {
@@ -2773,7 +2784,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store_3_interleaved_narrow_saturate(uint8_t* ptr, int16x8x3 v) {
+        inline void store_3_interleaved_narrow_unsigned_saturate(uint8_t* ptr, int16x8x3 v) {
 #ifdef USE_ARM_NEON
             uint8x8x3_t a;
             a.val[0] = vqmovun_s16(v.val[0].v);
@@ -2803,7 +2814,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store_3_interleaved_narrow_saturate(uint16_t* ptr, int32x4x3 v) {
+        inline void store_3_interleaved_narrow_unsigned_saturate(uint16_t* ptr, int32x4x3 v) {
 #ifdef USE_ARM_NEON
             uint16x4x3_t a;
             a.val[0] = vqmovun_s32(v.val[0].v);
@@ -2910,41 +2921,6 @@ namespace c4 {
 
             return load(ta);
         }
-
-        // Int <-> Float conversions
-
-        inline float32x4 to_float(int32x4 a) {
-#ifdef USE_ARM_NEON
-            return vcvtq_f32_s32(a.v);
-#else
-            return  _mm_cvtepi32_ps(a.v);
-#endif
-        }
-
-        inline tuple<float32x4, 2> to_float(tuple<int32x4, 2> a) {
-            return { to_float(a.val[0]), to_float(a.val[1]) };
-        }
-
-        inline tuple<float32x4, 4> to_float(tuple<int32x4, 4> a) {
-            return { to_float(a.val[0]), to_float(a.val[1]), to_float(a.val[2]), to_float(a.val[3]) };
-        }
-
-        inline int32x4 to_int(float32x4 a) {
-#ifdef USE_ARM_NEON
-            return vcvtq_s32_f32(a.v);
-#else
-            return _mm_cvttps_epi32(a.v);
-#endif
-        }
-
-        inline tuple<int32x4, 2> to_int(tuple<float32x4, 2> a) {
-            return { to_int(a.val[0]), to_int(a.val[1]) };
-        }
-
-        inline tuple<int32x4, 4> to_int(tuple<float32x4, 4> a) {
-            return { to_int(a.val[0]), to_int(a.val[1]), to_int(a.val[2]), to_int(a.val[3]) };
-        }
-
 
         // Addition
 
@@ -3190,6 +3166,74 @@ namespace c4 {
             return _mm_sub_ps(a.v, b.v);
 #endif
         }
+
+        // Saturating subtraction
+
+        inline int8x16 sub_saturate(int8x16 a, int8x16 b) {
+#ifdef USE_ARM_NEON
+            return vqsubq_s8(a.v, b.v);
+#else
+            return _mm_subs_epi8(a.v, b.v);
+#endif
+        }
+
+        inline uint8x16 sub_saturate(uint8x16 a, uint8x16 b) {
+#ifdef USE_ARM_NEON
+            return vqsubq_u8(a.v, b.v);
+#else
+            return _mm_subs_epu8(a.v, b.v);
+#endif
+        }
+
+        inline int16x8 sub_saturate(int16x8 a, int16x8 b) {
+#ifdef USE_ARM_NEON
+            return vqsubq_s16(a.v, b.v);
+#else
+            return _mm_subs_epi16(a.v, b.v);
+#endif
+        }
+
+        inline uint16x8 sub_saturate(uint16x8 a, uint16x8 b) {
+#ifdef USE_ARM_NEON
+            return vqsubq_u16(a.v, b.v);
+#else
+            return _mm_subs_epu16(a.v, b.v);
+#endif
+        }
+
+        inline int32x4 sub_saturate(int32x4 a, int32x4 b) {
+#ifdef USE_ARM_NEON
+            return vqsubq_s32(a.v, b.v);
+#else
+            const __m128i int_max = _mm_set_0x7fffffff_epi32();
+            __m128i sub = _mm_sub_epi32(a.v, b.v);
+            
+            __m128i sat = _mm_add_epi32(_mm_srli_epi32(a.v, 31), int_max);  // sat = a < 0 ? INT_MIN : INT_MAX
+
+            __m128i a_xor_b = _mm_xor_si128(a.v, b.v);                      // sign bit is 1 if a and b have different signs
+
+            __m128i a_xor_sub = _mm_xor_si128(a.v, sub);                    // sign bit is 1 if a and sub have different signs
+
+            __m128i mask = _mm_and_si128(a_xor_b, a_xor_sub);               // sign bit is 1 if we have an overflow
+            mask = _mm_srai_epi32(mask, 31);                                // propagate the sign bit
+
+            return _mm_blendv_si128(sub, sat, mask);
+#endif
+        }
+
+        inline uint32x4 sub_saturate(uint32x4 a, uint32x4 b) {
+#ifdef USE_ARM_NEON
+            return vqsubq_u32(a.v, b.v);
+#else
+            __m128i mn = _mm_min_epu32_(a.v, b.v);
+            __m128i mask = _mm_cmpeq_epi32(mn, b.v);
+
+            return _mm_and_si128(_mm_sub_epi32(a.v, b.v), mask);
+#endif
+        }
+
+
+        // Halving subtraction
 
         inline uint8x16 sub_div2(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
@@ -3921,6 +3965,88 @@ namespace c4 {
 #endif
         }
 
+        inline int16x8x2 mul_long(int8x16 a, int8x16 b) {
+#ifdef USE_ARM_NEON
+            int8x8_t a_lo = vget_low_s8(a.v);
+            int8x8_t a_hi = vget_high_s8(a.v);
+            int8x8_t b_lo = vget_low_s8(b.v);
+            int8x8_t b_hi = vget_high_s8(b.v);
+
+            int16x8_t r_lo = vmull_s8(a_lo, b_lo);
+            int16x8_t r_hi = vmull_s8(a_hi, b_hi);
+
+            return { r_lo, r_hi };
+#else
+            int16x8x2 ap = long_move(a);
+            int16x8x2 bp = long_move(b);
+
+            ap.val[0] = mul_lo(ap.val[0], bp.val[0]);
+            ap.val[1] = mul_lo(ap.val[1], bp.val[1]);
+
+            return ap;
+#endif
+        }
+
+        inline uint16x8x2 mul_long(uint8x16 a, uint8x16 b) {
+#ifdef USE_ARM_NEON
+            uint8x8_t a_lo = vget_low_u8(a.v);
+            uint8x8_t a_hi = vget_high_u8(a.v);
+            uint8x8_t b_lo = vget_low_u8(b.v);
+            uint8x8_t b_hi = vget_high_u8(b.v);
+
+            uint16x8_t r_lo = vmull_u8(a_lo, b_lo);
+            uint16x8_t r_hi = vmull_u8(a_hi, b_hi);
+
+            return { r_lo, r_hi };
+#else
+            uint16x8x2 ap = long_move(a);
+            uint16x8x2 bp = long_move(b);
+
+            ap.val[0] = mul_lo(ap.val[0], bp.val[0]);
+            ap.val[1] = mul_lo(ap.val[1], bp.val[1]);
+
+            return ap;
+#endif
+        }
+
+        inline int32x4x2 mul_long(int16x8 a, int16x8 b) {
+#ifdef USE_ARM_NEON
+            int16x4_t a_lo = vget_low_s16(a.v);
+            int16x4_t a_hi = vget_high_s16(a.v);
+            int16x4_t b_lo = vget_low_s16(b.v);
+            int16x4_t b_hi = vget_high_s16(b.v);
+
+            int32x4_t r_lo = vmull_s16(a_lo, b_lo);
+            int32x4_t r_hi = vmull_s16(a_hi, b_hi);
+
+            return { r_lo, r_hi };
+#else
+            __m128i lo = _mm_mullo_epi16(a.v, b.v);
+            __m128i hi = _mm_mulhi_epi16(a.v, b.v);
+
+            return { _mm_unpacklo_epi16(lo, hi), _mm_unpackhi_epi16(lo, hi) };
+#endif
+        }
+
+        inline uint32x4x2 mul_long(uint16x8 a, uint16x8 b) {
+#ifdef USE_ARM_NEON
+            uint16x4_t a_lo = vget_low_s16(a.v);
+            uint16x4_t a_hi = vget_high_u16(a.v);
+            uint16x4_t b_lo = vget_low_u16(b.v);
+            uint16x4_t b_hi = vget_high_u16(b.v);
+
+            uint32x4_t r_lo = vmull_u16(a_lo, b_lo);
+            uint32x4_t r_hi = vmull_u16(a_hi, b_hi);
+
+            return { r_lo, r_hi };
+#else
+            __m128i lo = _mm_mullo_epi16(a.v, b.v);
+            __m128i hi = _mm_mulhi_epu16(a.v, b.v);
+
+            return { _mm_unpacklo_epi16(lo, hi), _mm_unpackhi_epi16(lo, hi) };
+#endif
+        }
+
         // Multiply accumulate: r = s + a * b
         inline int8x16 mul_acc(int8x16 s, int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
@@ -4104,6 +4230,61 @@ namespace c4 {
             uint32x4 sum = add(a2, b2);
             return add(sum, rounding);
 #endif
+        }
+
+        // Int <-> Float conversions
+
+        inline float32x4 to_float(int32x4 a) {
+#ifdef USE_ARM_NEON
+            return vcvtq_f32_s32(a.v);
+#else
+            return  _mm_cvtepi32_ps(a.v);
+#endif
+        }
+
+        inline tuple<float32x4, 2> to_float(tuple<int32x4, 2> a) {
+            return { to_float(a.val[0]), to_float(a.val[1]) };
+        }
+
+        inline tuple<float32x4, 4> to_float(tuple<int32x4, 4> a) {
+            return { to_float(a.val[0]), to_float(a.val[1]), to_float(a.val[2]), to_float(a.val[3]) };
+        }
+
+        inline int32x4 to_int(float32x4 a) {
+#ifdef USE_ARM_NEON
+            return vcvtq_s32_f32(a.v);
+#else
+            return _mm_cvttps_epi32(a.v);
+#endif
+        }
+
+        inline int32x4 round_to_int(float32x4 a) {
+            static const float32x4 plus_half(0.5f);
+            const float32x4 minus_half = neg(plus_half);
+
+            uint32x4 mask = greater_equal(a, set_zero<float32x4>());
+
+            float32x4 t = select(mask, plus_half, minus_half);
+
+            return to_int(add(a, t));
+        }
+
+        template<int n>
+        inline tuple<int32x4, n> to_int(tuple<float32x4, n> a) {
+            tuple<int32x4, n> r;
+            for (int i = 0; i < n; i++)
+                r.val[i] = to_int(a.val[i]);
+
+            return r;
+        }
+
+        template<int n>
+        inline tuple<int32x4, n> round_to_int(tuple<float32x4, n> a) {
+            tuple<int32x4, n> r;
+            for (int i = 0; i < n; i++)
+                r.val[i] = round_to_int(a.val[i]);
+
+            return r;
         }
 
         // Other
@@ -4323,6 +4504,16 @@ namespace c4 {
         tuple<T, n> mul(tuple<T, n> a, T b) {
             std::function<T(T, T)> f = static_cast<T(*)(T, T)>(mul);
             return binary_operation(a, b, f);
+        }
+
+        template<class T, int n>
+        tuple<T, n> reciprocal(tuple<T, n> a) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = reciprocal(a.val[i]);
+            
+            return r;
         }
 
         template<class T, int n>

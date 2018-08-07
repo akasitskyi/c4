@@ -268,7 +268,7 @@ namespace c4 {
     template<>
     inline void setRGB<RgbByteOrder::RGB>(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
         c4::simd::int16x8x3 rgb{r, g, b};
-        c4::simd::store_3_interleaved_narrow_saturate(p + i * 3, rgb);
+        c4::simd::store_3_interleaved_narrow_unsigned_saturate(p + i * 3, rgb);
     }
 
     struct yuv_to_rgb_coefficients {
