@@ -33,6 +33,7 @@ namespace c4 {
         
         pixel() : r(0), g(0), b(0) {}
 
+        // FIXME: we shouldn't do clamp by default: it's slow!
         template<class T2>
         explicit pixel(const pixel<T2>& p) {
             r = c4::clamp<T>(p.r);

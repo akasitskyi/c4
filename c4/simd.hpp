@@ -4449,65 +4449,68 @@ namespace c4 {
             return reinterpret_signed(clz(reinterpret_unsigned(a)));
         }
 
-        // Operations on tuples
-        template<class T, int n, class = typename std::enable_if<traits::is_simd<T>::value>::type>
-        tuple<T, n> binary_operation(tuple<T, n> a, tuple<T, n> b, std::function<T(T, T)> f) {
-            tuple<T, n> r;
-            
-            for (int i = 0; i < n; i++)
-                r.val[i] = f(a.val[i], b.val[i]);
-            
-            return r;
-        }
-
-        template<class T, int n, class = typename std::enable_if<traits::is_simd<T>::value>::type>
-        tuple<T, n> binary_operation(tuple<T, n> a, T b, std::function<T(T, T)> f) {
+        template<class T, int n>
+        inline tuple<T, n> add(tuple<T, n> a, tuple<T, n> b) {
             tuple<T, n> r;
 
             for (int i = 0; i < n; i++)
-                r.val[i] = f(a.val[i], b);
+                r.val[i] = add(a.val[i], b.val[i]);
 
             return r;
         }
 
         template<class T, int n>
-        tuple<T, n> add(tuple<T, n> a, tuple<T, n> b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(add);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> add(tuple<T, n> a, T b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = add(a.val[i], b);
+
+            return r;
         }
 
         template<class T, int n>
-        tuple<T, n> add(tuple<T, n> a, T b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(add);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> sub(tuple<T, n> a, tuple<T, n> b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = sub(a.val[i], b.val[i]);
+
+            return r;
         }
 
         template<class T, int n>
-        tuple<T, n> sub(tuple<T, n> a, tuple<T, n> b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(sub);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> sub(tuple<T, n> a, T b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = sub(a.val[i], b);
+
+            return r;
         }
 
         template<class T, int n>
-        tuple<T, n> sub(tuple<T, n> a, T b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(sub);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> mul(tuple<T, n> a, tuple<T, n> b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = mul(a.val[i], b.val[i]);
+
+            return r;
         }
 
         template<class T, int n>
-        tuple<T, n> mul(tuple<T, n> a, tuple<T, n> b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(mul);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> mul(tuple<T, n> a, T b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = mul(a.val[i], b);
+
+            return r;
         }
 
         template<class T, int n>
-        tuple<T, n> mul(tuple<T, n> a, T b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(mul);
-            return binary_operation(a, b, f);
-        }
-
-        template<class T, int n>
-        tuple<T, n> reciprocal(tuple<T, n> a) {
+        inline tuple<T, n> reciprocal(tuple<T, n> a) {
             tuple<T, n> r;
 
             for (int i = 0; i < n; i++)
@@ -4517,56 +4520,80 @@ namespace c4 {
         }
 
         template<class T, int n>
-        tuple<T, n> div(tuple<T, n> a, tuple<T, n> b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(div);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> div(tuple<T, n> a, tuple<T, n> b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = div(a.val[i], b.val[i]);
+
+            return r;
         }
 
         template<class T, int n>
-        tuple<T, n> div(tuple<T, n> a, T b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(div);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> div(tuple<T, n> a, T b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = div(a.val[i], b);
+
+            return r;
         }
 
 
         template<class T, int n>
-        tuple<T, n> min(tuple<T, n> a, tuple<T, n> b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(min);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> min(tuple<T, n> a, tuple<T, n> b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = min(a.val[i], b.val[i]);
+
+            return r;
         }
 
         template<class T, int n>
-        tuple<T, n> min(tuple<T, n> a, T b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(min);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> min(tuple<T, n> a, T b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = min(a.val[i], b);
+
+            return r;
         }
 
         template<class T, int n>
-        tuple<T, n> max(tuple<T, n> a, tuple<T, n> b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(max);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> max(tuple<T, n> a, tuple<T, n> b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = max(a.val[i], b.val[i]);
+
+            return r;
         }
 
         template<class T, int n>
-        tuple<T, n> max(tuple<T, n> a, T b) {
-            std::function<T(T, T)> f = static_cast<T(*)(T, T)>(max);
-            return binary_operation(a, b, f);
+        inline tuple<T, n> max(tuple<T, n> a, T b) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = max(a.val[i], b);
+
+            return r;
         }
 
 
         // Basic operators
         template<class T, class = typename std::enable_if<traits::is_simd<T>::value, T>::type>
-        T operator+(T a, T b) {
+        inline T operator+(T a, T b) {
             return add(a, b);
         }
 
         template<class T, class = typename std::enable_if<traits::is_simd<T>::value, T>::type>
-        T operator-(T a, T b) {
+        inline T operator-(T a, T b) {
             return sub(a, b);
         }
 
         template<class T, class = typename std::enable_if<traits::is_simd<T>::value, T>::type>
-        T operator*(T a, T b) {
+        inline T operator*(T a, T b) {
             return mul(a, b);
         }
     }; // namespace simd
