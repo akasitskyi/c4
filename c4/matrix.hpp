@@ -596,7 +596,7 @@ namespace c4 {
 
     template<class T1, class T2, class F>
     inline matrix<T1> transform(const matrix_ref<T2>& src, F f) {
-        matrix<T1> dst(src.width(), src.height());
+        matrix<T1> dst(src.dimensions());
 
         transform(src, dst, f);
 

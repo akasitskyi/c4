@@ -1313,7 +1313,7 @@ namespace c4 {
         }
 
         template<class src_t>
-        auto long_move(tuple<src_t, 2> a) -> tuple<typename std::remove_reference<decltype(long_move(src_t()).val[0])>::type, 4> {
+        inline auto long_move(tuple<src_t, 2> a) -> tuple<typename std::remove_reference<decltype(long_move(src_t()).val[0])>::type, 4> {
             auto r0 = long_move(a.val[0]);
             auto r1 = long_move(a.val[1]);
             return { r0.val[0], r0.val[1], r1.val[0], r1.val[1] };
@@ -1464,7 +1464,7 @@ namespace c4 {
         }
 
         template<class src_t>
-        auto narrow(tuple<src_t, 4> v) -> tuple<typename std::remove_reference<decltype(narrow(tuple<src_t, 2>()))>::type, 2> {
+        inline auto narrow(tuple<src_t, 4> v) -> tuple<typename std::remove_reference<decltype(narrow(tuple<src_t, 2>()))>::type, 2> {
             auto r0 = narrow(tuple<src_t, 2>{ v.val[0], v.val[1] });
             auto r1 = narrow(tuple<src_t, 2>{ v.val[2], v.val[3] });
             return { r0, r1 };
@@ -1551,14 +1551,14 @@ namespace c4 {
         }
 
         template<class src_t>
-        auto narrow_saturate(tuple<src_t, 4> v) -> tuple<typename std::remove_reference<decltype(narrow_saturate(tuple<src_t, 2>()))>::type, 2> {
+        inline auto narrow_saturate(tuple<src_t, 4> v) -> tuple<typename std::remove_reference<decltype(narrow_saturate(tuple<src_t, 2>()))>::type, 2> {
             auto r0 = narrow_saturate(tuple<src_t, 2>{ v.val[0], v.val[1] });
             auto r1 = narrow_saturate(tuple<src_t, 2>{ v.val[2], v.val[3] });
             return { r0, r1 };
         }
 
         template<class src_t>
-        auto narrow_unsigned_saturate(tuple<src_t, 4> v) -> tuple<typename std::remove_reference<decltype(narrow_unsigned_saturate(tuple<src_t, 2>()))>::type, 2> {
+        inline auto narrow_unsigned_saturate(tuple<src_t, 4> v) -> tuple<typename std::remove_reference<decltype(narrow_unsigned_saturate(tuple<src_t, 2>()))>::type, 2> {
             auto r0 = narrow_unsigned_saturate(tuple<src_t, 2>{ v.val[0], v.val[1] });
             auto r1 = narrow_unsigned_saturate(tuple<src_t, 2>{ v.val[2], v.val[3] });
             return { r0, r1 };
@@ -1566,12 +1566,12 @@ namespace c4 {
 
         // Get low and get high
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type >
-        half<T> get_low(T a) {
+        inline half<T> get_low(T a) {
             return a;
         }
 
         template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type >
-        half<T> get_high(T a) {
+        inline half<T> get_high(T a) {
 #ifdef USE_ARM_NEON
             uint8x16 t = reinterpret<uint8x16>(a);
             t.v = vcombine_u8(vget_high_u8(t.v), vget_low_u8(t.v));
@@ -2618,6 +2618,129 @@ namespace c4 {
 #endif
         }
 
+
+        inline void store_3_interleaved(int8_t* ptr, int8x16x3 v) {
+#ifdef USE_ARM_NEON
+            vst3q_s8(ptr, make_neon(a));
+#else
+            static const __m128i mask_ax = shuffle_mask              <  0, -1, -1,  1, -1, -1,  2, -1, -1,  3, -1, -1,  4, -1, -1,  5>();
+            __m128i ax = _mm_shuffle_epi8(v.val[0].v, mask_ax);     // a0,  0,  0, a1,  0,  0, a2,  0,  0, a3,  0,  0, a4,  0,  0, a5
+
+            static const __m128i mask_bx = shuffle_mask              < -1,  0, -1, -1,  1, -1, -1,  2, -1, -1,  3, -1, -1,  4, -1, -1>();
+            __m128i bx = _mm_shuffle_epi8(v.val[1].v, mask_bx);     //  0, b0,  0,  0, b1,  0,  0, b2,  0,  0, b3,  0,  0, b4,  0,  0
+
+            static const __m128i mask_cx = shuffle_mask              < -1, -1,  0, -1, -1,  1, -1, -1,  2, -1, -1,  3, -1, -1,  4, -1>();
+            __m128i cx = _mm_shuffle_epi8(v.val[2].v, mask_cx);     //  0,  0, c0,  0,  0, c1,  0,  0, c2,  0,  0, c3,  0,  0, c4,  0
+
+            __m128i x = _mm_or_si128(ax, _mm_or_si128(bx, cx));     // a0, b0, c0, a1, b1, c1, a2, b2, c2, a3, b3, c3, a4, b4, c4, a5
+
+            static const __m128i mask_ay = shuffle_mask              < -1, -1,  6, -1, -1,  7, -1, -1,  8, -1, -1,  9, -1, -1, 10, -1>();
+            __m128i ay = _mm_shuffle_epi8(v.val[0].v, mask_ay);     //  0,  0, a6,  0,  0, a7,  0,  0, a8,  0,  0, a9,  0,  0,a10,  0
+
+            static const __m128i mask_by = shuffle_mask              <  5, -1, -1,  6, -1, -1,  7, -1, -1,  8, -1, -1,  9, -1, -1, 10>();
+            __m128i by = _mm_shuffle_epi8(v.val[1].v, mask_by);     // b5,  0,  0, b6,  0,  0, b7,  0,  0, b8,  0,  0, b9,  0,  0,b10
+
+            static const __m128i mask_cy = shuffle_mask              < -1,  5, -1, -1,  6, -1, -1,  7, -1, -1,  8, -1, -1,  9, -1, -1>();
+            __m128i cy = _mm_shuffle_epi8(v.val[2].v, mask_cy);     //  0, c5,  0,  0, c6,  0,  0, c7,  0,  0, c8,  0,  0, c9,  0,  0
+
+            __m128i y = _mm_or_si128(ay, _mm_or_si128(by, cy));     // b5, c5, a6, b6, c6, a7, b7, c7, a8, b8, c8, a9, b9, c9,a10,b10
+
+            static const __m128i mask_az = shuffle_mask              < -1, 11, -1, -1, 12, -1, -1, 13, -1, -1, 14, -1, -1, 15, -1, -1>();
+            __m128i az = _mm_shuffle_epi8(v.val[0].v, mask_az);     //  0,a11,  0,  0,a12,  0,  0,a13,  0,  0,a14,  0,  0,a15,  0,  0
+
+            static const __m128i mask_bz = shuffle_mask              < -1, -1, 11, -1, -1, 12, -1, -1, 13, -1, -1, 14, -1, -1, 15, -1>();
+            __m128i bz = _mm_shuffle_epi8(v.val[1].v, mask_bz);     //  0,  0,b11,  0,  0,b12,  0,  0,b13,  0,  0,b14,  0,  0,b15,  0
+
+            static const __m128i mask_cz = shuffle_mask              < 10, -1, -1, 11, -1, -1, 12, -1, -1, 13, -1, -1, 14, -1, -1, 15>();
+            __m128i cz = _mm_shuffle_epi8(v.val[2].v, mask_cz);     //c10,  0,  0,c11,  0,  0,c12,  0,  0,c13,  0,  0,c14,  0,  0,c15
+
+            __m128i z = _mm_or_si128(az, _mm_or_si128(bz, cz));     // b5, c5, a6, b6, c6, a7, b7, c7
+
+            _mm_storeu_si128((__m128i*)ptr + 0, x);
+            _mm_storeu_si128((__m128i*)ptr + 1, y);
+            _mm_storeu_si128((__m128i*)ptr + 2, z);
+#endif
+        }
+
+        inline void store_3_interleaved(uint8_t* ptr, uint8x16x3 v) {
+            store_3_interleaved((int8_t*)ptr, reinterpret_signed(v));
+        }
+
+        inline void store_3_interleaved(int16_t* ptr, int16x8x3 v) {
+#ifdef USE_ARM_NEON
+            vst3q_s16(ptr, make_neon(a));
+#else
+            static const __m128i mask_ax = shuffle_mask              <  0, -1, -1,  1, -1, -1,  2, -1>();
+            __m128i ax = _mm_shuffle_epi8(v.val[0].v, mask_ax);     // a0,  0,  0, a1,  0,  0, a2,  0
+
+            static const __m128i mask_bx = shuffle_mask              < -1,  0, -1, -1,  1, -1, -1,  2>();
+            __m128i bx = _mm_shuffle_epi8(v.val[1].v, mask_bx);     //  0, b0,  0,  0, b1,  0,  0, b2
+
+            static const __m128i mask_cx = shuffle_mask              < -1, -1,  0, -1, -1,  1, -1, -1>();
+            __m128i cx = _mm_shuffle_epi8(v.val[2].v, mask_cx);     //  0,  0, c0,  0,  0, c1,  0,  0
+
+            __m128i x = _mm_or_si128(ax, _mm_or_si128(bx, cx));     // a0, b0, c0, a1, b1, c1, a2, b2
+
+            static const __m128i mask_ay = shuffle_mask              < -1,  3, -1, -1,  4, -1, -1,  5>();
+            __m128i ay = _mm_shuffle_epi8(v.val[0].v, mask_ay);     //  0, a3,  0,  0, a4,  0,  0, a5
+
+            static const __m128i mask_by = shuffle_mask              < -1, -1,  3, -1, -1,  4, -1, -1>();
+            __m128i by = _mm_shuffle_epi8(v.val[1].v, mask_by);     //  0,  0, b3,  0,  0, b4,  0,  0
+
+            static const __m128i mask_cy = shuffle_mask              <  2, -1, -1,  3, -1, -1,  4, -1>();
+            __m128i cy = _mm_shuffle_epi8(v.val[2].v, mask_cy);     // c2,  0,  0, c3,  0,  0, c4,  0
+
+            __m128i y = _mm_or_si128(ay, _mm_or_si128(by, cy));     // c2, a3, b3, c3, a4, b4, c4, a5
+
+            static const __m128i mask_az = shuffle_mask              < -1, -1,  6, -1, -1,  7, -1, -1>();
+            __m128i az = _mm_shuffle_epi8(v.val[0].v, mask_az);     //  0,  0, a6,  0,  0, a7,  0,  0
+
+            static const __m128i mask_bz = shuffle_mask              <  5, -1, -1,  6, -1, -1,  7, -1>();
+            __m128i bz = _mm_shuffle_epi8(v.val[1].v, mask_bz);     // b5,  0,  0, b6,  0,  0, b7,  0
+
+            static const __m128i mask_cz = shuffle_mask              < -1,  5, -1, -1,  6, -1, -1,  7>();
+            __m128i cz = _mm_shuffle_epi8(v.val[2].v, mask_cz);     //  0, c5,  0,  0, c6,  0,  0, c7
+
+            __m128i z = _mm_or_si128(az, _mm_or_si128(bz, cz));     // b5, c5, a6, b6, c6, a7, b7, c7
+
+            _mm_storeu_si128((__m128i*)ptr + 0, x);
+            _mm_storeu_si128((__m128i*)ptr + 1, y);
+            _mm_storeu_si128((__m128i*)ptr + 2, z);
+#endif
+        }
+
+        inline void store_3_interleaved(uint16_t* ptr, uint16x8x3 v) {
+            store_3_interleaved((int16_t*)ptr, reinterpret_signed(v));
+        }
+
+        inline void store_3_interleaved(float* ptr, float32x4x3 v) {
+#ifdef USE_ARM_NEON
+            vst3q_f32(ptr, make_neon(a));
+#else
+            __m128 x0 = _mm_unpacklo_ps(v.val[0].v, v.val[1].v);            // a0, b0, a1, b1
+            __m128 x1 = _mm_unpackhi_ps(v.val[0].v, v.val[1].v);            // a2, b2, a3, b3
+            __m128 x2 = _mm_unpacklo_ps(v.val[1].v, v.val[2].v);            // b0, c0, b1, c1
+
+            __m128 t0 = _mm_unpacklo_ps(x2, v.val[0].v);                    // b0, a0, c0, a1
+            __m128 t2 = _mm_movehl_ps(v.val[2].v, x1);                      // a3, b3, c2, c3
+
+            __m128 y0 = _mm_shuffle_ps(x0, t0, _MM_SHUFFLE(3, 2, 1, 0));    // a0, b0, c0, a1,
+            __m128 y1 = _mm_shuffle_ps(x2, x1, _MM_SHUFFLE(1, 0, 3, 2));    // b1, c1, a2, b2,
+            __m128 y2 = _mm_shuffle_ps(t2, t2, _MM_SHUFFLE(3, 1, 0, 2));    // c2, a3, b3, c3
+
+            _mm_storeu_ps(ptr, y0);
+            _mm_storeu_ps((ptr + 4), y1);
+            _mm_storeu_ps((ptr + 8), y2);
+#endif
+        }
+
+        inline void store_3_interleaved(int32_t* ptr, int32x4x3 v) {
+            store_3_interleaved((float*)ptr, reinterpret<float32x4>(v));
+        }
+
+        inline void store_3_interleaved(uint32_t* ptr, uint32x4x3 v) {
+            store_3_interleaved((float*)ptr, reinterpret<float32x4>(v));
+        }
 
 
         inline void store_4_interleaved(int8_t* ptr, int8x16x4 v) {
@@ -3782,6 +3905,17 @@ namespace c4 {
             return _mm_srli_epi32(a.v, n);
 #endif
         }
+
+        template<int k, class T, int n>
+        inline tuple<T, n> shift_right(tuple<T, n> a) {
+            tuple<T, n> r;
+
+            for (int i = 0; i < n; i++)
+                r.val[i] = shift_right<k>(a.val[i]);
+
+            return r;
+        }
+
 
         // Logical operations
 
