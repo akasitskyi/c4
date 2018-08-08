@@ -150,11 +150,6 @@ namespace c4 {
         return clamp(x, std::numeric_limits<dst_t>::min(), std::numeric_limits<dst_t>::max());
     }
 
-    template<class dst_t, class src_t>
-    inline typename std::enable_if<!std::is_same<src_t, dst_t>::value && !std::is_arithmetic<dst_t>::value, dst_t>::type clamp(src_t x) {
-        return dst_t(x);
-    }
-
     template<class T>
     inline int clz(T x) {
         constexpr int n = 8 * sizeof(T);

@@ -116,6 +116,11 @@ namespace c4 {
         }
     };
 
+    template<class dst_t, class src_t>
+    pixel<dst_t> clamp(const pixel<src_t>& p) {
+        return { clamp<dst_t>(p.r), clamp<dst_t>(p.g), clamp<dst_t>(p.b) };
+    }
+
     struct rgb_weights{
         template<class T, class = enable_if<is_integral<T>::value>::type >
         auto combine(const pixel<T>& p) const -> decltype((p.r * iwr + p.g * iwg + p.b * iwb) >> 8) {

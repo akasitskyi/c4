@@ -594,9 +594,9 @@ namespace c4 {
             transform(src[i], dst[i], f);
     }
 
-    template<class T1, class T2, class F>
-    inline matrix<T1> transform(const matrix_ref<T2>& src, F f) {
-        matrix<T1> dst(src.dimensions());
+    template<class T, class F>
+    inline auto transform(const matrix_ref<T>& src, F f) -> matrix<typename std::result_of<F(T)>::type> {
+        matrix<typename std::result_of<F(T)>::type> dst(src.dimensions());
 
         transform(src, dst, f);
 
