@@ -138,10 +138,10 @@ namespace c4 {
 
                     decltype(src_pixel_t() + src_pixel_t()) p(0);
 
-                    p += psrc0[j0] * ((one - di0) * (one - dj0));
-                    p += psrc0[j1] * ((one - di0) * dj0);
-                    p += psrc1[j0] * (di0 * (one - dj0));
-                    p += psrc1[j1] * (di0 * dj0);
+                    p = p + psrc0[j0] * ((one - di0) * (one - dj0));
+                    p = p + psrc0[j1] * ((one - di0) * dj0);
+                    p = p + psrc1[j0] * (di0 * (one - dj0));
+                    p = p + psrc1[j1] * (di0 * dj0);
 
                     pdst[j] = dst_pixel_t(p >> 2 * shift);
                 }
@@ -175,7 +175,7 @@ namespace c4 {
                 decltype(src_pixel_t() + src_pixel_t()) p(0);
                 for(int i1 : range(n))
                     for(int j1 : range(n))
-                        p += src[n * i + i1][n * j + j1];
+                        p = p + src[n * i + i1][n * j + j1];
 
                 dst[i][j] = dst_pixel_t(p * normalizer);
             }
@@ -330,7 +330,7 @@ namespace c4 {
                 for(int i1 : range(n)) {
                     const src_pixel_t* psrc = src[i0 + i1] + j0;
                     for(int j1 : range(n))
-                        p += psrc[j1];
+                        p = p + psrc[j1];
                 }
 
                 dst[i][j] = dst_pixel_t(p * normalizer);

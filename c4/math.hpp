@@ -70,12 +70,17 @@ namespace c4 {
     }
 
     template<class T1, class T2>
-    inline typename std::enable_if<std::is_signed<T1>::value == std::is_signed<T2>::value, bool>::type safe_less(T1 a, T2 b) {
+    inline typename std::enable_if<std::is_floating_point<T1>::value || std::is_floating_point<T2>::value, bool>::type safe_less(T1 a, T2 b) {
         return a < b;
     }
 
     template<class T1, class T2>
-    inline typename std::enable_if<std::is_signed<T1>::value && std::is_unsigned<T2>::value, bool>::type safe_less(T1 a, T2 b) {
+    inline typename std::enable_if<!std::is_floating_point<T1>::value && !std::is_floating_point<T2>::value && std::is_signed<T1>::value == std::is_signed<T2>::value, bool>::type safe_less(T1 a, T2 b) {
+        return a < b;
+    }
+
+    template<class T1, class T2>
+    inline typename std::enable_if<!std::is_floating_point<T1>::value && !std::is_floating_point<T2>::value && std::is_signed<T1>::value && std::is_unsigned<T2>::value, bool>::type safe_less(T1 a, T2 b) {
         if (a < 0)
             return true;
         else
@@ -83,7 +88,7 @@ namespace c4 {
     }
 
     template<class T1, class T2>
-    inline typename std::enable_if<std::is_unsigned<T1>::value && std::is_signed<T2>::value, bool>::type safe_less(T1 a, T2 b) {
+    inline typename std::enable_if<!std::is_floating_point<T1>::value && !std::is_floating_point<T2>::value && std::is_unsigned<T1>::value && std::is_signed<T2>::value, bool>::type safe_less(T1 a, T2 b) {
         if (b < 0)
             return false;
         else
@@ -107,7 +112,7 @@ namespace c4 {
 
     template<class dst_t, class src_t>
     inline bool fits_within(src_t x) {
-        return safe_less_equal(std::numeric_limits<dst_t>::min(), x) && safe_less_equal(x, std::numeric_limits<dst_t>::max());
+        return safe_less_equal(std::numeric_limits<dst_t>::lowest(), x) && safe_less_equal(x, std::numeric_limits<dst_t>::max());
     }
 
     template<class dst_t, class src_t>
@@ -147,7 +152,7 @@ namespace c4 {
 
     template<class dst_t, class src_t>
     inline typename std::enable_if<!std::is_same<src_t, dst_t>::value && std::is_integral<dst_t>::value && !std::is_same<dst_t, uint8_t>::value && !std::is_same<dst_t, int8_t>::value, dst_t>::type clamp(src_t x) {
-        return clamp(x, std::numeric_limits<dst_t>::min(), std::numeric_limits<dst_t>::max());
+        return clamp(x, std::numeric_limits<dst_t>::lowest(), std::numeric_limits<dst_t>::max());
     }
 
     template<class T>

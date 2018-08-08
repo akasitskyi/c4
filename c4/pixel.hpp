@@ -33,27 +33,20 @@ namespace c4 {
         
         pixel() : r(0), g(0), b(0) {}
 
-        // FIXME: we shouldn't do clamp by default: it's slow!
-        template<class T2>
-        explicit pixel(const pixel<T2>& p) {
-            r = c4::clamp<T>(p.r);
-            g = c4::clamp<T>(p.g);
-            b = c4::clamp<T>(p.b);
+
+        template<class T1, class T2, class T3>
+        pixel(T1 r, T2 g, T3 b) : r((T)r), g((T)g), b((T)b) {
+            assert(fits_within<T>(r) && fits_within<T>(g) && fits_within<T>(b));
         }
 
-        template<class r_t, class g_t, class b_t>
-        pixel(r_t r, g_t g, b_t b){
-            this->r = c4::clamp<T>(r);
-            this->g = c4::clamp<T>(g);
-            this->b = c4::clamp<T>(b);
+        template<class T1>
+        explicit pixel(T1 y) : r((T)y), g((T)y), b((T)y) {
+            assert(fits_within<T>(y));
         }
 
         template<class T2>
-        explicit pixel(T2 rgb){
-            T crgb = c4::clamp<T>(rgb);
-            r = crgb;
-            g = crgb;
-            b = crgb;
+        explicit pixel(const pixel<T2>& p) : r((T)p.r), g((T)p.g), b((T)p.b) {
+            assert(fits_within<T>(p.r) && fits_within<T>(p.g) && fits_within<T>(p.b));
         }
 
         // return int for integral types and float for float types
@@ -236,38 +229,6 @@ namespace c4 {
     template<class T1, class T2>
     inline pixel<decltype(T1() * 1.f / T2())> operator/(const pixel<T1> p, T2 alpha) {
         return p * (1.f / alpha);
-    }
-
-    template<class T1, class T2>
-    inline pixel<T1>& operator*=(pixel<T1>& p, T2 alpha){
-        p = pixel<T1>(p * alpha);
-
-        return p;
-    }
-
-    template<class T1, class T2>
-    inline pixel<T1>& operator/=(pixel<T1>& p, T2 alpha){
-        p = pixel<T1>(p / alpha);
-
-        return p;
-    }
-
-    template<class T1, class T2>
-    inline pixel<T1>& operator+=(pixel<T1>& lhs, const pixel<T2>& rhs) {
-        lhs.r = c4::clamp<T1>(lhs.r + rhs.r);
-        lhs.g = c4::clamp<T1>(lhs.g + rhs.g);
-        lhs.b = c4::clamp<T1>(lhs.b + rhs.b);
-
-        return lhs;
-    }
-
-    template<class T1, class T2>
-    inline pixel<T1>& operator-=(pixel<T1>& lhs, const pixel<T2>& rhs) {
-        lhs.r = c4::clamp<T1>(lhs.r - rhs.r);
-        lhs.g = c4::clamp<T1>(lhs.g - rhs.g);
-        lhs.b = c4::clamp<T1>(lhs.b - rhs.b);
-
-        return lhs;
     }
 
     template<class T>
