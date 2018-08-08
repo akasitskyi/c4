@@ -25,6 +25,7 @@
 #include <array>
 #include <vector>
 #include <cassert>
+#include <cstddef>
 #include <type_traits>
 
 namespace c4 {
@@ -176,13 +177,13 @@ namespace c4 {
             assert(begin_ <= end_);
         }
 
-        template<class T1, class T2, class = std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value>::type>
+        template<class T1, class T2, class = typename std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value>::type>
         range(T1 begin, T2 end) : begin_((int)begin), end_((int)end) {
             assert(fits_within<int>(begin) && fits_within<int>(end));
             assert((int)begin <= (int)end);
         }
 
-        template<class T, class = std::enable_if<std::is_integral<T>::value>::type>
+        template<class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
         range(T end) : begin_(0), end_((int)end) {
             assert(0 <= end);
             assert(end <= std::numeric_limits<int>::max());
