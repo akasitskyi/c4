@@ -24,6 +24,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 namespace c4 {
     template<typename T>

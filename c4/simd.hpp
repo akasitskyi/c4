@@ -2621,7 +2621,7 @@ namespace c4 {
 
         inline void store_3_interleaved(int8_t* ptr, int8x16x3 v) {
 #ifdef USE_ARM_NEON
-            vst3q_s8(ptr, make_neon(a));
+            vst3q_s8(ptr, make_neon(v));
 #else
             static const __m128i mask_ax = shuffle_mask              <  0, -1, -1,  1, -1, -1,  2, -1, -1,  3, -1, -1,  4, -1, -1,  5>();
             __m128i ax = _mm_shuffle_epi8(v.val[0].v, mask_ax);     // a0,  0,  0, a1,  0,  0, a2,  0,  0, a3,  0,  0, a4,  0,  0, a5
@@ -2668,7 +2668,7 @@ namespace c4 {
 
         inline void store_3_interleaved(int16_t* ptr, int16x8x3 v) {
 #ifdef USE_ARM_NEON
-            vst3q_s16(ptr, make_neon(a));
+            vst3q_s16(ptr, make_neon(v));
 #else
             static const __m128i mask_ax = shuffle_mask              <  0, -1, -1,  1, -1, -1,  2, -1>();
             __m128i ax = _mm_shuffle_epi8(v.val[0].v, mask_ax);     // a0,  0,  0, a1,  0,  0, a2,  0
@@ -2715,7 +2715,7 @@ namespace c4 {
 
         inline void store_3_interleaved(float* ptr, float32x4x3 v) {
 #ifdef USE_ARM_NEON
-            vst3q_f32(ptr, make_neon(a));
+            vst3q_f32(ptr, make_neon(v));
 #else
             __m128 x0 = _mm_unpacklo_ps(v.val[0].v, v.val[1].v);            // a0, b0, a1, b1
             __m128 x1 = _mm_unpackhi_ps(v.val[0].v, v.val[1].v);            // a2, b2, a3, b3
@@ -4164,7 +4164,7 @@ namespace c4 {
 
         inline uint32x4x2 mul_long(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
-            uint16x4_t a_lo = vget_low_s16(a.v);
+            uint16x4_t a_lo = vget_low_u16(a.v);
             uint16x4_t a_hi = vget_high_u16(a.v);
             uint16x4_t b_lo = vget_low_u16(b.v);
             uint16x4_t b_hi = vget_high_u16(b.v);
