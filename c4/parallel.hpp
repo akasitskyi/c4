@@ -22,9 +22,10 @@
 
 #pragma once
 
-#include <thread>
 #include <mutex>
+#include <thread>
 #include <future>
+#include <cstdlib>
 
 #include <queue>
 #include <array>
@@ -45,8 +46,15 @@ namespace c4 {
 
     public:
         thread_pool(unsigned int threads = 0) : stop(false) {
-            if (threads == 0)
-                threads = std::thread::hardware_concurrency();
+            if (threads == 0){
+                if (const char* c4_num_threads = std::getenv("C4_NUM_THREADS")) {
+                    threads = std::strtol(c4_num_threads, nullptr, 10);
+                }
+
+                if (threads == 0) {
+                    threads = std::thread::hardware_concurrency();
+                }
+            }
 
             for (unsigned int i = 0; i < threads; i++) {
                 workers.emplace_back([this] {
