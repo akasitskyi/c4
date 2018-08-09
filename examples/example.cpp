@@ -107,7 +107,7 @@ void normalizeParallelSimd(const std::vector<float>& x, const std::vector<float>
 
 // vector normalization
 int main(int argc, char* argv[]) {
-    c4::parallel_invoke([] {std::cout << "A"; }, [] {std::cout << "B"; }, [] {std::cout << "C"; });
+    c4::parallel_invoke([] {std::cout << c4::get_thread_index(); }, [] {std::cout << c4::get_thread_index(); }, [] {std::cout << c4::get_thread_index(); });
 
     std::cout << std::endl;
 
@@ -128,9 +128,11 @@ int main(int argc, char* argv[]) {
     {
         c4::scoped_timer t("parallel random fill");
 
-        c4::fast_rand rnd(2);
+        c4::enumerable_thread_specific<c4::fast_rand> rnd_v(2);
 
         c4::parallel_for(c4::range(n), [&](int i) {
+            auto& rnd = rnd_v.local();
+
             y[i] = float(rnd[i]);
         });
     }

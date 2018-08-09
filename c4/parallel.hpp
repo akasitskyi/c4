@@ -72,6 +72,16 @@ namespace c4 {
             return (int)workers.size();
         }
 
+        int get_thread_index() const {
+            std::thread::id caller_id = std::this_thread::get_id();
+
+            for (int i : range(workers))
+                if (workers[i].get_id() == caller_id)
+                    return i;
+
+            return -1;
+        }
+
         template<class F>
         auto enqueue(F&& f) -> std::future<typename std::result_of<F()>::type> {
             using return_type = typename std::result_of<F()>::type;
@@ -125,9 +135,6 @@ namespace c4 {
 
         template<class iterator, class F>
         void parallel_for(iterator first, iterator last, size_t grain_size, F f) {
-            //TODO: check inception, etc
-            //std::thread::id caller_id = std::this_thread::get_id();
-
             std::vector<size_t> groups = init_groups(last - first, grain_size);
             std::vector<std::future<void>> futures;
 
@@ -216,8 +223,24 @@ namespace c4 {
         void parallel_invoke() {}
     };
 
+    template<class T>
+    class enumerable_thread_specific : public std::vector<T> {
+        thread_pool& tp;
+    public:
+        enumerable_thread_specific(thread_pool& tp = thread_pool::get_single()) : std::vector<T>(tp.get_num_threads()), tp(tp) {}
+        enumerable_thread_specific(const T& init, thread_pool& tp = thread_pool::get_single()) : std::vector<T>(tp.get_num_threads(), init), tp(tp) {}
+
+        T& local() {
+            return operator[](tp.get_thread_index());
+        }
+    };
+
     inline int get_num_threads() {
         return thread_pool::get_single().get_num_threads();
+    }
+
+    inline int get_thread_index() {
+        return thread_pool::get_single().get_thread_index();
     }
 
     template<class iterator, class F>
