@@ -172,30 +172,22 @@ namespace c4 {
 
     // https://en.wikipedia.org/wiki/Linear_congruential_generator
     class fast_rand {
-        inline int f(int seed) const {
-            return 214013 * seed + 2531011;
+        inline uint32_t f(uint32_t seed) const {
+            return 214013u * seed + 2531011u;
         }
 
         int seed;
     public:
-        fast_rand(int seed = -1) : seed(seed) {}
+        fast_rand(uint32_t seed = 0) : seed(seed) {}
 
-        inline int operator()() {
+        inline uint32_t operator()() {
             seed = f(seed);
             return seed;
         }
 
         // this basically gives you a random array
-        inline int operator[](int i) const {
+        inline uint32_t operator[](uint32_t i) const {
             return f(seed + i);
-        }
-
-        static int min() {
-            return std::numeric_limits<int>::min();
-        }
-
-        static int max() {
-            return std::numeric_limits<int>::max();
         }
     };
 }; // namespace c4
