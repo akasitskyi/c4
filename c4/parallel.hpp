@@ -47,7 +47,10 @@ namespace c4 {
     public:
         thread_pool(unsigned int threads = 0) : stop(false) {
             if (threads == 0){
+#pragma warning(push)
+#pragma warning(disable: 4996)
                 if (const char* c4_num_threads = std::getenv("C4_NUM_THREADS")) {
+#pragma warning(pop)
                     threads = std::strtol(c4_num_threads, nullptr, 10);
                 }
 
