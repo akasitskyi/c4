@@ -504,7 +504,7 @@ namespace c4 {
     }
 
     template<class T1, class T2, class F>
-    inline void transform(const vector_ref<T1>& src, vector_ref<T2>& dst, F f) {
+    inline void transform(const vector_ref<T1>& src, vector_ref<T2>&& dst, F f) {
         assert(src.size() == dst.size());
 
         for (int i : range(src.size()))
