@@ -371,8 +371,6 @@ namespace c4 {
 
     template<RgbByteOrder dstByteOrder>
     inline void y_to_rgb(const c4::matrix_ref<uint8_t>& Y, uint8_t* dst, int dstStrideBytes) {
-        c4::scoped_timer timer("yToARGB");
-
         int w = Y.width();
 
         for(int i : range(Y.height())) {

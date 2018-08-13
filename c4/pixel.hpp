@@ -115,12 +115,25 @@ namespace c4 {
     }
 
     struct rgb_weights{
-        template<class T, class = enable_if<is_integral<T>::value>::type >
+    private:
+        float wr;
+        float wg;
+        float wb;
+
+        int iwr;
+        int iwg;
+        int iwb;
+
+        rgb_weights(float wr, float wg, float wb) : wr(wr), wg(wg), wb(wb), iwr(int(wr * 256)), iwg(int(wg * 256)), iwb(int(wb * 256)) {}
+
+    public:
+
+        template<class T, class = typename std::enable_if<std::is_integral<T>::value>::type >
         auto combine(const pixel<T>& p) const -> decltype((p.r * iwr + p.g * iwg + p.b * iwb) >> 8) {
             return (p.r * iwr + p.g * iwg + p.b * iwb) >> 8;
         }
 
-        template<class T, class = enable_if<is_floating_point<T>::value>::type >
+        template<class T, class = typename std::enable_if<std::is_floating_point<T>::value>::type >
         auto combine(const pixel<T>& p) const -> decltype(p.r * wr + p.g * wg + p.b * wb) {
             return p.r * wr + p.g * wg + p.b * wb;
         }
@@ -169,16 +182,6 @@ namespace c4 {
         float wG()const{return wg;}
         float wB()const{return wb;}
 
-    private:
-        float wr;
-        float wg;
-        float wb;
-
-        int iwr;
-        int iwg;
-        int iwb;
-
-        rgb_weights(float wr, float wg, float wb) : wr(wr), wg(wg), wb(wb), iwr(int(wr * 256)), iwg(int(wg * 256)), iwb(int(wb * 256)) {}
     };
 
     template<class T>

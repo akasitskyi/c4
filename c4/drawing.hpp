@@ -222,15 +222,15 @@ namespace c4 {
         if( d < 0 || d > 9 )
             THROW_EXCEPTION("Not a digit");
 
-        if (y0 < 0 || y0 + 10 > image.height() || x0 < 0 || x0 + 10 > image.width())
+        if (y0 < 0 || y0 + 10 > img.height() || x0 < 0 || x0 + 10 > img.width())
             return;
 
         for(int i : range(10))
             for(int j : range(10))
                 if( digits[d][i * 10 + j] == '.' )
-                    image[y0 + i][x0 + j] = fg_color;
+                    img[y0 + i][x0 + j] = fg_color;
                 else
-                    image[y0 + i][x0 + j] = bg_color;
+                    img[y0 + i][x0 + j] = bg_color;
     }
 
     template<class pixel_t>
@@ -238,6 +238,6 @@ namespace c4 {
         std::string s = std::to_string(d);
 
         for(int k : range(s))
-            draw_digit(image, x0 + k * 10, y0, int(s[k] - '0'), fg_color, bg_color);
+            draw_digit(img, x0 + k * 10, y0, int(s[k] - '0'), fg_color, bg_color);
     }
 };

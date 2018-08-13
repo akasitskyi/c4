@@ -33,7 +33,7 @@ namespace c4 {
     class vector_ref {
         friend class matrix_ref<T>;
     private:
-        vector_ref(const vector_ref& o) : length(o.length) ptr(o.ptr) {}
+        vector_ref(const vector_ref& o) : size_(o.size_), ptr_(o.ptr_) {}
         vector_ref& operator=(const vector_ref&) = delete;
 
         bool is_inside(int x) const {
@@ -125,7 +125,7 @@ namespace c4 {
     template<class T>
     class matrix_ref {
     private:
-        matrix_ref(const matrix_ref& o) : height(o.height), width(o.width), stride(o.stride), ptr(o.ptr) {}
+        matrix_ref(const matrix_ref& o) : height_(o.height_), width_(o.width_), stride_(o.stride_), ptr_(o.ptr_) {}
         matrix_ref& operator=(const matrix_ref&) = delete;
 
     protected:
@@ -301,7 +301,7 @@ namespace c4 {
     template<class T>
     class matrix : private detail::matrix_buffer<T>, public matrix_ref<T> {
     public:
-        matrix(int height, int width, int stride) : detail::matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, v.data()) {}
+        matrix(int height, int width, int stride) : detail::matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, detail::matrix_buffer<T>::v.data()) {}
         matrix(int height, int width) : matrix(height, width, width) {}
         matrix(matrix_dimensions dims, int stride) : matrix(dims.height, dims.width, stride) {}
         matrix(matrix_dimensions dims) : matrix(dims.height, dims.width) {}
@@ -309,14 +309,14 @@ namespace c4 {
         
         matrix& operator=(const matrix& b) {
             resize(b);
-            std::copy(b.v.begin(), b.v.end(), v.begin());
+            std::copy(b.v.begin(), b.v.end(), this->v.begin());
 
             return *this;
         }
 
         matrix(const matrix& b) {
             resize(b);
-            std::copy(b.v.begin(), b.v.end(), v.begin());
+            std::copy(b.v.begin(), b.v.end(), this->v.begin());
         }
 
         matrix& operator=(const matrix_ref<T>& b) {
@@ -339,8 +339,8 @@ namespace c4 {
             this->height_ = height;
             this->width_ = width;
             this->stride_ = stride;
-            v.resize(height * stride);
-            this->ptr_ = v.data();
+            this->v.resize(height * stride);
+            this->ptr_ = this->v.data();
         }
 
         void resize(int height, int width){
@@ -348,12 +348,12 @@ namespace c4 {
         }
 
         void shrink_to_fit(){
-            v.shrink_to_fit();
+            this->v.shrink_to_fit();
         }
 
         void clear_and_shrink() {
             resize(0, 0);
-            v.shrink_to_fit();
+            this->v.shrink_to_fit();
         }
 
         template<class T2>
@@ -479,13 +479,13 @@ namespace c4 {
     inline void rotate180(matrix<T>& mat) {
         for (int i = 0; i < mat.height() / 2; i++) {
             for (int j = 0; j < mat.width(); j++) {
-                swap(mat[i][j], mat[mat.height() - i - 1][mat.width() - j - 1]);
+                std::swap(mat[i][j], mat[mat.height() - i - 1][mat.width() - j - 1]);
             }
         }
 
         if (mat.height() % 2) {
             for (int j = 0; j < mat.width() / 2; j++) {
-                swap(mat[mat.height() / 2][j], mat[mat.height() / 2][mat.width() - j - 1]);
+                std::swap(mat[mat.height() / 2][j], mat[mat.height() / 2][mat.width() - j - 1]);
             }
         }
     }

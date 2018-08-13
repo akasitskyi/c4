@@ -239,7 +239,7 @@ namespace c4 {
         enumerable_thread_specific(const T& init, thread_pool& tp = thread_pool::get_single()) : std::vector<T>(tp.get_num_threads(), init), tp(tp) {}
 
         T& local() {
-            return operator[](tp.get_thread_index());
+            return (*this)[tp.get_thread_index()];
         }
     };
 

@@ -45,12 +45,12 @@ namespace c4 {
             return std::sqrt(length_squared());
         }
 
-        template<class cfloat, class = std::enable_if<std::is_floating_point<cfloat>::value>::type>
+        template<class cfloat, class = typename std::enable_if<std::is_floating_point<cfloat>::value>::type>
         point rotate(cfloat sn, cfloat cs) {
             return point(cs * x - sn * y, sn * x + cs * y);
         }
 
-        template<class cfloat, class = std::enable_if<std::is_floating_point<cfloat>::value>::type>
+        template<class cfloat, class = typename std::enable_if<std::is_floating_point<cfloat>::value>::type>
         point rotate(cfloat alpha) {
             return rotate(sin(alpha), cos(alpha));
         }
