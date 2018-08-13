@@ -503,8 +503,6 @@ namespace c4 {
         }
     }
 
-    // TODO: add binary transforms
-
     template<class T1, class T2, class F>
     inline void transform(const vector_ref<T1>& src, vector_ref<T2>& dst, F f) {
         assert(src.size() == dst.size());
@@ -534,4 +532,32 @@ namespace c4 {
     inline void transform_inplace(matrix_ref<T>& src, F f) {
         transform(src, src, f);
     }
+
+    template<class T1, class T2, class T3, class F>
+    inline void transform(const vector_ref<T1>& src_a, const vector_ref<T2>& src_b, vector_ref<T2>& dst, F f) {
+        assert(src_a.size() == src_b.size() && src_a.size() == dst.size());
+
+        for (int i : range(dst.size()))
+            dst[i] = f(src_a[i], src_b[i]);
+    }
+
+    template<class T1, class T2, class T3, class F>
+    inline void transform(const matrix_ref<T1>& src_a, const matrix_ref<T1>& src_b, matrix_ref<T2>& dst, F f) {
+        assert(src_a.dimensions() == src_b.dimensions() && src_a.dimensions() == dst.dimensions());
+
+        for (int i : range(dst.height()))
+            transform(src_a[i], src_b[i], dst[i], f);
+    }
+
+    template<class T1, class T2, class F>
+    inline auto transform(const matrix_ref<T1>& src_a, const matrix_ref<T2>& src_b, F f) -> matrix<typename std::result_of<F(T1(), T2())>::type> {
+        assert(src_a.dimensions() == src_b.dimensions());
+
+        matrix<typename std::result_of<F(T1(), T2())>::type> dst(src_a.dimensions());
+
+        transform(src_a, src_b, dst, f);
+
+        return dst;
+    }
+
 };
