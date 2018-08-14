@@ -196,6 +196,7 @@ namespace c4 {
 
             int j = 0;
 
+#ifdef __C4_SIMD__
             for(; j + 16 < width2; j += 16){
                 c4::simd::uint8x16x2 s0x2 = c4::simd::load_2_interleaved(psrc0 + 2 * j);
                 c4::simd::uint8x16x2 s1x2 = c4::simd::load_2_interleaved(psrc1 + 2 * j);
@@ -207,7 +208,7 @@ namespace c4 {
 
                 c4::simd::store(pdst + j, d);
             }
-
+#endif
             for(; j < width2; j++)
                 pdst[j] = ((psrc0[2 * j + 0] + psrc0[2 * j + 1] + 1) / 2 + (psrc1[2 * j + 0] + psrc1[2 * j + 1] + 1) / 2 + 1) / 2;
         }
@@ -226,6 +227,7 @@ namespace c4 {
 
             int j = 0;
 
+#ifdef __C4_SIMD__
             for(; j + 16 < width2; j += 16) {
                 c4::simd::uint8x16x2 s0x2 = c4::simd::load_2_interleaved(psrc + 2 * j);
 
@@ -233,7 +235,7 @@ namespace c4 {
 
                 c4::simd::store(pdst + j, d);
             }
-
+#endif
             for(; j < width2; j++)
                 pdst[j] = (psrc[2 * j + 0] + psrc[2 * j + 1] + 1) / 2;
         }
@@ -253,6 +255,7 @@ namespace c4 {
 
             int j = 0;
 
+#ifdef __C4_SIMD__
             for(; j + 16 < width2; j += 16) {
                 c4::simd::uint8x16x4 s0x4 = c4::simd::load_4_interleaved(psrc0 + 4 * j);
                 c4::simd::uint8x16x4 s1x4 = c4::simd::load_4_interleaved(psrc1 + 4 * j);
@@ -268,7 +271,7 @@ namespace c4 {
 
                 c4::simd::store_2_interleaved(pdst + 2 * j, d);
             }
-
+#endif
             for(; j < width2; j++){
                 pdst[2 * j + 0] = ((psrc0[4 * j + 0] + psrc0[4 * j + 2] + 1) / 2 + (psrc1[4 * j + 0] + psrc1[4 * j + 2] + 1) / 2 + 1) / 2;
                 pdst[2 * j + 1] = ((psrc0[4 * j + 1] + psrc0[4 * j + 3] + 1) / 2 + (psrc1[4 * j + 1] + psrc1[4 * j + 3] + 1) / 2 + 1) / 2;
@@ -289,6 +292,7 @@ namespace c4 {
 
             int j = 0;
 
+#ifdef __C4_SIMD__
             for(; j + 16 < width2; j += 16) {
                 c4::simd::uint8x16x4 s0x4 = c4::simd::load_4_interleaved(psrc + 4 * j);
 
@@ -298,7 +302,7 @@ namespace c4 {
 
                 c4::simd::store_2_interleaved(pdst + 2 * j, d);
             }
-
+#endif
             for(; j < width2; j++) {
                 pdst[2 * j + 0] = (psrc[4 * j + 0] + psrc[4 * j + 2] + 1) / 2;
                 pdst[2 * j + 1] = (psrc[4 * j + 1] + psrc[4 * j + 3] + 1) / 2;

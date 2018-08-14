@@ -37,15 +37,16 @@ namespace c4 {
 
         using namespace c4::simd;
 
+        const int r = int(std::sqrt(3.f) * sd);
+        const int colorThreshold = int(sr * std::sqrt(6.f) * 255);
+
+#ifdef __C4_SIMD__
         const uint16x8 vwr(wr);
         const uint16x8 vwg(wg);
         const uint16x8 vwb(wb);
 
-        const int r = int(std::sqrt(3.f) * sd);
-        const int colorThreshold = int(sr * std::sqrt(6.f) * 255);
-
         const uint16x8 v_color_threshold(colorThreshold);
-
+#endif
 
         c4::matrix<uint16_t> src_r(dst.height(), dst.width() + 2 * r);
         c4::matrix<uint16_t> src_g(dst.height(), dst.width() + 2 * r);
@@ -54,6 +55,7 @@ namespace c4 {
         for (int i : c4::range(dst.height())) {
             // repack
             int j = 0;
+#ifdef __C4_SIMD__
             for (; j + 8 < dst.width(); j += 8) {
                 const uint16x8x3 p = load_3_interleaved_long((uint8_t*)&dst[i][j]);
 
@@ -61,7 +63,7 @@ namespace c4 {
                 store(&src_g[i][r + j], p.val[1]);
                 store(&src_b[i][r + j], p.val[2]);
             }
-
+#endif
             for (; j < dst.width(); j++) {
                 src_r[i][r + j] = dst[i][j].r;
                 src_g[i][r + j] = dst[i][j].g;
@@ -87,6 +89,7 @@ namespace c4 {
             const int i1 = std::min<int>(i + r + 1, src_r.height());
 
             int j = 0;
+#ifdef __C4_SIMD__
             for (; j + 8 < dst.width(); j += 8) {
                 const int j0 = r + j - r;
                 const int j1 = r + j + r + 1;
@@ -146,7 +149,7 @@ namespace c4 {
 
                 store_3_interleaved_narrow_unsigned_saturate((uint8_t*)(dst[i].data() + j), dp);
             }
-
+#endif
             for (; j < dst.width(); j++) {
                 int j0 = r + j - r;
                 int j1 = r + j + r + 1;

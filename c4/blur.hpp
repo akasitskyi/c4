@@ -81,6 +81,7 @@ namespace c4 {
 
         int i = 0;
 
+#ifdef __C4_SIMD__
         std::vector<float> row4(width * 4);
         std::vector<float> tmp4(width * 4);
 
@@ -178,7 +179,7 @@ namespace c4 {
                 }
             }
         }
-
+#endif
         for(; i < height; i++)
             box_blur_1d(src[i].data(), src[i].data() + src.width(), dst[i].data(), r);
     }
@@ -217,6 +218,7 @@ namespace c4 {
 
         int j = 0;
 
+#ifdef __C4_SIMD__
         std::vector<uint8_t> row16(image.height() * 16);
 
         for(; j + 16 <= width; j += 16) {
@@ -289,7 +291,7 @@ namespace c4 {
                 v = add(v, dt);
             }
         }
-
+#endif
         std::vector<uint8_t> row(image.height());
         std::vector<uint8_t> tmp(image.height());
 
