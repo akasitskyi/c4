@@ -3597,6 +3597,51 @@ namespace c4 {
         }
 
 
+#ifdef USE_ARM_NEON
+        namespace detail_neon {
+            inline uint16x8_t sad_row_16(const uint8_t* pa, const uint8_t* pb, size_t n) {
+                uint16x8_t r16 = veorq_u16(r16, r16); // set zero
+
+                for (size_t i = 0; i + 8 < m; i += 8) {
+                    uint8x8_t a = vld1_u8(pa + i);
+                    uint8x8_t b = vld1_u8(pb + i);
+                    r16 = vabal_u8(r16, a, b);
+                }
+
+                return r16;
+            }
+        };
+#endif
+
+        // r[0] + ... + r[3] = |a[0] - b[0]| + ... + |a[15] - b[15]|, distribution is implementation specific
+        inline uint32x4 sad_row(const uint8_t* pa, const uint8_t* pb, size_t n) {
+            assert(n % 16 == 0);
+#ifdef USE_ARM_NEON
+            uint32x4_t r = veorq_u32(r, r); // set zero
+
+            size_t i = 0;
+            for (; i + step < n; i += step) {
+                uint16x8_t r16 = sad_row_16(pa + i, pb + i, step);
+                r = detail_neon::vpadalq_u16(r, r16);
+            }
+
+            uint16x8_t r16 = sad_row_16(pa + i, pb + i, n - i);
+            r = vpadalq_u16(r, r16);
+
+            return r;
+#else
+            __m128i r = _mm_setzero_si128();
+            for (size_t i = 0; i + 16 < n; i += 16) {
+                __m128i a = _mm_loadu_si128((const __m128i*)(pa + i));
+                __m128i b = _mm_loadu_si128((const __m128i*)(pb + i));
+
+                r = _mm_add_epi32(r, _mm_sad_epu8(a, b));
+            }
+
+            return r;
+#endif
+        }
+
         // Negate
 
         inline int8x16 neg(int8x16 a) {
