@@ -38,8 +38,6 @@
 #define __C4_SIMD__
 #endif
 
-#ifdef __C4_SIMD__
-
 #if defined(__SSE4_1__) || defined(__AVX__)
 #define USE_SSE4_1
 #endif
@@ -99,6 +97,8 @@
 
 namespace c4 {
     namespace simd {
+#ifdef __C4_SIMD__
+
         struct int8x16 {
             typedef int8_t base_t;
             int8x16() = default;
@@ -4730,7 +4730,7 @@ namespace c4 {
         inline T operator*(T a, T b) {
             return mul(a, b);
         }
+#endif // __C4_SIMD__
     }; // namespace simd
 }; // namespace c4
 
-#endif // __C4_SIMD__
