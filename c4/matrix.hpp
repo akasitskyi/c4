@@ -25,6 +25,8 @@
 #include <vector>
 #include <cassert>
 
+#include "range.hpp"
+
 namespace c4 {
     template<class T>
     class matrix_ref;
@@ -504,11 +506,16 @@ namespace c4 {
     }
 
     template<class T1, class T2, class F>
-    inline void transform(const vector_ref<T1>& src, vector_ref<T2>&& dst, F f) {
+    inline void transform(const vector_ref<T1>& src, vector_ref<T2>& dst, F f) {
         assert(src.size() == dst.size());
 
         for (int i : range(src.size()))
             dst[i] = f(src[i]);
+    }
+
+    template<class T1, class T2, class F>
+    inline void transform(const vector_ref<T1>& src, vector_ref<T2>&& dst, F f) {
+        transform(src, dst, f);
     }
 
     template<class T1, class T2, class F>
@@ -517,6 +524,11 @@ namespace c4 {
 
         for (int i : range(src.height()))
             transform(src[i], dst[i], f);
+    }
+
+    template<class T1, class T2, class F>
+    inline void transform(const matrix_ref<T1>& src, matrix_ref<T2>&& dst, F f) {
+        transform(src, dst, f);
     }
 
     template<class T, class F>
