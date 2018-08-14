@@ -147,129 +147,123 @@ namespace c4 {
     }
 
     template<UvByteOrder byteOrder>
-    inline void getUV(const uint8_t* p, int& u, int& v){
-        static_assert(false, "Byte order not supported");
-    }
+    struct getUV;
 
     template<>
-    inline void getUV<UvByteOrder::UV>(const uint8_t* p, int& u, int& v) {
-        u = p[0] - 128;
-        v = p[1] - 128;
-    }
+    struct getUV<UvByteOrder::UV> {
+        inline void operator()(const uint8_t* p, int& u, int& v) {
+            u = p[0] - 128;
+            v = p[1] - 128;
+        }
+
+        inline void operator()(const uint8_t* p, const c4::simd::int16x8 c128, c4::simd::int32x4& u, c4::simd::int32x4& v) {
+            c4::simd::int16x8 uvi = c4::simd::reinterpret_signed(c4::simd::load_long(p));
+
+            uvi = c4::simd::sub(uvi, c128);
+
+            c4::simd::int32x4x2 uv = c4::simd::deinterleave(c4::simd::long_move(uvi));
+
+            u = uv.val[0];
+            v = uv.val[1];
+        }
+    };
 
     template<>
-    inline void getUV<UvByteOrder::VU>(const uint8_t* p, int& u, int& v) {
-        v = p[0] - 128;
-        u = p[1] - 128;
-    }
+    struct getUV<UvByteOrder::VU> {
+        inline void operator()(const uint8_t* p, int& u, int& v) {
+            v = p[0] - 128;
+            u = p[1] - 128;
+        }
+
+        inline void operator()(const uint8_t* p, const c4::simd::int16x8 c128, c4::simd::int32x4& u, c4::simd::int32x4& v) {
+            c4::simd::int16x8 uvi = c4::simd::reinterpret_signed(c4::simd::load_long(p));
+
+            uvi = c4::simd::sub(uvi, c128);
+
+            c4::simd::int32x4x2 vu = c4::simd::deinterleave(c4::simd::long_move(uvi));
+
+            v = vu.val[0];
+            u = vu.val[1];
+        }
+    };
 
     template<RgbByteOrder byteOrder>
-    inline void setRGB(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
-        static_assert(false, "Byte order not supported");
-    }
+    struct setRGB;
 
     template<>
-    inline void setRGB<RgbByteOrder::ARGB>(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
-        p[4 * i + 0] = 255;
-        p[4 * i + 1] = r;
-        p[4 * i + 2] = g;
-        p[4 * i + 3] = b;
-    }
+    struct setRGB<RgbByteOrder::ARGB> {
+        inline void operator()(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
+            p[4 * i + 0] = 255;
+            p[4 * i + 1] = r;
+            p[4 * i + 2] = g;
+            p[4 * i + 3] = b;
+        }
+
+        inline void operator()(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
+            c4::simd::int16x8x4 rgb{ c255, r, g, b };
+            c4::simd::store_4_interleaved_narrow_saturate(p + i * 4, rgb);
+        }
+
+    };
 
     template<>
-    inline void setRGB<RgbByteOrder::ABGR>(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
-        p[4 * i + 0] = 255;
-        p[4 * i + 1] = b;
-        p[4 * i + 2] = g;
-        p[4 * i + 3] = r;
-    }
+    struct setRGB<RgbByteOrder::ABGR> {
+        inline void operator()(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
+            p[4 * i + 0] = 255;
+            p[4 * i + 1] = b;
+            p[4 * i + 2] = g;
+            p[4 * i + 3] = r;
+        }
+
+        inline void operator()(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
+            c4::simd::int16x8x4 rgb{ c255, b, g, r };
+            c4::simd::store_4_interleaved_narrow_saturate(p + i * 4, rgb);
+        }
+    };
 
     template<>
-    inline void setRGB<RgbByteOrder::BGRA>(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
-        p[4 * i + 0] = b;
-        p[4 * i + 1] = g;
-        p[4 * i + 2] = r;
-        p[4 * i + 3] = 255;
-    }
+    struct setRGB<RgbByteOrder::BGRA> {
+        inline void operator()(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
+            p[4 * i + 0] = b;
+            p[4 * i + 1] = g;
+            p[4 * i + 2] = r;
+            p[4 * i + 3] = 255;
+        }
+
+        inline void operator()(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
+            c4::simd::int16x8x4 rgb{ b, g, r, c255 };
+            c4::simd::store_4_interleaved_narrow_saturate(p + i * 4, rgb);
+        }
+    };
 
     template<>
-    inline void setRGB<RgbByteOrder::RGBA>(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
-        p[4 * i + 0] = r;
-        p[4 * i + 1] = g;
-        p[4 * i + 2] = b;
-        p[4 * i + 3] = 255;
-    }
+    struct setRGB<RgbByteOrder::RGBA> {
+        inline void operator()(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
+            p[4 * i + 0] = r;
+            p[4 * i + 1] = g;
+            p[4 * i + 2] = b;
+            p[4 * i + 3] = 255;
+        }
+
+        inline void operator()(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
+            c4::simd::int16x8x4 rgb{ r, g, b, c255 };
+            c4::simd::store_4_interleaved_narrow_saturate(p + i * 4, rgb);
+        }
+    };
 
     template<>
-    inline void setRGB<RgbByteOrder::RGB>(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
-        p[3 * i + 0] = r;
-        p[3 * i + 1] = g;
-        p[3 * i + 2] = b;
-    }
+    struct setRGB<RgbByteOrder::RGB> {
+        inline void operator()(uint8_t* p, int i, uint8_t r, uint8_t g, uint8_t b) {
+            p[3 * i + 0] = r;
+            p[3 * i + 1] = g;
+            p[3 * i + 2] = b;
+        }
 
-    template<UvByteOrder byteOrder>
-    inline void getUV(const uint8_t* p, const c4::simd::int16x8 c128, c4::simd::int32x4& u, c4::simd::int32x4& v) {
-        static_assert(false, "Byte order not supported");
-    }
-
-    template<>
-    inline void getUV<UvByteOrder::UV>(const uint8_t* p, const c4::simd::int16x8 c128, c4::simd::int32x4& u, c4::simd::int32x4& v) {
-        c4::simd::int16x8 uvi = c4::simd::reinterpret_signed(c4::simd::load_long(p));
-
-        uvi = c4::simd::sub(uvi, c128);
-
-        c4::simd::int32x4x2 uv = c4::simd::deinterleave(c4::simd::long_move(uvi));
-
-        u = uv.val[0];
-        v = uv.val[1];
-    }
-
-    template<>
-    inline void getUV<UvByteOrder::VU>(const uint8_t* p, const c4::simd::int16x8 c128, c4::simd::int32x4& u, c4::simd::int32x4& v) {
-        c4::simd::int16x8 uvi = c4::simd::reinterpret_signed(c4::simd::load_long(p));
-
-        uvi = c4::simd::sub(uvi, c128);
-
-        c4::simd::int32x4x2 vu = c4::simd::deinterleave(c4::simd::long_move(uvi));
-
-        v = vu.val[0];
-        u = vu.val[1];
-    }
-
-    template<RgbByteOrder byteOrder>
-    inline void setRGB(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
-        static_assert(false, "Byte order not supported");
-    }
-
-    template<>
-    inline void setRGB<RgbByteOrder::ARGB>(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
-        c4::simd::int16x8x4 rgb{ c255, r, g, b };
-        c4::simd::store_4_interleaved_narrow_saturate(p + i * 4, rgb);
-    }
-
-    template<>
-    inline void setRGB<RgbByteOrder::ABGR>(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
-        c4::simd::int16x8x4 rgb{ c255, b, g, r };
-        c4::simd::store_4_interleaved_narrow_saturate(p + i * 4, rgb);
-    }
-
-    template<>
-    inline void setRGB<RgbByteOrder::BGRA>(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
-        c4::simd::int16x8x4 rgb{ b, g, r, c255 };
-        c4::simd::store_4_interleaved_narrow_saturate(p + i * 4, rgb);
-    }
-
-    template<>
-    inline void setRGB<RgbByteOrder::RGBA>(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
-        c4::simd::int16x8x4 rgb{ r, g, b, c255 };
-        c4::simd::store_4_interleaved_narrow_saturate(p + i * 4, rgb);
-    }
-
-    template<>
-    inline void setRGB<RgbByteOrder::RGB>(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
-        c4::simd::int16x8x3 rgb{r, g, b};
-        c4::simd::store_3_interleaved_narrow_unsigned_saturate(p + i * 3, rgb);
-    }
+        inline void operator()(uint8_t* p, int i, c4::simd::int16x8 r, c4::simd::int16x8 g, c4::simd::int16x8 b, const c4::simd::int16x8 c255) {
+            c4::simd::int16x8x3 rgb{r, g, b};
+            c4::simd::store_3_interleaved_narrow_unsigned_saturate(p + i * 3, rgb);
+        }
+    };
 
     struct yuv_to_rgb_coefficients {
         int rv;
@@ -330,7 +324,7 @@ namespace c4 {
                 int16x8 y1 = reinterpret_signed(load_long(py1 + 2 * j));
 
                 int32x4 u, v;
-                getUV<uvByteOrder>(puv + 2 * j, c128, u, v);
+                getUV<uvByteOrder>()(puv + 2 * j, c128, u, v);
 
                 int32x4 tr = c4::simd::add(shift_right<8>(mul_lo(v, crv)), radd);
                 int32x4 tg = c4::simd::add(shift_right<8>(mul_acc(mul_lo(v, cgv), u, cgu)), gadd);
@@ -344,8 +338,8 @@ namespace c4 {
                 int16x8 tGd = narrow(tG);
                 int16x8 tBd = narrow(tB);
 
-                setRGB<dstByteOrder>(pdst0, 2 * j, c4::simd::add(y0, tRd), c4::simd::add(y0, tGd), c4::simd::add(y0, tBd), c255);
-                setRGB<dstByteOrder>(pdst1, 2 * j, c4::simd::add(y1, tRd), c4::simd::add(y1, tGd), c4::simd::add(y1, tBd), c255);
+                setRGB<dstByteOrder>()(pdst0, 2 * j, c4::simd::add(y0, tRd), c4::simd::add(y0, tGd), c4::simd::add(y0, tBd), c255);
+                setRGB<dstByteOrder>()(pdst1, 2 * j, c4::simd::add(y1, tRd), c4::simd::add(y1, tGd), c4::simd::add(y1, tBd), c255);
             }
 
             for(; j < w2; j++) {
@@ -355,16 +349,16 @@ namespace c4 {
                 int y11 = py1[2 * j + 1];
 
                 int u, v;
-                getUV<uvByteOrder>(puv + 2 * j, u, v);
+                getUV<uvByteOrder>()(puv + 2 * j, u, v);
 
                 int tr = add.r + ((v * c.rv) >> 8);
                 int tg = add.g + ((u * c.gu + v * c.gv) >> 8);
                 int tb = add.b + ((u * c.bu) >> 8);
 
-                setRGB<dstByteOrder>(pdst0, 2 * j + 0, c4::clamp<uint8_t>(y00 + tr), c4::clamp<uint8_t>(y00 + tg), c4::clamp<uint8_t>(y00 + tb));
-                setRGB<dstByteOrder>(pdst0, 2 * j + 1, c4::clamp<uint8_t>(y01 + tr), c4::clamp<uint8_t>(y01 + tg), c4::clamp<uint8_t>(y01 + tb));
-                setRGB<dstByteOrder>(pdst1, 2 * j + 0, c4::clamp<uint8_t>(y10 + tr), c4::clamp<uint8_t>(y10 + tg), c4::clamp<uint8_t>(y10 + tb));
-                setRGB<dstByteOrder>(pdst1, 2 * j + 1, c4::clamp<uint8_t>(y11 + tr), c4::clamp<uint8_t>(y11 + tg), c4::clamp<uint8_t>(y11 + tb));
+                setRGB<dstByteOrder>()(pdst0, 2 * j + 0, c4::clamp<uint8_t>(y00 + tr), c4::clamp<uint8_t>(y00 + tg), c4::clamp<uint8_t>(y00 + tb));
+                setRGB<dstByteOrder>()(pdst0, 2 * j + 1, c4::clamp<uint8_t>(y01 + tr), c4::clamp<uint8_t>(y01 + tg), c4::clamp<uint8_t>(y01 + tb));
+                setRGB<dstByteOrder>()(pdst1, 2 * j + 0, c4::clamp<uint8_t>(y10 + tr), c4::clamp<uint8_t>(y10 + tg), c4::clamp<uint8_t>(y10 + tb));
+                setRGB<dstByteOrder>()(pdst1, 2 * j + 1, c4::clamp<uint8_t>(y11 + tr), c4::clamp<uint8_t>(y11 + tg), c4::clamp<uint8_t>(y11 + tb));
             }
         }
     }
@@ -387,13 +381,13 @@ namespace c4 {
             for (; j + 8 < w; j += 8) {
                 int16x8 y = reinterpret_signed(load_long(py + j));
 
-                setRGB<dstByteOrder>(pdst, j, y, y, y, c255);
+                setRGB<dstByteOrder>()(pdst, j, y, y, y, c255);
             }
 
             for (; j < w; j++) {
                 uint8_t y = py[j];
                 
-                setRGB<dstByteOrder>(pdst, j, y, y, y);
+                setRGB<dstByteOrder>()(pdst, j, y, y, y);
             }
         }
     }
