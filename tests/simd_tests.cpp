@@ -1104,6 +1104,25 @@ void test_sad_32() {
     ASSERT_EQUAL(t, e);
 }
 
+void test_sad_row() {
+    constexpr int n = 16;
+    auto a = random_array<uint8_t, n>();
+    auto b = random_array<uint8_t, n>();
+    auto r = random_array<uint32_t, 4>();
+
+    auto vr = sad_row(a.data(), b.data(), n);
+
+    store(r.data(), vr);
+
+    const uint32_t s = r[0] + r[1] + r[2] + r[3];
+
+    uint32_t e = 0;
+    for (int i = 0; i < n; i++)
+        e += std::abs(a[i] - b[i]);
+
+    ASSERT_EQUAL(s, e);
+}
+
 
 template<class T>
 void test_abs() {
@@ -1859,6 +1878,7 @@ int main()
             test_sad();
             test_sad_16();
             test_sad_32();
+            test_sad_row();
             multitest_abs();
             multitest_abs_saturate();
             multitest_neg();

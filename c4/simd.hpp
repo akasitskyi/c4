@@ -3620,7 +3620,7 @@ namespace c4 {
             uint32x4_t r = veorq_u32(r, r); // set zero
 
             size_t i = 0;
-            for (; i + step < n; i += step) {
+            for (; i + step <= n; i += step) {
                 uint16x8_t r16 = sad_row_16(pa + i, pb + i, step);
                 r = detail_neon::vpadalq_u16(r, r16);
             }
@@ -3631,7 +3631,7 @@ namespace c4 {
             return r;
 #else
             __m128i r = _mm_setzero_si128();
-            for (size_t i = 0; i + 16 < n; i += 16) {
+            for (size_t i = 0; i + 16 <= n; i += 16) {
                 __m128i a = _mm_loadu_si128((const __m128i*)(pa + i));
                 __m128i b = _mm_loadu_si128((const __m128i*)(pb + i));
 
