@@ -118,6 +118,10 @@ namespace c4 {
     struct matrix_dimensions {
         int height;
         int width;
+
+        int area() const {
+            return height * width;
+        }
     };
 
     inline bool operator==(const matrix_dimensions& a, const matrix_dimensions& b) {
