@@ -35,35 +35,41 @@ namespace c4 {
         inline void write_binary(std::ostream& out, const T& t) {
             out.write((const char*)&t, sizeof(t));
         }
+
+        inline int bmp_stride(int width) {
+            return (width * 3 + 3) & ~3;
+        }
+
+        inline void write_bmp_header(std::ostream& out, int width, int height) {
+            // file header
+            write_binary(out, 'B');
+            write_binary(out, 'M');
+            write_binary(out, uint32_t(14 + 40 + bmp_stride(width) * height));
+            write_binary(out, uint16_t(0));
+            write_binary(out, uint16_t(0));
+            write_binary(out, uint32_t(14 + 40));
+
+            // bitmap header
+            write_binary(out, uint32_t(40));
+            write_binary(out, uint32_t(width));
+            write_binary(out, uint32_t(height));
+            write_binary(out, uint16_t(1));
+            write_binary(out, uint16_t(24));
+            write_binary(out, uint32_t(0));
+            write_binary(out, uint32_t(0));
+            write_binary(out, uint32_t(0));
+            write_binary(out, uint32_t(0));
+            write_binary(out, uint32_t(0));
+            write_binary(out, uint32_t(0));
+        }
     }
 
     inline void write_bmp(std::ostream& out, matrix_ref<pixel<uint8_t>>& img) {
         using namespace c4::detail;
 
-        const int stride_bytes = (img.width() * 3 + 3) & ~3;
+        write_bmp_header(out, img.width(), img.height());
 
-        // file header
-        write_binary(out, 'B');
-        write_binary(out, 'M');
-        write_binary(out, uint32_t(14 + 40 + stride_bytes * img.height()));
-        write_binary(out, uint16_t(0));
-        write_binary(out, uint16_t(0));
-        write_binary(out, uint32_t(14 + 40));
-
-        // bitmap header
-        write_binary(out, uint32_t(40));
-        write_binary(out, uint32_t(img.width()));
-        write_binary(out, uint32_t(img.height()));
-        write_binary(out, uint16_t(1));
-        write_binary(out, uint16_t(24));
-        write_binary(out, uint32_t(0));
-        write_binary(out, uint32_t(0));
-        write_binary(out, uint32_t(0));
-        write_binary(out, uint32_t(0));
-        write_binary(out, uint32_t(0));
-        write_binary(out, uint32_t(0));
-
-        std::vector<char> row(stride_bytes);
+        std::vector<char> row(bmp_stride(img.width()));
 
         for (int j = img.height() - 1; j >= 0; j--) {
             const pixel<uint8_t>* src_row = img[j].data();
@@ -73,6 +79,27 @@ namespace c4 {
                 row[3 * i + 0] = src_row[i].b;
                 row[3 * i + 1] = src_row[i].g;
                 row[3 * i + 2] = src_row[i].r;
+            }
+
+            out.write(row.data(), row.size());
+        }
+    }
+
+    inline void write_bmp(std::ostream& out, matrix_ref<uint8_t>& img) {
+        using namespace c4::detail;
+
+        write_bmp_header(out, img.width(), img.height());
+
+        std::vector<char> row(bmp_stride(img.width()));
+
+        for (int j = img.height() - 1; j >= 0; j--) {
+            const uint8_t* src_row = img[j].data();
+
+            // rgb -> bgr
+            for (int i = 0; i < img.width(); i++) {
+                row[3 * i + 0] = src_row[i];
+                row[3 * i + 1] = src_row[i];
+                row[3 * i + 2] = src_row[i];
             }
 
             out.write(row.data(), row.size());
