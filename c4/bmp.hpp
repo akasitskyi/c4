@@ -32,8 +32,13 @@
 namespace c4 {
     namespace detail {
         template<class T>
-        inline void write_binary(std::ostream& out, const T& t) {
-            out.write((const char*)&t, sizeof(t));
+        inline void write_binary(std::ostream& out, T t) {
+            uint8_t v[sizeof(T)];
+            for (int i = 0; i < sizeof(T); i++) {
+                v[i] = uint8_t(t & 0xff);
+                t >>= 8;
+            }
+            out.write((const char*)v, sizeof(T));
         }
 
         inline int bmp_stride(int width) {
