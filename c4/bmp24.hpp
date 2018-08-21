@@ -94,7 +94,7 @@ namespace c4 {
         int bpp, offset, hsz;
     };
 
-    inline bmp_header bmp_parse_header(std::istream& in) {
+    inline bmp_header read_bmp_header(std::istream& in) {
         using namespace c4::detail;
 
         bmp_header info;
@@ -179,10 +179,10 @@ namespace c4 {
     }
 
 
-    inline void bmp_load(std::istream& in, matrix<pixel<uint8_t>>& out) {
+    inline void read_bmp24(std::istream& in, matrix<pixel<uint8_t>>& out) {
         using namespace c4::detail;
 
-        bmp_header info = bmp_parse_header(in);
+        bmp_header info = read_bmp_header(in);
 
         bool flip_vertically = ((int)info.img_height) > 0;
         info.img_height = abs((int)info.img_height);
@@ -210,7 +210,7 @@ namespace c4 {
         }
     }
 
-    inline void write_bmp(std::ostream& out, matrix_ref<pixel<uint8_t>>& img) {
+    inline void write_bmp24(std::ostream& out, matrix_ref<pixel<uint8_t>>& img) {
         using namespace c4::detail;
 
         write_bmp_header(out, img.width(), img.height());
@@ -231,7 +231,7 @@ namespace c4 {
         }
     }
 
-    inline void write_bmp(std::ostream& out, matrix_ref<uint8_t>& img) {
+    inline void write_bmp24(std::ostream& out, matrix_ref<uint8_t>& img) {
         using namespace c4::detail;
 
         write_bmp_header(out, img.width(), img.height());
