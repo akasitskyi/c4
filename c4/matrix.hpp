@@ -509,6 +509,17 @@ namespace c4 {
         }
     }
 
+    template<typename T>
+    inline void flip_vertical(matrix_ref<T>& mat) {
+        for (int i = 0; i < mat.height() / 2; i++) {
+            for (int j = 0; j < mat.width(); j++) {
+                std::swap(mat[i][j], mat[mat.height() - i - 1][j]);
+            }
+        }
+    }
+
+
+
     template<class T1, class T2, class F>
     inline void transform(const vector_ref<T1>& src, vector_ref<T2>& dst, F f) {
         assert(src.size() == dst.size());
