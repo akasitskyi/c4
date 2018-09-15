@@ -24,9 +24,12 @@
 #include <c4/math.hpp>
 #include <c4/logger.hpp>
 #include <c4/parallel.hpp>
+#define LZW_IMPLEMENTATION
+#include <c4/lzw.hpp>
 
 #include <cmath>
 #include <vector>
+#include <fstream>
 #include <iostream>
 #include <numeric>
 #include <functional>
@@ -107,6 +110,47 @@ void normalizeParallelSimd(const std::vector<float>& x, const std::vector<float>
 
 // vector normalization
 int main(int argc, char* argv[]) {
+    {
+        std::ifstream fin("0.bmp", std::ios::binary | std::ios::ate);
+
+        std::streamsize size = fin.tellg();
+        fin.seekg(0, std::ios::beg);
+
+        std::vector<uint8_t> source(size);
+        fin.read((char*)source.data(), size);
+
+        std::cout << "LZW source size bytes = " << source.size() << "\n";
+
+        std::uint8_t * compressedData = nullptr;
+        int compressedSizeBytes = 0;
+        int compressedSizeBits = 0;
+
+        {
+            c4::scoped_timer t("easyEncode");
+            c4::lzw_encode(source.data(), (int)source.size(), &compressedData, &compressedSizeBytes, &compressedSizeBits);
+        }
+
+        std::ofstream f_lzw_out("0.lzw", std::ios::binary);
+        f_lzw_out.write((char*)compressedData, compressedSizeBytes);
+
+        std::cout << "LZW compressed size bytes   = " << compressedSizeBytes << "\n";
+
+        std::vector<uint8_t> uncompressedBuffer(size);
+        int uncompressedSize;
+        {
+            c4::scoped_timer t("easyDecode");
+            uncompressedSize = c4::lzw_decode(compressedData, compressedSizeBytes, compressedSizeBits, uncompressedBuffer.data(), (int)uncompressedBuffer.size());
+        }
+
+        std::free(compressedData);
+
+        std::ofstream fout("0a.bmp", std::ios::binary);
+        fout.write((char*)uncompressedBuffer.data(), uncompressedBuffer.size());
+
+        return 0;
+    }
+
+
     c4::parallel_invoke([] {std::cout << c4::get_thread_index(); }, [] {std::cout << c4::get_thread_index(); }, [] {std::cout << c4::get_thread_index(); });
 
     std::cout << std::endl;
