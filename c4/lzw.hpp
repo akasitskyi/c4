@@ -112,27 +112,18 @@ namespace c4 {
     }
 
     namespace detail {
-
-        static void outputByte(int code, std::uint8_t *& output, int & bytesDecodedSoFar) {
-            *output++ = static_cast<std::uint8_t>(code);
-            ++bytesDecodedSoFar;
-        }
-
-        static void outputSequence(const Dictionary<false>& dict, int code, std::vector<uint8_t>& output, int& firstByte) {
-            // A sequence is stored backwards, so we have to write
-            // it to a temp then output the buffer in reverse.
-            int i = 0;
-            static std::vector<uint8_t> sequence(MaxDictEntries);// FIXME: not thread safe
+        inline void outputSequence(const Dictionary<false>& dict, int code, std::vector<uint8_t>& output, int& firstByte) {
+            size_t old_size = output.size();
+            
             do {
-                sequence[i++] = dict.entries[code].value();
+                output.push_back(dict.entries[code].value());
                 code = dict.entries[code].code();
             } while (code != Nil);
 
-            firstByte = sequence[--i];
+            firstByte = output.back();
 
-            for (; i >= 0; --i) {
-                output.push_back((uint8_t)sequence[i]);
-            }
+            // We have decoded it backwards, so need to reverse
+            std::reverse(output.begin() + old_size, output.end());
         }
     };
 
