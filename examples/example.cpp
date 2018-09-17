@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
 
         std::cout << "LZW compressed size bytes   = " << compressedSizeBytes << "\n";
 
-        std::vector<uint8_t> uncompressed(size);
+        std::vector<uint8_t> uncompressed;
         {
             c4::scoped_timer t("easyDecode");
             c4::lzw_decode(compressed, uncompressed);
