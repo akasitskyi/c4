@@ -121,31 +121,27 @@ int main(int argc, char* argv[]) {
 
         std::cout << "LZW source size bytes = " << source.size() << "\n";
 
-        std::uint8_t * compressedData = nullptr;
-        int compressedSizeBytes = 0;
-        int compressedSizeBits = 0;
+        std::vector<uint16_t> compressed;
 
         {
             c4::scoped_timer t("easyEncode");
-            c4::lzw_encode(source.data(), (int)source.size(), &compressedData, &compressedSizeBytes, &compressedSizeBits);
+            c4::lzw_encode(source.data(), (int)source.size(), compressed);
         }
 
         std::ofstream f_lzw_out("0.lzw", std::ios::binary);
-        f_lzw_out.write((char*)compressedData, compressedSizeBytes);
+        size_t compressedSizeBytes = compressed.size() * sizeof(compressed[0]);
+        f_lzw_out.write((char*)compressed.data(), compressedSizeBytes);
 
         std::cout << "LZW compressed size bytes   = " << compressedSizeBytes << "\n";
 
-        std::vector<uint8_t> uncompressedBuffer(size);
-        int uncompressedSize;
+        std::vector<uint8_t> uncompressed(size);
         {
             c4::scoped_timer t("easyDecode");
-            uncompressedSize = c4::lzw_decode(compressedData, compressedSizeBytes, compressedSizeBits, uncompressedBuffer.data(), (int)uncompressedBuffer.size());
+            c4::lzw_decode(compressed, uncompressed);
         }
 
-        std::free(compressedData);
-
         std::ofstream fout("0a.bmp", std::ios::binary);
-        fout.write((char*)uncompressedBuffer.data(), uncompressedBuffer.size());
+        fout.write((char*)uncompressed.data(), uncompressed.size());
 
         return 0;
     }
