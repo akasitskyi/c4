@@ -195,7 +195,6 @@ namespace c4 {
             assert(fits_within<int>(v.size()));
         }
 
-        template<class T>
         range(const std::string& v) : begin_(0), end_((int)v.size()) {
             assert(fits_within<int>(v.size()));
         }

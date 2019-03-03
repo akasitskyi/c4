@@ -33,15 +33,15 @@ namespace c4 {
         point() : x(0), y(0) {}
         point(T x, T y) : x(x),y(y) {}
     
-        auto polar_angle() const -> decltype(atan2(y, x)) {
+        auto polar_angle() const {
             return atan2(y, x);
         }
 
-        auto length_squared() const -> decltype(x * x + y * y){
+        auto length_squared() const {
             return x * x + y * y;
         }
 
-        auto length() const -> decltype(std::sqrt(length_squared())) {
+        auto length() const {
             return std::sqrt(length_squared());
         }
 
@@ -75,12 +75,12 @@ namespace c4 {
     }
 
     template<class T>
-    inline auto operator*(const point<T>& a, const point<T>& b) -> decltype(a.x*b.x + a.y*b.y) {
+    inline auto operator*(const point<T>& a, const point<T>& b) {
         return a.x*b.x + a.y*b.y;
     }
 
     template<class T>
-    inline auto operator^(const point<T>& a, const point<T>& b) -> decltype(a.x*b.x - a.y*b.y) {
+    inline auto operator^(const point<T>& a, const point<T>& b) {
         return a.x*b.y - a.y*b.x;
     }
 
@@ -119,12 +119,12 @@ namespace c4 {
     }
 
     template<class T>
-    inline auto dist_squared(const point<T>& a, const point<T>& b) -> decltype((a - b).length_squared()) {
+    inline auto dist_squared(const point<T>& a, const point<T>& b) {
         return (a-b).length_squared();
     }
 
     template<class T>
-    inline auto dist(const point<T>& a, const point<T>& b) -> decltype((a - b).length()) {
+    inline auto dist(const point<T>& a, const point<T>& b) {
         return (a-b).length();
     }
 

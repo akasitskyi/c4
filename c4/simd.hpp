@@ -3602,7 +3602,7 @@ namespace c4 {
             inline uint16x8_t sad_row_16(const uint8_t* pa, const uint8_t* pb, size_t n) {
                 uint16x8_t r16 = veorq_u16(r16, r16); // set zero
 
-                for (size_t i = 0; i + 8 < m; i += 8) {
+                for (size_t i = 0; i + 8 < n; i += 8) {
                     uint8x8_t a = vld1_u8(pa + i);
                     uint8x8_t b = vld1_u8(pb + i);
                     r16 = vabal_u8(r16, a, b);
@@ -3619,13 +3619,16 @@ namespace c4 {
 #ifdef USE_ARM_NEON
             uint32x4_t r = veorq_u32(r, r); // set zero
 
+            // we can add up to 256 uint8_t into one uint16_t
+            constexpr size_t step = 256;
+
             size_t i = 0;
             for (; i + step <= n; i += step) {
-                uint16x8_t r16 = sad_row_16(pa + i, pb + i, step);
-                r = detail_neon::vpadalq_u16(r, r16);
+                uint16x8_t r16 = detail_neon::sad_row_16(pa + i, pb + i, step);
+                r = vpadalq_u16(r, r16);
             }
 
-            uint16x8_t r16 = sad_row_16(pa + i, pb + i, n - i);
+            uint16x8_t r16 = detail_neon::sad_row_16(pa + i, pb + i, n - i);
             r = vpadalq_u16(r, r16);
 
             return r;

@@ -24,6 +24,7 @@
 
 #include "matrix.hpp"
 #include "range.hpp"
+#include "geometry.hpp"
 
 namespace c4 {
     template<class pixel_t, class coord_t>
