@@ -24,6 +24,7 @@
 
 #include <array>
 #include <vector>
+#include <string>
 #include <cassert>
 #include <cstddef>
 #include <type_traits>
@@ -191,6 +192,11 @@ namespace c4 {
 
         template<class T>
         range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
+            assert(fits_within<int>(v.size()));
+        }
+
+        template<class T>
+        range(const std::string& v) : begin_(0), end_((int)v.size()) {
             assert(fits_within<int>(v.size()));
         }
 
