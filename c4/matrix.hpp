@@ -314,19 +314,19 @@ namespace c4 {
         matrix() : matrix(0, 0, 0) {}
         
         matrix& operator=(const matrix& b) {
-            resize(b);
+            resize(b.dimensions());
             std::copy(b.v.begin(), b.v.end(), this->v.begin());
 
             return *this;
         }
 
         matrix(const matrix& b) {
-            resize(b);
+            resize(b.dimensions());
             std::copy(b.v.begin(), b.v.end(), this->v.begin());
         }
 
         matrix& operator=(const matrix_ref<T>& b) {
-            resize(b);
+            resize(b.dimensions());
 
             for (int i = 0; i < b.height(); i++)
                 std::copy(b[i].begin(), b[i].end(), (*this)[i].begin());
@@ -335,7 +335,7 @@ namespace c4 {
         }
 
         matrix(const matrix_ref<T>& b) {
-            resize(b);
+            resize(b.dimensions());
 
             for(int i = 0; i < b.height(); i++)
                 std::copy(b[i].data(), b[i].data() + b.width(), (*this)[i].data());
@@ -362,9 +362,8 @@ namespace c4 {
             this->v.shrink_to_fit();
         }
 
-        template<class T2>
-        void resize(const matrix_ref<T2>& b){
-            resize(b.height(), b.width(), b.stride());
+        void resize(matrix_dimensions dims){
+            resize(dims.height, dims.width);
         }
     };
 
