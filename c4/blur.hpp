@@ -314,7 +314,7 @@ namespace c4 {
 
     template<typename PixelT>
     inline void box_blur(const matrix_ref<PixelT>& src, matrix<PixelT>& dst, int r){
-        dst.resize(src);
+        dst.resize(src.dimensions());
 
         box_blur_horizontal(src, dst, r);
         box_blur_vertical(dst, r);
