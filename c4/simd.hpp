@@ -3103,6 +3103,71 @@ namespace c4 {
 #endif
         }
 
+        // Add with saturation
+        // FIXME: not tested
+        inline int8x16 add_saturate(int8x16 a, int8x16 b) {
+#ifdef USE_ARM_NEON
+            return vqaddq_s8(a.v, b.v);
+#else
+            return _mm_adds_epi8(a.v, b.v);
+#endif
+        }
+
+        inline uint8x16 add_saturate(uint8x16 a, uint8x16 b) {
+#ifdef USE_ARM_NEON
+            return vqaddq_u8(a.v, b.v);
+#else
+            return _mm_adds_epu8(a.v, b.v);
+#endif
+        }
+
+        inline int16x8 add_saturate(int16x8 a, int16x8 b) {
+#ifdef USE_ARM_NEON
+            return vqaddq_s16(a.v, b.v);
+#else
+            return _mm_adds_epi16(a.v, b.v);
+#endif
+        }
+
+        inline uint16x8 add_saturate(uint16x8 a, uint16x8 b) {
+#ifdef USE_ARM_NEON
+            return vqaddq_u16(a.v, b.v);
+#else
+            return _mm_adds_epu16(a.v, b.v);
+#endif
+        }
+
+        inline int32x4 add_saturate(int32x4 a, int32x4 b) {
+#ifdef USE_ARM_NEON
+            return vqaddq_s32(a.v, b.v);
+#else
+            const __m128i int_max = _mm_set_0x7fffffff_epi32();
+            __m128i sum = _mm_add_epi32(a.v, b.v);
+
+            __m128i sat = _mm_add_epi32(_mm_srli_epi32(a.v, 31), int_max);  // sat = a < 0 ? INT_MIN : INT_MAX
+
+            __m128i a_xor_b = _mm_xor_si128(a.v, b.v);                      // sign bit is 1 if a and b have different signs
+
+            __m128i a_xor_sub = _mm_xor_si128(a.v, sum);                    // sign bit is 1 if a and sub have different signs
+
+            __m128i mask = _mm_and_si128(a_xor_b, a_xor_sub);               // sign bit is 1 if we have an overflow
+            mask = _mm_srai_epi32(mask, 31);                                // propagate the sign bit
+
+            return _mm_blendv_si128(sum, sat, mask);
+#endif
+        }
+
+        inline uint32x4 add_saturate(uint32x4 a, uint32x4 b) {
+#ifdef USE_ARM_NEON
+            return vqaddq_u32(a.v, b.v);
+#else
+            uint32x4 sum = add(a, b);
+            uint32x4 cmp = greater(a, sum);
+
+            return _mm_or_si128(sum.v, cmp.v); //saturation
+#endif
+        }
+
         // Long pairwise add
 
         inline int16x8 hadd_long(int8x16 a) {
@@ -4117,6 +4182,7 @@ namespace c4 {
 #endif
         }
 
+        // 0x8000 * 0x8000 is incorrect for NEON version
         inline int16x8 mul_hi(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vshrq_n_s16(vqdmulhq_s16(a.v, b.v), 1);
@@ -4138,6 +4204,18 @@ namespace c4 {
             return _mm_mulhi_epu16(a.v, b.v);
 #endif
         }
+
+        // FIXME: not tested
+        inline int16x8 mul_hi_x2_round_saturate(int16x8 a, int16x8 b) {
+#ifdef USE_ARM_NEON
+            return vqrdmulhq_s16(a.v, b.v);
+#else
+            __m128i res = _mm_mulhrs_epi16(a.v, b.v);
+            __m128i mask = _mm_cmpeq_epi16(res, _mm_set_0x8000_epi16());
+            return _mm_xor_si128(res, mask);
+#endif
+        }
+
 
         inline float32x4 mul(float32x4 a, float32x4 b) {
 #ifdef USE_ARM_NEON
