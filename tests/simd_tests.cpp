@@ -881,6 +881,37 @@ void multitest_add() {
 }
 
 template<class T>
+void test_add_saturate() {
+    constexpr int n = 16 / sizeof(T);
+    auto a = random_array<T, n>();
+    auto b = random_array<T, n>();
+    auto r = random_array<T, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = add_saturate(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        const T eta = c4::clamp<T>((int64_t)a[i] + b[i]);
+        if (r[i] != eta) {
+            cout << "oops" << endl;
+        }
+        ASSERT_EQUAL(r[i], eta);
+    }
+}
+
+void multitest_add_saturate() {
+    test_add_saturate<int8_t>();
+    test_add_saturate<uint8_t>();
+    test_add_saturate<int16_t>();
+    test_add_saturate<uint16_t>();
+    test_add_saturate<int32_t>();
+    test_add_saturate<uint32_t>();
+}
+
+template<class T>
 void test_hadd_long() {
     constexpr int n = 16 / sizeof(T);
     auto a = random_array<T, n>();
@@ -1596,6 +1627,23 @@ void multitest_mul_hi() {
     test_mul_hi<uint16_t>();
 }
 
+void test_mul_hi_x2_round_saturate() {
+    constexpr int n = 16 / sizeof(int16_t);
+    auto a = random_array<int16_t, n>();
+    auto b = random_array<int16_t, n>();
+    auto r = random_array<int16_t, n>();
+
+    auto va = load(a.data());
+    auto vb = load(b.data());
+    auto vr = mul_hi_x2_round_saturate(va, vb);
+
+    store(r.data(), vr);
+
+    for (int i = 0; i < n; i++) {
+        ASSERT_EQUAL(r[i], int16_t((((a[i] * b[i]) >> 14) + 1) >> 1));
+    }
+}
+
 void test_mul() {
     constexpr int n = 16 / sizeof(float);
     auto a = random_array<float, n>();
@@ -1870,6 +1918,7 @@ int main()
             test_to_float();
             test_to_int();
             multitest_add();
+            multitest_add_saturate();
             multitest_hadd_long();
             multitest_hadd();
             multitest_sub();
@@ -1896,6 +1945,7 @@ int main()
             multitest_select();
             multitest_mul_lo();
             multitest_mul_hi();
+            test_mul_hi_x2_round_saturate();
             test_mul();
             multitest_mul_acc();
             multitest_mul_sub();

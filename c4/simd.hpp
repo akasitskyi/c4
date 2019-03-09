@@ -3104,7 +3104,7 @@ namespace c4 {
         }
 
         // Add with saturation
-        // FIXME: not tested
+
         inline int8x16 add_saturate(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vqaddq_s8(a.v, b.v);
@@ -3148,9 +3148,9 @@ namespace c4 {
 
             __m128i a_xor_b = _mm_xor_si128(a.v, b.v);                      // sign bit is 1 if a and b have different signs
 
-            __m128i a_xor_sub = _mm_xor_si128(a.v, sum);                    // sign bit is 1 if a and sub have different signs
+            __m128i a_xor_sum = _mm_xor_si128(a.v, sum);                    // sign bit is 1 if a and sum have different signs
 
-            __m128i mask = _mm_and_si128(a_xor_b, a_xor_sub);               // sign bit is 1 if we have an overflow
+            __m128i mask = _mm_andnot_si128(a_xor_b, a_xor_sum);            // sign bit is 1 if we have an overflow
             mask = _mm_srai_epi32(mask, 31);                                // propagate the sign bit
 
             return _mm_blendv_si128(sum, sat, mask);
@@ -4205,7 +4205,6 @@ namespace c4 {
 #endif
         }
 
-        // FIXME: not tested
         inline int16x8 mul_hi_x2_round_saturate(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vqrdmulhq_s16(a.v, b.v);
