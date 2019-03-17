@@ -30,14 +30,28 @@
 #include <type_traits>
 
 namespace c4 {
+
+    template<class C>
+    constexpr int isize(const C& c) {
+        const auto N = c.size();
+        assert(N <= (std::size_t)std::numeric_limits<int>::max());
+        return (int)N;
+    }
+
+    template<class T, std::size_t N>
+    constexpr int isize(const T(&c)[N]) {
+        assert(N <= (std::size_t)std::numeric_limits<int>::max());
+        return (int)N;
+    }
+
     class range_reverse {
         friend class range;
 
         int begin_;
         int end_;
 
-        range_reverse(int begin, int end) : begin_((int)begin), end_((int)end) {
-            assert((int)begin >= (int)end);
+        range_reverse(int begin, int end) : begin_(begin), end_(end) {
+            assert(begin >= end);
         }
 
     public:
@@ -140,7 +154,7 @@ namespace c4 {
             }
 
             iterator operator+(ptrdiff_t n) const {
-                assert(fits_within<int>(i + n));
+                assert(__fits_within<int>(i + n));
                 
                 return iterator(int(i + n));
             }
@@ -180,28 +194,28 @@ namespace c4 {
 
         template<class T1, class T2, class = typename std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value>::type>
         range(T1 begin, T2 end) : begin_((int)begin), end_((int)end) {
-            assert(fits_within<int>(begin) && fits_within<int>(end));
+            assert(__fits_within<int>(begin) && __fits_within<int>(end));
             assert((int)begin <= (int)end);
         }
 
         template<class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
         range(T end) : begin_(0), end_((int)end) {
             assert(0 <= end);
-            assert(end <= std::numeric_limits<int>::max());
+            assert((uint64_t)end <= (uint64_t)std::numeric_limits<int>::max());
         }
 
         template<class T>
         range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
-            assert(fits_within<int>(v.size()));
+            assert(__fits_within<int>(v.size()));
         }
 
         range(const std::string& v) : begin_(0), end_((int)v.size()) {
-            assert(fits_within<int>(v.size()));
+            assert(__fits_within<int>(v.size()));
         }
 
         template<class T, size_t n>
         range(const std::array<T, n>& v) : begin_(0), end_((int)n) {
-            assert(fits_within<int>(n));
+            assert(__fits_within<int>(n));
         }
 
         iterator begin() {

@@ -59,7 +59,7 @@ namespace c4 {
     };
 
     template<class T>
-    inline ostream& operator<<(ostream &out, const point<T> &t ) {
+    inline std::ostream& operator<<(std::ostream &out, const point<T> &t ) {
         out << "( " <<  t.x << " , " << t.y << " )";
         return out;
     }

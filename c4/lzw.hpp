@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 #include "exception.hpp"
+#include "range.hpp"
 
 namespace c4 {
     namespace detail {

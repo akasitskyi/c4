@@ -58,11 +58,11 @@ namespace c4 {
         float iq = 1.f / q;
 
         for(int i : range(height)) {
-            float si = max((i + 0.5f) * iq - 0.5f, 0.f);
+            float si = std::max((i + 0.5f) * iq - 0.5f, 0.f);
             int i0 = (int)si;
             di0v[i] = si - i0;
-            i0v[i] = min(i0, height0 - 1);
-            i1v[i] = min(i0 + 1, height0 - 1);
+            i0v[i] = std::min(i0, height0 - 1);
+            i1v[i] = std::min(i0 + 1, height0 - 1);
         }
     }
 
@@ -71,12 +71,12 @@ namespace c4 {
         inline void scale_bilinear_floating_point_weights(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst) {
             float q = float(dst.height() + dst.width()) / (src.height() + src.width());
 
-            vector<int> i0v, i1v;
-            vector<float> di0v;
+            std::vector<int> i0v, i1v;
+            std::vector<float> di0v;
             calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
 
-            vector<int> j0v, j1v;
-            vector<float> dj0v;
+            std::vector<int> j0v, j1v;
+            std::vector<float> dj0v;
             calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
 
             for (int i : range(dst.height())) {
@@ -113,12 +113,12 @@ namespace c4 {
             constexpr int shift = 10;
             const int one = 1 << shift;
 
-            vector<int> i0v, i1v;
-            vector<c4::fixed_point<int, shift> > di0v;
+            std::vector<int> i0v, i1v;
+            std::vector<c4::fixed_point<int, shift> > di0v;
             calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
 
-            vector<int> j0v, j1v;
-            vector<c4::fixed_point<int, shift> > dj0v;
+            std::vector<int> j0v, j1v;
+            std::vector<c4::fixed_point<int, shift> > dj0v;
             calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
 
             for (int i : range(dst.height())) {

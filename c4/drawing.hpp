@@ -98,7 +98,7 @@ namespace c4 {
 
     template<class pixel_t>
     inline void draw_point(matrix_ref<pixel_t>& img, int y0, int x0, pixel_t color, int thickness = 1){
-        FOR(d, -thickness / 2, thickness - thickness / 2){
+        for (int d : c4::range(-thickness / 2, thickness - thickness / 2)) {
             if( img.is_inside(y0, x0 + d) )
                 img[y0][x0 + d] = color;
             if( img.is_inside(y0 + d, x0) )
