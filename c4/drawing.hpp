@@ -78,11 +78,11 @@ namespace c4 {
 
     template<class pixel_t>
     inline void draw_rect(matrix_ref<pixel_t>& img, int x0, int y0, int width, int height, pixel_t color, int thickness = 1){
-        y0 = max(y0, thickness / 2);
-        x0 = max(x0, thickness / 2);
+        y0 = std::max(y0, thickness / 2);
+        x0 = std::max(x0, thickness / 2);
 
-        int y1 = min(y0 + height - 1, img.height() - (thickness - thickness / 2));
-        int x1 = min(x0 + width - 1, img.width() - (thickness - thickness / 2));
+        int y1 = std::min(y0 + height - 1, img.height() - (thickness - thickness / 2));
+        int x1 = std::min(x0 + width - 1, img.width() - (thickness - thickness / 2));
         
         for(int d : range(-thickness / 2, thickness - thickness / 2)) {
             for(int y : range(y0, y1 + 1)) {
@@ -108,7 +108,7 @@ namespace c4 {
 
     template<class pixel_t>
     inline void draw_digit(matrix_ref<pixel_t>& img, int x0, int y0, int d, pixel_t fg_color, pixel_t bg_color){
-        static const string digits[10] = {
+        static const std::string digits[10] = {
             "......####"
             "..###..###"
             ".####..###"
