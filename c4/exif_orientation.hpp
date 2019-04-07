@@ -24,8 +24,7 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
+#include <cstring>
 
 namespace c4 {
     namespace detail {
