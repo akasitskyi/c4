@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <ostream>
 #include <istream>
+#include <fstream>
 
 #include "matrix.hpp"
 #include "pixel.hpp"
@@ -210,7 +211,12 @@ namespace c4 {
         }
     }
 
-    inline void write_bmp24(std::ostream& out, matrix_ref<pixel<uint8_t>>& img) {
+    inline void read_bmp24(const std::string& filepath, matrix<pixel<uint8_t>>& out) {
+        std::ifstream fin(filepath, std::ifstream::binary);
+        read_bmp24(fin, out);
+    }
+
+    inline void write_bmp24(std::ostream& out, const matrix_ref<pixel<uint8_t>>& img) {
         using namespace c4::detail;
 
         write_bmp_header(out, img.width(), img.height());
@@ -231,7 +237,7 @@ namespace c4 {
         }
     }
 
-    inline void write_bmp24(std::ostream& out, matrix_ref<uint8_t>& img) {
+    inline void write_bmp24(std::ostream& out, const matrix_ref<uint8_t>& img) {
         using namespace c4::detail;
 
         write_bmp_header(out, img.width(), img.height());
@@ -250,5 +256,11 @@ namespace c4 {
 
             out.write(row.data(), row.size());
         }
+    }
+
+    template<class Image>
+    inline void write_bmp24(const std::string& filepath, const Image& img) {
+        std::ofstream fout(filepath, std::ofstream::binary);
+        write_bmp24(fout, img);
     }
 };
