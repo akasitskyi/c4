@@ -29,6 +29,8 @@
 #include <cstddef>
 #include <type_traits>
 
+#include "math.hpp"
+
 namespace c4 {
 
     template<class C>
@@ -154,7 +156,7 @@ namespace c4 {
             }
 
             iterator operator+(ptrdiff_t n) const {
-                assert(__fits_within<int>(i + n));
+                assert(fits_within<int>(i + n));
                 
                 return iterator(int(i + n));
             }
@@ -194,7 +196,7 @@ namespace c4 {
 
         template<class T1, class T2, class = typename std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value>::type>
         range(T1 begin, T2 end) : begin_((int)begin), end_((int)end) {
-            assert(__fits_within<int>(begin) && __fits_within<int>(end));
+            assert(fits_within<int>(begin) && fits_within<int>(end));
             assert((int)begin <= (int)end);
         }
 
@@ -206,16 +208,16 @@ namespace c4 {
 
         template<class T>
         range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
-            assert(__fits_within<int>(v.size()));
+            assert(fits_within<int>(v.size()));
         }
 
         range(const std::string& v) : begin_(0), end_((int)v.size()) {
-            assert(__fits_within<int>(v.size()));
+            assert(fits_within<int>(v.size()));
         }
 
         template<class T, size_t n>
         range(const std::array<T, n>& v) : begin_(0), end_((int)n) {
-            assert(__fits_within<int>(n));
+            assert(fits_within<int>(n));
         }
 
         iterator begin() {
