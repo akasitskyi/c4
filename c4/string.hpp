@@ -24,7 +24,6 @@
 
 #include <string>
 #include <cctype>
-#include <algorithm>
 
 namespace c4 {
     inline bool ends_with(const std::string& s, const std::string& t) {
@@ -34,18 +33,27 @@ namespace c4 {
     inline std::string to_lower(const std::string& s) {
         std::string r;
 
-        std::transform(s.begin(), s.end(), std::back_inserter(r), std::tolower);
+        for (const auto& c : s)
+            r.push_back(std::tolower(c));
 
         return r;
     }
 
     template<typename T>
     inline std::string to_string(T q, int w) {
-        std::stringstream A;
+        std::stringstream ss;
         if (std::is_integral<T>())
-            A << std::setfill('0') << std::setw(w) << q;
+            ss << std::setfill('0') << std::setw(w) << q;
         else
-            A << std::fixed << std::setprecision(w) << q;
-        return A.str();
+            ss << std::fixed << std::setprecision(w) << q;
+        return ss.str();
+    }
+
+    template<typename T>
+    inline T string_to(const std::string& s) {
+        std::stringstream ss(s);
+        T t;
+        ss >> t;
+        return t;
     }
 }; // namespace c4

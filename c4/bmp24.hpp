@@ -33,6 +33,10 @@
 
 namespace c4 {
     namespace detail {
+        inline void write_binary(std::ostream& out, uint8_t t) {
+            out.write((const char*)&t, sizeof(t));
+        }
+
         template<class T>
         inline void write_binary(std::ostream& out, T t) {
             uint8_t v[sizeof(T)];
@@ -49,8 +53,8 @@ namespace c4 {
 
         inline void write_bmp_header(std::ostream& out, int width, int height) {
             // file header
-            write_binary(out, 'B');
-            write_binary(out, 'M');
+            write_binary(out, uint8_t('B'));
+            write_binary(out, uint8_t('M'));
             write_binary(out, uint32_t(14 + 40 + bmp_stride(width) * height));
             write_binary(out, uint16_t(0));
             write_binary(out, uint16_t(0));
