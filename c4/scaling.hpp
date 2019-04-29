@@ -49,24 +49,24 @@ namespace c4 {
         }
     }
 
-    template<typename real>
-    inline void calc_bilinear_scaling_indexes(int height, int height0, float q, std::vector<int>& i0v, std::vector<int>& i1v, std::vector<real>& di0v){
-        i0v.resize(height);
-        i1v.resize(height);
-        di0v.resize(height);
-
-        float iq = 1.f / q;
-
-        for(int i : range(height)) {
-            float si = std::max((i + 0.5f) * iq - 0.5f, 0.f);
-            int i0 = (int)si;
-            di0v[i] = si - i0;
-            i0v[i] = std::min(i0, height0 - 1);
-            i1v[i] = std::min(i0 + 1, height0 - 1);
-        }
-    }
-
     namespace detail {
+        template<typename real>
+        inline void calc_bilinear_scaling_indexes(int height, int height0, float q, std::vector<int>& i0v, std::vector<int>& i1v, std::vector<real>& di0v) {
+            i0v.resize(height);
+            i1v.resize(height);
+            di0v.resize(height);
+
+            float iq = 1.f / q;
+
+            for (int i : range(height)) {
+                float si = std::max((i + 0.5f) * iq - 0.5f, 0.f);
+                int i0 = (int)si;
+                di0v[i] = si - i0;
+                i0v[i] = std::min(i0, height0 - 1);
+                i1v[i] = std::min(i0 + 1, height0 - 1);
+            }
+        }
+
         template<typename src_pixel_t, typename dst_pixel_t>
         inline void scale_bilinear_floating_point_weights(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst) {
             float q = float(dst.height() + dst.width()) / (src.height() + src.width());
