@@ -32,6 +32,42 @@ namespace c4 {
         exception(std::string msg, std::string filename, int line) : runtime_error(msg + " at " + filename + ":" + std::to_string(line)) {}
     };
 
+    namespace detail {
+        template<class F>
+        int CallReturnInt(F f, std::true_type) {
+            return f();
+        }
+
+        template<class F>
+        int CallReturnInt(F f, std::false_type) {
+            f();
+            return 0;
+        }
+    };
+
+    template<class F>
+    int safe_call(const std::string& file, int line, std::string& errorMessage, F f) throw() {
+        try {
+            return detail::CallReturnInt(f, std::is_convertible<decltype(f()), int>());
+        }
+        catch (std::exception &e) {
+            LOGE << "Error: " << e.what() << " caught at " << __FILE__ << ":" << __LINE__;
+            errorMessage = e.what();
+            return -1;
+        }
+        catch (...) {
+            LOGE << "Unknown error caught at " << __FILE__ << ":" << __LINE__;
+            return -1;
+        }
+    }
+
+    template<class Mutex, class F>
+    int sync_safe_call(Mutex& mu, const std::string& file, int line, std::string& errorMessage, F f) throw() {
+        std::lock_guard<Mutex> lock(mu);
+
+        return safe_call(file, line, errorMessage, f);
+    }
+
 #define THROW_EXCEPTION(MSG) throw c4::exception(MSG, __FILE__, __LINE__)
 
 #define ASSERT_TRUE(C) if( C ) {} else THROW_EXCEPTION("Runtime assertion failed: " #C)
