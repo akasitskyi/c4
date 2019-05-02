@@ -23,6 +23,7 @@
 #pragma once
 
 #include <stdexcept>
+#include <ostream>
 #include <string>
 
 namespace c4 {
@@ -32,37 +33,49 @@ namespace c4 {
         exception(std::string msg, std::string filename, int line) : runtime_error(msg + " at " + filename + ":" + std::to_string(line)) {}
     };
 
+    enum class ReturnCode {
+        OK = 0,
+        CANNOT_DECODE_INPUT = 1,
+
+        UNKNOWN_ERROR = -1
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, ReturnCode rc) {
+        return out << (int)rc;
+    }
+
     namespace detail {
         template<class F>
-        int CallReturnInt(F f, std::true_type) {
-            return f();
+        ReturnCode CallReturnInt(F f, std::true_type) {
+            return static_cast<ReturnCode>(f());
         }
 
         template<class F>
-        int CallReturnInt(F f, std::false_type) {
+        ReturnCode CallReturnInt(F f, std::false_type) {
             f();
-            return 0;
+            return ReturnCode::OK;
         }
     };
 
     template<class F>
-    int safe_call(const std::string& file, int line, std::string& errorMessage, F f) throw() {
+    ReturnCode safe_call(const std::string& file, int line, std::string& errorMessage, F f) throw() {
         try {
-            return detail::CallReturnInt(f, std::is_convertible<decltype(f()), int>());
+            return detail::CallReturnInt(f, std::is_convertible<decltype(f()), ReturnCode>());
         }
         catch (std::exception &e) {
             LOGE << "Error: " << e.what() << " caught at " << __FILE__ << ":" << __LINE__;
             errorMessage = e.what();
-            return -1;
+            return ReturnCode::UNKNOWN_ERROR;
         }
         catch (...) {
             LOGE << "Unknown error caught at " << __FILE__ << ":" << __LINE__;
-            return -1;
+            errorMessage = "";
+            return ReturnCode::UNKNOWN_ERROR;
         }
     }
 
     template<class Mutex, class F>
-    int sync_safe_call(Mutex& mu, const std::string& file, int line, std::string& errorMessage, F f) throw() {
+    ReturnCode sync_safe_call(Mutex& mu, const std::string& file, int line, std::string& errorMessage, F f) throw() {
         std::lock_guard<Mutex> lock(mu);
 
         return safe_call(file, line, errorMessage, f);
