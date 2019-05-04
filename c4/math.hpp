@@ -185,9 +185,51 @@ namespace c4 {
             return seed;
         }
 
-        // this basically gives you a random array
-        inline uint32_t operator[](uint32_t i) const {
-            return f(seed + i);
+        inline uint32_t min() const {
+            return std::numeric_limits<uint32_t>::min();
+        }
+
+        inline uint32_t max() const {
+            return std::numeric_limits<uint32_t>::max();
+        }
+    };
+
+    class fast_rand_float_uniform {
+        fast_rand rnd;
+        const float c;
+        const float k;
+    public:
+        fast_rand_float_uniform(float from = 0.f, float to = 1.f, uint32_t seed = 0) : rnd(seed), c(from), k((to - from) / std::numeric_limits<uint32_t>::max()) {}
+
+        inline float operator()() {
+            return rnd() * k + c;
+        }
+    };
+
+    class fast_rand_float_normal {
+        fast_rand_float_uniform rnd;
+        float store;
+        bool have;
+    public:
+        fast_rand_float_normal(uint32_t seed = 0) : rnd(-1.f, 1.f, seed), store(0.f), have(false) {}
+
+        inline float operator()() {
+            if (have) {
+                have = false;
+                return store;
+            }
+
+            float x, y, r2;
+            do {
+                x = rnd();
+                y = rnd();
+                r2 = x * x + y * y;
+            } while (r2 > 1.f);
+
+            float t = std::sqrt(-2.f * std::log(r2) / (r2));
+            have = true;
+            store = t * x;
+            return t * y;
         }
     };
 }; // namespace c4
