@@ -33,34 +33,30 @@ namespace c4 {
         exception(std::string msg, std::string filename, int line) : runtime_error(msg + " at " + filename + ":" + std::to_string(line)) {}
     };
 
-    enum class ReturnCode {
-        OK = 0,
-        CANNOT_DECODE_INPUT = 1,
+    struct ReturnCode {
+        static constexpr int OK = 0;
+        static constexpr int CANNOT_DECODE_INPUT = 1;
 
-        UNKNOWN_ERROR = -1
+        static constexpr int UNKNOWN_ERROR = -1;
     };
-
-    inline std::ostream& operator<<(std::ostream& out, ReturnCode rc) {
-        return out << (int)rc;
-    }
 
     namespace detail {
         template<class F>
-        ReturnCode CallReturnInt(F f, std::true_type) {
-            return static_cast<ReturnCode>(f());
+        int CallReturnInt(F f, std::true_type) {
+            return static_cast<int>(f());
         }
 
         template<class F>
-        ReturnCode CallReturnInt(F f, std::false_type) {
+        int CallReturnInt(F f, std::false_type) {
             f();
             return ReturnCode::OK;
         }
     };
 
     template<class F>
-    ReturnCode safe_call(const std::string& file, int line, std::string& errorMessage, F f) throw() {
+    int safe_call(const std::string& file, int line, std::string& errorMessage, F f) throw() {
         try {
-            return detail::CallReturnInt(f, std::is_convertible<decltype(f()), ReturnCode>());
+            return detail::CallReturnInt(f, std::is_convertible<decltype(f()), int>());
         }
         catch (std::exception &e) {
             LOGE << "Error: " << e.what() << " caught at " << __FILE__ << ":" << __LINE__;
@@ -75,7 +71,7 @@ namespace c4 {
     }
 
     template<class Mutex, class F>
-    ReturnCode sync_safe_call(Mutex& mu, const std::string& file, int line, std::string& errorMessage, F f) throw() {
+    int sync_safe_call(Mutex& mu, const std::string& file, int line, std::string& errorMessage, F f) throw() {
         std::lock_guard<Mutex> lock(mu);
 
         return safe_call(file, line, errorMessage, f);
