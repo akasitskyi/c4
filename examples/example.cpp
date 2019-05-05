@@ -108,7 +108,10 @@ void normalizeParallelSimd(const std::vector<float>& x, const std::vector<float>
 
 // vector normalization
 int main(int argc, char* argv[]) {
-    c4::parallel_invoke([] {std::cout << c4::get_thread_index(); }, [] {std::cout << c4::get_thread_index(); }, [] {std::cout << c4::get_thread_index(); });
+    c4::parallel_invoke(
+        [] {std::cout << c4::thread_pool::get_default_pool().get_thread_index(); },
+        [] {std::cout << c4::thread_pool::get_default_pool().get_thread_index(); },
+        [] {std::cout << c4::thread_pool::get_default_pool().get_thread_index(); });
 
     std::cout << std::endl;
 

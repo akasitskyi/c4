@@ -156,14 +156,6 @@ namespace c4 {
         }
     };
 
-    inline int get_num_threads() {
-        return thread_pool::get_default_pool().get_num_threads();
-    }
-
-    inline int get_thread_index() {
-        return thread_pool::get_default_pool().get_thread_index();
-    }
-
     namespace detail {
         inline std::vector<size_t> init_groups(ptrdiff_t size, size_t grain_size) {
             assert(size >= 0);
@@ -236,22 +228,15 @@ namespace c4 {
     template<class iterator, class F>
     inline void parallel_for(iterator first, iterator last, F f, thread_pool& tp = thread_pool::get_default_pool()) {
         assert(first <= last);
-        const size_t grain_size = std::max<size_t>((last - first) / get_num_threads(), 1);
+        const size_t grain_size = std::max<size_t>((last - first) / tp.get_num_threads(), 1);
         parallel_for(first, last, grain_size, f, tp);
     }
 
     template<class iterator, class T, class Reduction, class F>
     inline T parallel_reduce(iterator first, iterator last, T init, Reduction reduction, F f, thread_pool& tp = thread_pool::get_default_pool()) {
         assert(first <= last);
-        const size_t grain_size = std::max<size_t>((last - first) / get_num_threads(), 1);
+        const size_t grain_size = std::max<size_t>((last - first) / tp.get_num_threads(), 1);
         return parallel_reduce(first, last, grain_size, init, reduction, f, tp);
-    }
-
-    template<class T, class Reduction, class F>
-    inline T parallel_reduce(range r, int grain_size, T init, Reduction reduction, F f, thread_pool& tp = thread_pool::get_default_pool()) {
-        return parallel_reduce(r.begin(), r.end(), grain_size, init, reduction, [&](range::iterator first, range::iterator last) {
-            return f(range(first, last));
-        }, tp);
     }
 
     template<class iterable, class F>
@@ -259,9 +244,33 @@ namespace c4 {
         parallel_for(c.begin(), c.end(), grain_size, f, tp);
     }
 
+    template<class iterable, class T, class Reduction, class F>
+    inline void parallel_reduce(iterable c, size_t grain_size, T init, Reduction reduction, F f, thread_pool& tp = thread_pool::get_default_pool()) {
+        parallel_reduce(c.begin(), c.end(), grain_size, init, reduction, f, tp);
+    }
+
     template<class iterable, class F>
     inline void parallel_for(iterable c, F f, thread_pool& tp = thread_pool::get_default_pool()) {
         parallel_for(c.begin(), c.end(), f, tp);
+    }
+
+    template<class iterable, class T, class Reduction, class F>
+    inline void parallel_reduce(iterable c, T init, Reduction reduction, F f, thread_pool& tp = thread_pool::get_default_pool()) {
+        parallel_reduce(c.begin(), c.end(), init, reduction, f, tp);
+    }
+
+    template<class T, class Reduction, class F>
+    inline T parallel_for(range r, int grain_size, F f, thread_pool& tp = thread_pool::get_default_pool()) {
+        return parallel_for(r.begin(), r.end(), grain_size, [&](range::iterator first, range::iterator last) {
+            return f(range(first, last));
+        }, tp);
+    }
+
+    template<class T, class Reduction, class F>
+    inline T parallel_reduce(range r, int grain_size, T init, Reduction reduction, F f, thread_pool& tp = thread_pool::get_default_pool()) {
+        return parallel_reduce(r.begin(), r.end(), grain_size, init, reduction, [&](range::iterator first, range::iterator last) {
+            return f(range(first, last));
+        }, tp);
     }
 
     template<class... F>
