@@ -129,12 +129,14 @@ int main(int argc, char* argv[]) {
     {
         c4::scoped_timer t("parallel random fill");
 
+        // I know there's no need to pass it. Just wanted to play with enumerable_thread_specific
         c4::enumerable_thread_specific<c4::fast_rand> rnd_v(2);
 
-        c4::parallel_for(c4::range(n), [&y, &rnd_v](int i) {
-            auto& rnd = rnd_v.local();
+        c4::parallel_for(c4::range(n), [&y, &rnd_v](c4::range::iterator first, c4::range::iterator last) {
+            c4::fast_rand rnd = rnd_v.local();
 
-            y[i] = float(rnd());
+            while(first != last)
+                y[*first++] = float(rnd());
         });
     }
 

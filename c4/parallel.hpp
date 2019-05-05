@@ -142,6 +142,18 @@ namespace c4 {
             return groups;
         }
     
+        template<class iterator, class F>
+        typename std::enable_if<!std::is_convertible<F, std::function<void(iterator, iterator)> >::value>::type
+            static inline run(iterator group_first, iterator group_last, F f) {
+            std::for_each(group_first, group_last, f);
+        }
+
+        template<class iterator, class F>
+        typename std::enable_if<std::is_convertible<F, std::function<void(iterator, iterator)> >::value>::type
+        static inline run(iterator group_first, iterator group_last, F f) {
+            f(group_first, group_last);
+        }
+
     public:
 
         template<class iterator, class F>
@@ -155,7 +167,7 @@ namespace c4 {
                 first = group_last;
 
                 futures.emplace_back(enqueue([group_first, group_last, f] {
-                    std::for_each(group_first, group_last, f);
+                    run(group_first, group_last, f);
                 }));
             }
 
