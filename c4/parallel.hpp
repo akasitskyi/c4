@@ -173,7 +173,7 @@ namespace c4 {
         }
 
         template<class iterator, class F>
-        typename std::enable_if<!std::is_convertible<F, std::function<void(iterator, iterator)> >::value>::type
+        typename std::enable_if<std::is_convertible<F, std::function<void(typename std::iterator_traits<iterator>::value_type)> >::value>::type
         static inline run_group(iterator group_first, iterator group_last, F f) {
             std::for_each(group_first, group_last, f);
         }
@@ -182,6 +182,12 @@ namespace c4 {
         typename std::enable_if<std::is_convertible<F, std::function<void(iterator, iterator)> >::value>::type
         static inline run_group(iterator group_first, iterator group_last, F f) {
             f(group_first, group_last);
+        }
+
+        template<class iterator, class F>
+        typename std::enable_if<std::is_convertible<F, std::function<void(range)> >::value>::type
+            static inline run_group(iterator group_first, iterator group_last, F f) {
+            f(range(group_first, group_last));
         }
     };
 
@@ -257,13 +263,6 @@ namespace c4 {
     template<class iterable, class T, class Reduction, class F>
     inline void parallel_reduce(iterable c, T init, Reduction reduction, F f, thread_pool& tp = thread_pool::get_default_pool()) {
         parallel_reduce(c.begin(), c.end(), init, reduction, f, tp);
-    }
-
-    template<class T, class Reduction, class F>
-    inline T parallel_for(range r, int grain_size, F f, thread_pool& tp = thread_pool::get_default_pool()) {
-        return parallel_for(r.begin(), r.end(), grain_size, [&](range::iterator first, range::iterator last) {
-            return f(range(first, last));
-        }, tp);
     }
 
     template<class T, class Reduction, class F>

@@ -68,7 +68,7 @@ namespace c4 {
             using pointer = int*;
             using reference = int&;
 
-            iterator(int i) : i(i) {}
+            explicit iterator(int i) : i(i) {}
 
             iterator& operator++() {
                 --i;
@@ -138,7 +138,7 @@ namespace c4 {
             using pointer = int*;
             using reference = int&;
 
-            iterator(int i) : i(i) {}
+            explicit iterator(int i) : i(i) {}
 
             iterator& operator++() {
                 ++i;
@@ -190,33 +190,33 @@ namespace c4 {
             }
         };
 
-        range(iterator begin, iterator end) : begin_(*begin), end_(*end) {
+        explicit range(iterator begin, iterator end) : begin_(*begin), end_(*end) {
             assert(begin_ <= end_);
         }
 
         template<class T1, class T2, class = typename std::enable_if<std::is_integral<T1>::value && std::is_integral<T2>::value>::type>
-        range(T1 begin, T2 end) : begin_((int)begin), end_((int)end) {
+        explicit range(T1 begin, T2 end) : begin_((int)begin), end_((int)end) {
             assert(fits_within<int>(begin) && fits_within<int>(end));
             assert((int)begin <= (int)end);
         }
 
         template<class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
-        range(T end) : begin_(0), end_((int)end) {
+        explicit range(T end) : begin_(0), end_((int)end) {
             assert(0 <= end);
             assert((uint64_t)end <= (uint64_t)std::numeric_limits<int>::max());
         }
 
         template<class T>
-        range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
+        explicit range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
             assert(fits_within<int>(v.size()));
         }
 
-        range(const std::string& v) : begin_(0), end_((int)v.size()) {
+        explicit range(const std::string& v) : begin_(0), end_((int)v.size()) {
             assert(fits_within<int>(v.size()));
         }
 
         template<class T, size_t n>
-        range(const std::array<T, n>& v) : begin_(0), end_((int)n) {
+        explicit range(const std::array<T, n>& v) : begin_(0), end_((int)n) {
             assert(fits_within<int>(n));
         }
 
