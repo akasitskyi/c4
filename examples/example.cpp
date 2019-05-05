@@ -24,8 +24,6 @@
 #include <c4/math.hpp>
 #include <c4/logger.hpp>
 #include <c4/parallel.hpp>
-#define LZW_IMPLEMENTATION
-#include <c4/lzw.hpp>
 
 #include <cmath>
 #include <vector>
@@ -110,43 +108,6 @@ void normalizeParallelSimd(const std::vector<float>& x, const std::vector<float>
 
 // vector normalization
 int main(int argc, char* argv[]) {
-    {
-        std::ifstream fin("0.bmp", std::ios::binary | std::ios::ate);
-
-        std::streamsize size = fin.tellg();
-        fin.seekg(0, std::ios::beg);
-
-        std::vector<uint8_t> source(size);
-        fin.read((char*)source.data(), size);
-
-        std::cout << "LZW source size bytes = " << source.size() << "\n";
-
-        std::vector<uint16_t> compressed;
-
-        {
-            c4::scoped_timer t("easyEncode");
-            c4::lzw_encode(source.data(), (int)source.size(), compressed);
-        }
-
-        std::ofstream f_lzw_out("0.lzw", std::ios::binary);
-        size_t compressedSizeBytes = compressed.size() * sizeof(compressed[0]);
-        f_lzw_out.write((char*)compressed.data(), compressedSizeBytes);
-
-        std::cout << "LZW compressed size bytes   = " << compressedSizeBytes << "\n";
-
-        std::vector<uint8_t> uncompressed;
-        {
-            c4::scoped_timer t("easyDecode");
-            c4::lzw_decode(compressed, uncompressed);
-        }
-
-        std::ofstream fout("0a.bmp", std::ios::binary);
-        fout.write((char*)uncompressed.data(), uncompressed.size());
-
-        return 0;
-    }
-
-
     c4::parallel_invoke([] {std::cout << c4::get_thread_index(); }, [] {std::cout << c4::get_thread_index(); }, [] {std::cout << c4::get_thread_index(); });
 
     std::cout << std::endl;
@@ -162,7 +123,7 @@ int main(int argc, char* argv[]) {
         c4::fast_rand rnd(1);
         
         for (int i : c4::range(n))
-            x[i] = float(rnd[i]);
+            x[i] = float(rnd());
     }
 
     {
@@ -170,10 +131,10 @@ int main(int argc, char* argv[]) {
 
         c4::enumerable_thread_specific<c4::fast_rand> rnd_v(2);
 
-        c4::parallel_for(c4::range(n), [&](int i) {
+        c4::parallel_for(c4::range(n), [&y, &rnd_v](int i) {
             auto& rnd = rnd_v.local();
 
-            y[i] = float(rnd[i]);
+            y[i] = float(rnd());
         });
     }
 
