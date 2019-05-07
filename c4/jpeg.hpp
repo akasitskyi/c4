@@ -78,6 +78,7 @@
 #include <cstdio>
 
 #include "exception.hpp"
+#include "math.hpp"
 
 #include <cstdlib>
 #include <cstdint>
@@ -111,7 +112,6 @@ struct stbi__context {
    uint8_t buffer_start[128];
 
    uint8_t *img_buffer, *img_buffer_end;
-   uint8_t *img_buffer_original, *img_buffer_original_end;
 };
 
 
@@ -136,9 +136,7 @@ static void stbi__start_callbacks(stbi__context *s, FILE *f) {
    s->f = f;
    s->buflen = sizeof(s->buffer_start);
    s->read_from_callbacks = 1;
-   s->img_buffer_original = s->buffer_start;
    stbi__refill_buffer(s);
-   s->img_buffer_original_end = s->img_buffer_end;
 }
 
 static void *stbi__malloc_mad2(int a, int b, int add) {
@@ -216,23 +214,17 @@ static int stbi__getn(stbi__context *s, uint8_t *buffer, int n) {
       return 0;
 }
 
-static int stbi__get16be(stbi__context *s)
-{
+static int stbi__get16be(stbi__context *s) {
    int z = stbi__get8(s);
    return (z << 8) + stbi__get8(s);
 }
 
-static uint32_t stbi__get32be(stbi__context *s)
-{
+static uint32_t stbi__get32be(stbi__context *s) {
    uint32_t z = stbi__get16be(s);
    return (z << 16) + stbi__get16be(s);
 }
 
-#define STBI__BYTECAST(x)  ((uint8_t) ((x) & 255))  // truncate int to byte without warnings
-
-
-static uint8_t stbi__compute_y(int r, int g, int b)
-{
+static uint8_t stbi__compute_y(int r, int g, int b) {
    return (uint8_t) (((r*77) + (g*150) +  (29*b)) >> 8);
 }
 
@@ -370,8 +362,7 @@ static int stbi__build_huffman(stbi__huffman *h, int *count)
 // one go.
 static void stbi__build_fast_ac(int16_t *fast_ac, stbi__huffman *h)
 {
-   int i;
-   for (i=0; i < (1 << FAST_BITS); ++i) {
+   for (int i=0; i < (1 << FAST_BITS); ++i) {
       uint8_t fast = h->fast[i];
       fast_ac[i] = 0;
       if (fast < 255) {
@@ -722,17 +713,6 @@ static int stbi__jpeg_decode_block_prog_ac(stbi__jpeg *j, short data[64], stbi__
    return 1;
 }
 
-// take a -128..127 value and stbi__clamp it and convert to 0..255
-inline static uint8_t stbi__clamp(int x)
-{
-   // trick to use a single test to catch both cases
-   if ((unsigned int) x > 255) {
-      if (x < 0) return 0;
-      if (x > 255) return 255;
-   }
-   return (uint8_t) x;
-}
-
 #define stbi__f2f(x)  ((int) (((x) * 4096 + 0.5)))
 #define stbi__fsh(x)  ((x) * 4096)
 
@@ -774,8 +754,7 @@ inline static uint8_t stbi__clamp(int x)
    t1 += p2+p4;                                \
    t0 += p1+p3;
 
-static void stbi__idct_block(uint8_t *out, int out_stride, short data[64])
-{
+static void stbi__idct_block(uint8_t *out, int out_stride, short data[64]) {
    int i,val[64],*v=val;
    uint8_t *o;
    short *d = data;
@@ -822,14 +801,14 @@ static void stbi__idct_block(uint8_t *out, int out_stride, short data[64])
       x3 += 65536 + (128<<17);
       // tried computing the shifts into temps, or'ing the temps to see
       // if any were out of range, but that was slower
-      o[0] = stbi__clamp((x0+t3) >> 17);
-      o[7] = stbi__clamp((x0-t3) >> 17);
-      o[1] = stbi__clamp((x1+t2) >> 17);
-      o[6] = stbi__clamp((x1-t2) >> 17);
-      o[2] = stbi__clamp((x2+t1) >> 17);
-      o[5] = stbi__clamp((x2-t1) >> 17);
-      o[3] = stbi__clamp((x3+t0) >> 17);
-      o[4] = stbi__clamp((x3-t0) >> 17);
+      o[0] = c4::clamp<uint8_t>((x0+t3) >> 17);
+      o[7] = c4::clamp<uint8_t>((x0-t3) >> 17);
+      o[1] = c4::clamp<uint8_t>((x1+t2) >> 17);
+      o[6] = c4::clamp<uint8_t>((x1-t2) >> 17);
+      o[2] = c4::clamp<uint8_t>((x2+t1) >> 17);
+      o[5] = c4::clamp<uint8_t>((x2-t1) >> 17);
+      o[3] = c4::clamp<uint8_t>((x3+t0) >> 17);
+      o[4] = c4::clamp<uint8_t>((x3-t0) >> 17);
    }
 }
 
@@ -838,8 +817,7 @@ static void stbi__idct_block(uint8_t *out, int out_stride, short data[64])
 // if there's a pending marker from the entropy stream, return that
 // otherwise, fetch from the stream and get a marker. if there's no
 // marker, return 0xff, which is never a valid marker value
-static uint8_t stbi__get_marker(stbi__jpeg *j)
-{
+static uint8_t stbi__get_marker(stbi__jpeg *j) {
    uint8_t x;
    if (j->marker != STBI__MARKER_none) { x = j->marker; j->marker = STBI__MARKER_none; return x; }
    x = stbi__get8(j->s);
@@ -855,8 +833,7 @@ static uint8_t stbi__get_marker(stbi__jpeg *j)
 
 // after a restart interval, stbi__jpeg_reset the entropy decoder and
 // the dc prediction
-static void stbi__jpeg_reset(stbi__jpeg *j)
-{
+static void stbi__jpeg_reset(stbi__jpeg *j) {
    j->code_bits = 0;
    j->code_buffer = 0;
    j->nomore = 0;
@@ -868,8 +845,7 @@ static void stbi__jpeg_reset(stbi__jpeg *j)
    // since we don't even allow 1<<30 pixels
 }
 
-static int stbi__parse_entropy_coded_data(stbi__jpeg *z)
-{
+static int stbi__parse_entropy_coded_data(stbi__jpeg *z) {
    stbi__jpeg_reset(z);
    if (!z->progressive) {
       if (z->scan_n == 1) {
@@ -992,14 +968,12 @@ static int stbi__parse_entropy_coded_data(stbi__jpeg *z)
    }
 }
 
-static void stbi__jpeg_dequantize(short *data, uint16_t *dequant)
-{
+static void stbi__jpeg_dequantize(short *data, uint16_t *dequant) {
    for (int i=0; i < 64; ++i)
       data[i] *= dequant[i];
 }
 
-static void stbi__jpeg_finish(stbi__jpeg *z)
-{
+static void stbi__jpeg_finish(stbi__jpeg *z) {
    if (z->progressive) {
       // dequantize and idct the data
       int i,j,n;
@@ -1157,28 +1131,6 @@ static int stbi__process_scan_header(stbi__jpeg *z)
    }
 
    return 1;
-}
-
-static int stbi__free_jpeg_components(stbi__jpeg *z, int ncomp, int why)
-{
-   int i;
-   for (i=0; i < ncomp; ++i) {
-      if (z->img_comp[i].raw_data) {
-         free(z->img_comp[i].raw_data);
-         z->img_comp[i].raw_data = NULL;
-         z->img_comp[i].data = NULL;
-      }
-      if (z->img_comp[i].raw_coeff) {
-         free(z->img_comp[i].raw_coeff);
-         z->img_comp[i].raw_coeff = 0;
-         z->img_comp[i].coeff = 0;
-      }
-      if (z->img_comp[i].linebuf) {
-         free(z->img_comp[i].linebuf);
-         z->img_comp[i].linebuf = NULL;
-      }
-   }
-   return why;
 }
 
 static int stbi__process_frame_header(stbi__jpeg *z, int scan)
@@ -1351,9 +1303,8 @@ static uint8_t *resample_row_1(uint8_t *out, uint8_t *in_near, uint8_t *in_far, 
 static uint8_t* stbi__resample_row_v_2(uint8_t *out, uint8_t *in_near, uint8_t *in_far, int w, int hs)
 {
    // need to generate two samples vertically for every one in input
-   int i;
    STBI_NOTUSED(hs);
-   for (i=0; i < w; ++i)
+   for (int i=0; i < w; ++i)
       out[i] = stbi__div4(3*in_near[i] + in_far[i] + 2);
    return out;
 }
@@ -1415,10 +1366,9 @@ static uint8_t *stbi__resample_row_hv_2(uint8_t *out, uint8_t *in_near, uint8_t 
 static uint8_t *stbi__resample_row_generic(uint8_t *out, uint8_t *in_near, uint8_t *in_far, int w, int hs)
 {
    // resample with nearest-neighbor
-   int i,j;
    STBI_NOTUSED(in_far);
-   for (i=0; i < w; ++i)
-      for (j=0; j < hs; ++j)
+   for (int i=0; i < w; ++i)
+      for (int j=0; j < hs; ++j)
          out[i*hs+j] = in_near[i];
    return out;
 }
@@ -1428,8 +1378,7 @@ static uint8_t *stbi__resample_row_generic(uint8_t *out, uint8_t *in_near, uint8
 #define stbi__float2fixed(x)  (((int) ((x) * 4096.0f + 0.5f)) << 8)
 static void stbi__YCbCr_to_RGB_row(uint8_t *out, const uint8_t *y, const uint8_t *pcb, const uint8_t *pcr, int count, int step)
 {
-   int i;
-   for (i=0; i < count; ++i) {
+   for (int i=0; i < count; ++i) {
       int y_fixed = (y[i] << 20) + (1<<19); // rounding
       int r,g,b;
       int cr = pcr[i] - 128;
@@ -1452,38 +1401,49 @@ static void stbi__YCbCr_to_RGB_row(uint8_t *out, const uint8_t *y, const uint8_t
 }
 
 // set up the kernels
-static void stbi__setup_jpeg(stbi__jpeg *j)
-{
+static void stbi__setup_jpeg(stbi__jpeg *j) {
    j->idct_block_kernel = stbi__idct_block;
    j->YCbCr_to_RGB_kernel = stbi__YCbCr_to_RGB_row;
    j->resample_row_hv_2_kernel = stbi__resample_row_hv_2;
 }
 
 // clean up the temporary component buffers
-static void stbi__cleanup_jpeg(stbi__jpeg *j)
-{
-   stbi__free_jpeg_components(j, j->s->img_n, 0);
+static void stbi__cleanup_jpeg(stbi__jpeg *z) {
+    int ncomp = z->s->img_n;
+    for (int i = 0; i < ncomp; ++i) {
+        if (z->img_comp[i].raw_data) {
+            free(z->img_comp[i].raw_data);
+            z->img_comp[i].raw_data = NULL;
+            z->img_comp[i].data = NULL;
+        }
+        if (z->img_comp[i].raw_coeff) {
+            free(z->img_comp[i].raw_coeff);
+            z->img_comp[i].raw_coeff = 0;
+            z->img_comp[i].coeff = 0;
+        }
+        if (z->img_comp[i].linebuf) {
+            free(z->img_comp[i].linebuf);
+            z->img_comp[i].linebuf = NULL;
+        }
+    }
 }
 
-typedef struct
-{
+struct stbi__resample {
    resample_row_func resample;
    uint8_t *line0,*line1;
    int hs,vs;   // expansion factor in each axis
    int w_lores; // horizontal pixels pre-expansion
    int ystep;   // how far through vertical expansion we are
    int ypos;    // which pre-expansion row we're on
-} stbi__resample;
+};
 
 // fast 0..255 * 0..255 => 0..255 rounded multiplication
-static uint8_t stbi__blinn_8x8(uint8_t x, uint8_t y)
-{
+static uint8_t stbi__blinn_8x8(uint8_t x, uint8_t y) {
    unsigned int t = x*y + 128;
    return (uint8_t) ((t + (t >>8)) >> 8);
 }
 
-static uint8_t *load_jpeg_image(stbi__jpeg *z, int *out_x, int *out_y, int *comp, int req_comp)
-{
+static uint8_t *load_jpeg_image(stbi__jpeg *z, int *out_x, int *out_y, int *comp, int req_comp) {
    int n, decode_n, is_rgb;
    z->s->img_n = 0; // make stbi__cleanup_jpeg safe
 
@@ -1639,26 +1599,19 @@ static uint8_t *load_jpeg_image(stbi__jpeg *z, int *out_x, int *out_y, int *comp
    }
 }
 
-static void *stbi__jpeg_load(stbi__context *s, int *x, int *y, int *comp, int req_comp)
-{
-   stbi__jpeg* j = (stbi__jpeg*) malloc(sizeof(stbi__jpeg));
-   j->s = s;
-   stbi__setup_jpeg(j);
-   unsigned char* result = load_jpeg_image(j, x,y,comp,req_comp);
-   free(j);
-   return result;
-}
-
-static uint8_t *stbi_load_from_file(FILE *f, int *x, int *y, int *comp, int req_comp)
-{
+static uint8_t *stbi_load_from_file(FILE *f, int *x, int *y, int *comp, int req_comp) {
     stbi__context s;
     stbi__start_callbacks(&s, f);
 
-    return (unsigned char *)stbi__jpeg_load(&s, x, y, comp, req_comp);
+    stbi__jpeg* j = (stbi__jpeg*)malloc(sizeof(stbi__jpeg));
+    j->s = &s;
+    stbi__setup_jpeg(j);
+    unsigned char* result = load_jpeg_image(j, x, y, comp, req_comp);
+    free(j);
+    return result;
 }
 
-static uint8_t *stbi_load(char const *filename, int *x, int *y, int *comp, int req_comp)
-{
+static uint8_t *stbi_load(char const *filename, int *x, int *y, int *comp, int req_comp) {
     FILE *f = fopen(filename, "rb");
     unsigned char *result;
     if (!f) THROW_EXCEPTION("Unable to open file");
