@@ -82,12 +82,6 @@
 #include <cstdlib>
 #include <cstdint>
 
-typedef struct {
-   int      (*read)  (void *user,char *data,int size);   // fill 'data' with 'size' bytes.  return number of bytes actually read
-   void     (*skip)  (void *user,int n);                 // skip the next 'n' bytes, or 'unget' the last -n bytes if negative
-   int      (*eof)   (void *user);                       // returns nonzero if we are at end of file/data
-} stbi_io_callbacks;
-
 #include <cstdlib>
 #include <cstring>
 #include <climits>
@@ -106,13 +100,11 @@ typedef struct {
    #define stbi_lrot(x,y)  (((x) << (y)) | ((x) >> (32 - (y))))
 #endif
 
-
 struct stbi__context {
    uint32_t img_x, img_y;
    int img_n, img_out_n;
 
-   stbi_io_callbacks io;
-   void *io_user_data;
+   FILE *f;
 
    int read_from_callbacks;
    int buflen;
@@ -124,7 +116,7 @@ struct stbi__context {
 
 
 static void stbi__refill_buffer(stbi__context *s) {
-    int n = (s->io.read)(s->io_user_data, (char*)s->buffer_start, s->buflen);
+    int n = (int)fread((char*)s->buffer_start, 1, s->buflen, s->f);
     if (n == 0) {
         // at end of file, treat same as if from memory, but need to handle case
         // where s->img_buffer isn't pointing to safe memory, e.g. 0-byte file
@@ -139,50 +131,14 @@ static void stbi__refill_buffer(stbi__context *s) {
     }
 }
 
-// initialize a memory-decode context
-static void stbi__start_mem(stbi__context *s, uint8_t const *buffer, int len) {
-   s->io.read = NULL;
-   s->read_from_callbacks = 0;
-   s->img_buffer = s->img_buffer_original = (uint8_t *) buffer;
-   s->img_buffer_end = s->img_buffer_original_end = (uint8_t *) buffer+len;
-}
-
 // initialize a callback-based context
-static void stbi__start_callbacks(stbi__context *s, stbi_io_callbacks *c, void *user) {
-   s->io = *c;
-   s->io_user_data = user;
+static void stbi__start_callbacks(stbi__context *s, FILE *f) {
+   s->f = f;
    s->buflen = sizeof(s->buffer_start);
    s->read_from_callbacks = 1;
    s->img_buffer_original = s->buffer_start;
    stbi__refill_buffer(s);
    s->img_buffer_original_end = s->img_buffer_end;
-}
-
-static int stbi__stdio_read(void *user, char *data, int size)
-{
-   return (int) fread(data,1,size,(FILE*) user);
-}
-
-static void stbi__stdio_skip(void *user, int n)
-{
-   fseek((FILE*) user, n, SEEK_CUR);
-}
-
-static int stbi__stdio_eof(void *user)
-{
-   return feof((FILE*) user);
-}
-
-static stbi_io_callbacks stbi__stdio_callbacks =
-{
-   stbi__stdio_read,
-   stbi__stdio_skip,
-   stbi__stdio_eof,
-};
-
-static void stbi__start_file(stbi__context *s, FILE *f)
-{
-   stbi__start_callbacks(s, &stbi__stdio_callbacks, (void *) f);
 }
 
 static void *stbi__malloc_mad2(int a, int b, int add) {
@@ -216,50 +172,41 @@ inline static uint8_t stbi__get8(stbi__context *s)
    return 0;
 }
 
-inline static int stbi__at_eof(stbi__context *s)
-{
-   if (s->io.read) {
-      if (!(s->io.eof)(s->io_user_data)) return 0;
-      // if feof() is true, check if buffer = end
-      // special case: we've only got the special 0 character at the end
-      if (s->read_from_callbacks == 0) return 1;
-   }
-
-   return s->img_buffer >= s->img_buffer_end;
+inline static int stbi__at_eof(stbi__context *s) {
+    if (!feof(s->f)) return 0;
+    // if feof() is true, check if buffer = end
+    // special case: we've only got the special 0 character at the end
+    if (s->read_from_callbacks == 0) return 1;
+    return s->img_buffer >= s->img_buffer_end;
 }
 
-static void stbi__skip(stbi__context *s, int n)
-{
+static void stbi__skip(stbi__context *s, int n) {
    if (n < 0) {
       s->img_buffer = s->img_buffer_end;
       return;
    }
-   if (s->io.read) {
-      int blen = (int) (s->img_buffer_end - s->img_buffer);
-      if (blen < n) {
-         s->img_buffer = s->img_buffer_end;
-         (s->io.skip)(s->io_user_data, n - blen);
-         return;
-      }
-   }
-   s->img_buffer += n;
+    int blen = (int) (s->img_buffer_end - s->img_buffer);
+    if (blen < n) {
+        s->img_buffer = s->img_buffer_end;
+        fseek(s->f, n - blen, SEEK_CUR);
+        return;
+    }
+
+    s->img_buffer += n;
 }
 
-static int stbi__getn(stbi__context *s, uint8_t *buffer, int n)
-{
-   if (s->io.read) {
-      int blen = (int) (s->img_buffer_end - s->img_buffer);
-      if (blen < n) {
-         int res, count;
+static int stbi__getn(stbi__context *s, uint8_t *buffer, int n) {
+    int blen = (int) (s->img_buffer_end - s->img_buffer);
+    if (blen < n) {
+        int res, count;
 
-         memcpy(buffer, s->img_buffer, blen);
+        memcpy(buffer, s->img_buffer, blen);
 
-         count = (s->io.read)(s->io_user_data, (char*) buffer + blen, n - blen);
-         res = (count == (n-blen));
-         s->img_buffer = s->img_buffer_end;
-         return res;
-      }
-   }
+        count = (int)fread((char*)buffer + blen, 1, n - blen, s->f);
+        res = (count == (n-blen));
+        s->img_buffer = s->img_buffer_end;
+        return res;
+    }
 
    if (s->img_buffer+n <= s->img_buffer_end) {
       memcpy(buffer, s->img_buffer, n);
@@ -1705,7 +1652,7 @@ static void *stbi__jpeg_load(stbi__context *s, int *x, int *y, int *comp, int re
 static uint8_t *stbi_load_from_file(FILE *f, int *x, int *y, int *comp, int req_comp)
 {
     stbi__context s;
-    stbi__start_file(&s, f);
+    stbi__start_callbacks(&s, f);
 
     return (unsigned char *)stbi__jpeg_load(&s, x, y, comp, req_comp);
 }
