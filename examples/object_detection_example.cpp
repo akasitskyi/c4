@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
         c4::rgb_image img(height, width);
 
         c4::rgb_to_img(data, width, height, width * n, c4::RgbByteOrder::RGB, img);
-        stbi_image_free(data);
+        free(data);
 
         c4::write_bmp24("test.bmp", img);
 

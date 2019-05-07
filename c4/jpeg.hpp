@@ -35,7 +35,7 @@
 //    // ... x = width, y = height, n = # 8-bit components per pixel ...
 //    // ... replace '0' with '1'..'4' to force that many components per pixel
 //    // ... but 'n' will always be the number that it would have been if you said 0
-//    stbi_image_free(data)
+//    free(data)
 //
 // Standard parameters:
 //    int *x                 -- outputs image width in pixels
@@ -75,11 +75,6 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_NO_SIMD
-#define STBI_ONLY_JPEG
-
-
 #include <cstdio>
 
 enum
@@ -92,12 +87,8 @@ enum
    STBI_rgb_alpha  = 4
 };
 
-#include <stdlib.h>
+#include <cstdlib>
 #include <cstdint>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 typedef struct
 {
@@ -106,59 +97,15 @@ typedef struct
    int      (*eof)   (void *user);                       // returns nonzero if we are at end of file/data
 } stbi_io_callbacks;
 
-static uint8_t *stbi_load_from_memory   (uint8_t           const *buffer, int len   , int *x, int *y, int *channels_in_file, int desired_channels);
-static uint8_t *stbi_load_from_callbacks(stbi_io_callbacks const *clbk  , void *user, int *x, int *y, int *channels_in_file, int desired_channels);
-
-#ifndef STBI_NO_STDIO
-static uint8_t *stbi_load            (char const *filename, int *x, int *y, int *channels_in_file, int desired_channels);
-static uint8_t *stbi_load_from_file  (FILE *f, int *x, int *y, int *channels_in_file, int desired_channels);
-// for stbi_load_from_file, file pointer is left pointing immediately after image
-#endif
-
-// get a VERY brief reason for failure
-// NOT THREADSAFE
-static const char *stbi_failure_reason  (void);
-
-// free the loaded image -- this is just free()
-static void     stbi_image_free      (void *retval_from_stbi_load);
-
-// get image dimensions & components without fully decoding
-static int      stbi_info_from_memory(uint8_t const *buffer, int len, int *x, int *y, int *comp);
-static int      stbi_info_from_callbacks(stbi_io_callbacks const *clbk, void *user, int *x, int *y, int *comp);
-static int      stbi_info               (char const *filename,     int *x, int *y, int *comp);
-static int      stbi_info_from_file     (FILE *f,                  int *x, int *y, int *comp);
-
-static void stbi_set_flip_vertically_on_load(int flag_true_if_should_flip);
-
-
-
-#ifdef __cplusplus
-}
-#endif
-
-
-#ifdef STB_IMAGE_IMPLEMENTATION
-
 #include <stdarg.h>
 #include <stddef.h> // ptrdiff_t on osx
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 
-#ifndef STBI_NO_STDIO
-#include <stdio.h>
-#endif
+#include <cstdio>
 
-#include <assert.h>
-
-#ifdef __cplusplus
-#define STBI_EXTERN extern "C"
-#else
-#define STBI_EXTERN extern
-#endif
-
-// should produce compiler error if size is wrong
-typedef unsigned char validate_uint32[sizeof(uint32_t)==4 ? 1 : -1];
+#include <cassert>
 
 #ifdef _MSC_VER
 #define STBI_NOTUSED(v)  (void)(v)
@@ -196,7 +143,22 @@ typedef struct
 } stbi__context;
 
 
-static void stbi__refill_buffer(stbi__context *s);
+static void stbi__refill_buffer(stbi__context *s)
+{
+    int n = (s->io.read)(s->io_user_data, (char*)s->buffer_start, s->buflen);
+    if (n == 0) {
+        // at end of file, treat same as if from memory, but need to handle case
+        // where s->img_buffer isn't pointing to safe memory, e.g. 0-byte file
+        s->read_from_callbacks = 0;
+        s->img_buffer = s->buffer_start;
+        s->img_buffer_end = s->buffer_start + 1;
+        *s->img_buffer = 0;
+    }
+    else {
+        s->img_buffer = s->buffer_start;
+        s->img_buffer_end = s->buffer_start + n;
+    }
+}
 
 // initialize a memory-decode context
 static void stbi__start_mem(stbi__context *s, uint8_t const *buffer, int len)
@@ -248,15 +210,6 @@ static void stbi__start_file(stbi__context *s, FILE *f)
    stbi__start_callbacks(s, &stbi__stdio_callbacks, (void *) f);
 }
 
-static void stbi__rewind(stbi__context *s)
-{
-   // conceptually rewind SHOULD rewind to the beginning of the stream,
-   // but we just rewind to the beginning of the initial buffer, because
-   // we only use it after doing 'test', which only ever looks at at most 92 bytes
-   s->img_buffer = s->img_buffer_original;
-   s->img_buffer_end = s->img_buffer_original_end;
-}
-
 enum
 {
    STBI_ORDER_RGB,
@@ -270,9 +223,7 @@ typedef struct
    int channel_order;
 } stbi__result_info;
 
-static int      stbi__jpeg_test(stbi__context *s);
 static void    *stbi__jpeg_load(stbi__context *s, int *x, int *y, int *comp, int req_comp, stbi__result_info *ri);
-static int      stbi__jpeg_info(stbi__context *s, int *x, int *y, int *comp);
 
 // this is not threadsafe
 static const char *stbi__g_failure_reason;
@@ -288,14 +239,11 @@ static int stbi__err(const char *str)
    return 0;
 }
 
-// mallocs with size overflow checking
-static void *stbi__malloc_mad2(int a, int b, int add)
-{
+static void *stbi__malloc_mad2(int a, int b, int add) {
    return malloc(a*b + add);
 }
 
-static void *stbi__malloc_mad3(int a, int b, int c, int add)
-{
+static void *stbi__malloc_mad3(int a, int b, int c, int add) {
    return malloc(a*b*c + add);
 }
 
@@ -314,11 +262,6 @@ static void *stbi__malloc_mad3(int a, int b, int c, int add)
 #define stbi__errpf(x,y)   ((float *)(size_t) (stbi__err(x,y)?NULL:NULL))
 #define stbi__errpuc(x,y)  ((unsigned char *)(size_t) (stbi__err(x,y)?NULL:NULL))
 
-static void stbi_image_free(void *retval_from_stbi_load)
-{
-   free(retval_from_stbi_load);
-}
-
 static void *stbi__load_main(stbi__context *s, int *x, int *y, int *comp, int req_comp, stbi__result_info *ri, int bpc)
 {
    memset(ri, 0, sizeof(*ri)); // make sure it's initialized if we add new fields
@@ -326,15 +269,26 @@ static void *stbi__load_main(stbi__context *s, int *x, int *y, int *comp, int re
    ri->channel_order = STBI_ORDER_RGB; // all current input & output are this, but this is here so we can add BGR order
    ri->num_channels = 0;
 
-   if (stbi__jpeg_test(s)) return stbi__jpeg_load(s,x,y,comp,req_comp, ri);
-
-   return stbi__errpuc("unknown image type", "Image not of any known type, or corrupt");
+   return stbi__jpeg_load(s,x,y,comp,req_comp, ri);
 }
 
 static unsigned char *stbi__load_and_postprocess_8bit(stbi__context *s, int *x, int *y, int *comp, int req_comp)
 {
    stbi__result_info ri;
    return (unsigned char *)stbi__load_main(s, x, y, comp, req_comp, &ri, 8);
+}
+
+static uint8_t *stbi_load_from_file(FILE *f, int *x, int *y, int *comp, int req_comp)
+{
+    unsigned char *result;
+    stbi__context s;
+    stbi__start_file(&s, f);
+    result = stbi__load_and_postprocess_8bit(&s, x, y, comp, req_comp);
+    if (result) {
+        // need to 'unget' all the characters in the IO buffer
+        fseek(f, -(int)(s.img_buffer_end - s.img_buffer), SEEK_CUR);
+    }
+    return result;
 }
 
 static uint8_t *stbi_load(char const *filename, int *x, int *y, int *comp, int req_comp)
@@ -347,35 +301,7 @@ static uint8_t *stbi_load(char const *filename, int *x, int *y, int *comp, int r
    return result;
 }
 
-static uint8_t *stbi_load_from_file(FILE *f, int *x, int *y, int *comp, int req_comp)
-{
-   unsigned char *result;
-   stbi__context s;
-   stbi__start_file(&s,f);
-   result = stbi__load_and_postprocess_8bit(&s,x,y,comp,req_comp);
-   if (result) {
-      // need to 'unget' all the characters in the IO buffer
-      fseek(f, - (int) (s.img_buffer_end - s.img_buffer), SEEK_CUR);
-   }
-   return result;
-}
-
 #endif //!STBI_NO_STDIO
-
-static uint8_t *stbi_load_from_memory(uint8_t const *buffer, int len, int *x, int *y, int *comp, int req_comp)
-{
-   stbi__context s;
-   stbi__start_mem(&s,buffer,len);
-   return stbi__load_and_postprocess_8bit(&s,x,y,comp,req_comp);
-}
-
-static uint8_t *stbi_load_from_callbacks(stbi_io_callbacks const *clbk, void *user, int *x, int *y, int *comp, int req_comp)
-{
-   stbi__context s;
-   stbi__start_callbacks(&s, (stbi_io_callbacks *) clbk, user);
-   return stbi__load_and_postprocess_8bit(&s,x,y,comp,req_comp);
-}
-
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -388,22 +314,6 @@ enum
    STBI__SCAN_type,
    STBI__SCAN_header
 };
-
-static void stbi__refill_buffer(stbi__context *s)
-{
-   int n = (s->io.read)(s->io_user_data,(char*)s->buffer_start,s->buflen);
-   if (n == 0) {
-      // at end of file, treat same as if from memory, but need to handle case
-      // where s->img_buffer isn't pointing to safe memory, e.g. 0-byte file
-      s->read_from_callbacks = 0;
-      s->img_buffer = s->buffer_start;
-      s->img_buffer_end = s->buffer_start+1;
-      *s->img_buffer = 0;
-   } else {
-      s->img_buffer = s->buffer_start;
-      s->img_buffer_end = s->buffer_start + n;
-   }
-}
 
 inline static uint8_t stbi__get8(stbi__context *s)
 {
@@ -484,64 +394,9 @@ static uint32_t stbi__get32be(stbi__context *s)
 #define STBI__BYTECAST(x)  ((uint8_t) ((x) & 255))  // truncate int to byte without warnings
 
 
-//////////////////////////////////////////////////////////////////////////////
-//
-//  generic converter from built-in img_n to req_comp
-//    individual types do this automatically as much as possible (e.g. jpeg
-//    does all cases internally since it needs to colorspace convert anyway,
-//    and it never has alpha, so very few cases ). png can automatically
-//    interleave an alpha=255 channel, but falls back to this for other cases
-//
-//  assume data buffer is malloced, so malloc a new one and free that one
-//  only failure mode is malloc failing
-
 static uint8_t stbi__compute_y(int r, int g, int b)
 {
    return (uint8_t) (((r*77) + (g*150) +  (29*b)) >> 8);
-}
-
-static unsigned char *stbi__convert_format(unsigned char *data, int img_n, int req_comp, unsigned int x, unsigned int y)
-{
-   int i,j;
-   unsigned char *good;
-
-   if (req_comp == img_n) return data;
-   assert(req_comp >= 1 && req_comp <= 4);
-
-   good = (unsigned char *) stbi__malloc_mad3(req_comp, x, y, 0);
-   if (good == NULL) {
-      free(data);
-      return stbi__errpuc("outofmem", "Out of memory");
-   }
-
-   for (j=0; j < (int) y; ++j) {
-      unsigned char *src  = data + j * x * img_n   ;
-      unsigned char *dest = good + j * x * req_comp;
-
-      #define STBI__COMBO(a,b)  ((a)*8+(b))
-      #define STBI__CASE(a,b)   case STBI__COMBO(a,b): for(i=x-1; i >= 0; --i, src += a, dest += b)
-      // convert source image with img_n components to one with req_comp components;
-      // avoid switch per pixel, so use switch per scanline and massive macros
-      switch (STBI__COMBO(img_n, req_comp)) {
-         STBI__CASE(1,2) { dest[0]=src[0]; dest[1]=255;                                     } break;
-         STBI__CASE(1,3) { dest[0]=dest[1]=dest[2]=src[0];                                  } break;
-         STBI__CASE(1,4) { dest[0]=dest[1]=dest[2]=src[0]; dest[3]=255;                     } break;
-         STBI__CASE(2,1) { dest[0]=src[0];                                                  } break;
-         STBI__CASE(2,3) { dest[0]=dest[1]=dest[2]=src[0];                                  } break;
-         STBI__CASE(2,4) { dest[0]=dest[1]=dest[2]=src[0]; dest[3]=src[1];                  } break;
-         STBI__CASE(3,4) { dest[0]=src[0];dest[1]=src[1];dest[2]=src[2];dest[3]=255;        } break;
-         STBI__CASE(3,1) { dest[0]=stbi__compute_y(src[0],src[1],src[2]);                   } break;
-         STBI__CASE(3,2) { dest[0]=stbi__compute_y(src[0],src[1],src[2]); dest[1] = 255;    } break;
-         STBI__CASE(4,1) { dest[0]=stbi__compute_y(src[0],src[1],src[2]);                   } break;
-         STBI__CASE(4,2) { dest[0]=stbi__compute_y(src[0],src[1],src[2]); dest[1] = src[3]; } break;
-         STBI__CASE(4,3) { dest[0]=src[0];dest[1]=src[1];dest[2]=src[2];                    } break;
-         default: assert(0);
-      }
-      #undef STBI__CASE
-   }
-
-   free(data);
-   return good;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -564,8 +419,6 @@ static unsigned char *stbi__convert_format(unsigned char *data, int img_n, int r
 //      - fast huffman; reasonable integer IDCT
 //      - some SIMD kernels for common paths on targets with SSE2/NEON
 //      - uses a lot of intermediate memory, could cache poorly
-
-#ifndef STBI_NO_JPEG
 
 // huffman decoding acceleration
 #define FAST_BITS   9  // larger handles more cases; smaller stomps less cache
@@ -1305,8 +1158,7 @@ static int stbi__parse_entropy_coded_data(stbi__jpeg *z)
 
 static void stbi__jpeg_dequantize(short *data, uint16_t *dequant)
 {
-   int i;
-   for (i=0; i < 64; ++i)
+   for (int i=0; i < 64; ++i)
       data[i] *= dequant[i];
 }
 
@@ -1968,85 +1820,3 @@ static void *stbi__jpeg_load(stbi__context *s, int *x, int *y, int *comp, int re
    free(j);
    return result;
 }
-
-static int stbi__jpeg_test(stbi__context *s)
-{
-   int r;
-   stbi__jpeg* j = (stbi__jpeg*)malloc(sizeof(stbi__jpeg));
-   j->s = s;
-   stbi__setup_jpeg(j);
-   r = stbi__decode_jpeg_header(j, STBI__SCAN_type);
-   stbi__rewind(s);
-   free(j);
-   return r;
-}
-
-static int stbi__jpeg_info_raw(stbi__jpeg *j, int *x, int *y, int *comp)
-{
-   if (!stbi__decode_jpeg_header(j, STBI__SCAN_header)) {
-      stbi__rewind( j->s );
-      return 0;
-   }
-   if (x) *x = j->s->img_x;
-   if (y) *y = j->s->img_y;
-   if (comp) *comp = j->s->img_n >= 3 ? 3 : 1;
-   return 1;
-}
-
-static int stbi__jpeg_info(stbi__context *s, int *x, int *y, int *comp)
-{
-   int result;
-   stbi__jpeg* j = (stbi__jpeg*) (malloc(sizeof(stbi__jpeg)));
-   j->s = s;
-   result = stbi__jpeg_info_raw(j, x, y, comp);
-   free(j);
-   return result;
-}
-#endif
-
-
-static int stbi__info_main(stbi__context *s, int *x, int *y, int *comp)
-{
-   if (stbi__jpeg_info(s, x, y, comp)) return 1;
-   return stbi__err("unknown image type", "Image not of any known type, or corrupt");
-}
-
-#ifndef STBI_NO_STDIO
-static int stbi_info(char const *filename, int *x, int *y, int *comp)
-{
-    FILE *f = fopen(filename, "rb");
-    int result;
-    if (!f) return stbi__err("can't fopen", "Unable to open file");
-    result = stbi_info_from_file(f, x, y, comp);
-    fclose(f);
-    return result;
-}
-
-static int stbi_info_from_file(FILE *f, int *x, int *y, int *comp)
-{
-   int r;
-   stbi__context s;
-   long pos = ftell(f);
-   stbi__start_file(&s, f);
-   r = stbi__info_main(&s,x,y,comp);
-   fseek(f,pos,SEEK_SET);
-   return r;
-}
-
-#endif // !STBI_NO_STDIO
-
-static int stbi_info_from_memory(uint8_t const *buffer, int len, int *x, int *y, int *comp)
-{
-   stbi__context s;
-   stbi__start_mem(&s,buffer,len);
-   return stbi__info_main(&s,x,y,comp);
-}
-
-static int stbi_info_from_callbacks(stbi_io_callbacks const *c, void *user, int *x, int *y, int *comp)
-{
-   stbi__context s;
-   stbi__start_callbacks(&s, (stbi_io_callbacks *) c, user);
-   return stbi__info_main(&s,x,y,comp);
-}
-
-#endif // STB_IMAGE_IMPLEMENTATION
