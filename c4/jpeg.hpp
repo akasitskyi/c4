@@ -127,16 +127,7 @@ struct stbi_output_context {
     int img_n, img_out_n;
 };
 
-static void *stbi__malloc_mad2(int a, int b, int add) {
-   return malloc(a*b + add);
-}
-
-static void *stbi__malloc_mad3(int a, int b, int c, int add) {
-   return malloc(a*b*c + add);
-}
-
-enum
-{
+enum {
    STBI__SCAN_load=0,
    STBI__SCAN_type,
    STBI__SCAN_header
@@ -202,7 +193,6 @@ struct stbi__jpeg {
 
       int x,y,w2,h2;
       uint8_t *data;
-      void *raw_data, *raw_coeff;
       uint8_t *linebuf;
       short   *coeff;   // progressive only
       int      coeff_w, coeff_h; // number of 8x8 coefficient blocks
@@ -232,8 +222,7 @@ struct stbi__jpeg {
    uint8_t *(*resample_row_hv_2_kernel)(uint8_t *out, uint8_t *in_near, uint8_t *in_far, int w, int hs);
 } ;
 
-static int stbi__build_huffman(stbi__huffman *h, int *count)
-{
+static int stbi__build_huffman(stbi__huffman *h, int *count) {
    int i,j,k=0;
    unsigned int code;
    // build size list for each symbol (from JPEG spec)
@@ -906,8 +895,7 @@ static void stbi__jpeg_finish(stbi__jpeg *z) {
    }
 }
 
-static int stbi__process_marker(std::istream& in, stbi__jpeg *z, int m)
-{
+static int stbi__process_marker(std::istream& in, stbi__jpeg *z, int m) {
    int L;
    switch (m) {
       case STBI__MARKER_none: // no marker found
@@ -1009,8 +997,7 @@ static int stbi__process_marker(std::istream& in, stbi__jpeg *z, int m)
 }
 
 // after we see SOS
-static int stbi__process_scan_header(std::istream& in, stbi__jpeg *z)
-{
+static int stbi__process_scan_header(std::istream& in, stbi__jpeg *z) {
    int i;
    int Ls = get16be(in);
    z->scan_n = get8(in);
@@ -1029,10 +1016,9 @@ static int stbi__process_scan_header(std::istream& in, stbi__jpeg *z)
    }
 
    {
-      int aa;
       z->spec_start = get8(in);
       z->spec_end   = get8(in); // should be 63, but might be 0
-      aa = get8(in);
+      int aa = get8(in);
       z->succ_high = (aa >> 4);
       z->succ_low  = (aa & 15);
       if (z->progressive) {
@@ -1108,17 +1094,13 @@ static int stbi__process_frame_header(std::istream& in, stbi__jpeg *z, int scan)
       z->img_comp[i].w2 = z->img_mcu_x * z->img_comp[i].h * 8;
       z->img_comp[i].h2 = z->img_mcu_y * z->img_comp[i].v * 8;
       z->img_comp[i].coeff = 0;
-      z->img_comp[i].raw_coeff = 0;
       z->img_comp[i].linebuf = NULL;
-      z->img_comp[i].raw_data = stbi__malloc_mad2(z->img_comp[i].w2, z->img_comp[i].h2, 15);
-      // align blocks for idct using mmx/sse
-      z->img_comp[i].data = (uint8_t*) (((size_t) z->img_comp[i].raw_data + 15) & ~15);
+      z->img_comp[i].data = (uint8_t*)malloc(z->img_comp[i].w2 * z->img_comp[i].h2);
       if (z->progressive) {
          // w2, h2 are multiples of 8 (see above)
          z->img_comp[i].coeff_w = z->img_comp[i].w2 / 8;
          z->img_comp[i].coeff_h = z->img_comp[i].h2 / 8;
-         z->img_comp[i].raw_coeff = stbi__malloc_mad3(z->img_comp[i].w2, z->img_comp[i].h2, sizeof(short), 15);
-         z->img_comp[i].coeff = (short*) (((size_t) z->img_comp[i].raw_coeff + 15) & ~15);
+         z->img_comp[i].coeff = (short*) malloc(z->img_comp[i].w2 * z->img_comp[i].h2 * sizeof(short));
       }
    }
 
@@ -1136,11 +1118,10 @@ static int stbi__process_frame_header(std::istream& in, stbi__jpeg *z, int scan)
 
 static int stbi__decode_jpeg_header(std::istream& in, stbi__jpeg *z, int scan)
 {
-   int m;
    z->jfif = 0;
    z->app14_color_transform = -1; // valid values are 0,1,2
    z->marker = STBI__MARKER_none; // initialize cached marker to empty
-   m = stbi__get_marker(in, z);
+   int m = stbi__get_marker(in, z);
    if (!stbi__SOI(m)) THROW_EXCEPTION("Corrupt JPEG: no SOI");
    if (scan == STBI__SCAN_type) return 1;
    m = stbi__get_marker(in, z);
@@ -1163,8 +1144,8 @@ static int stbi__decode_jpeg_image(std::istream& in, stbi__jpeg *j)
 {
    int m;
    for (m = 0; m < 4; m++) {
-      j->img_comp[m].raw_data = NULL;
-      j->img_comp[m].raw_coeff = NULL;
+      j->img_comp[m].data = NULL;
+      j->img_comp[m].coeff = NULL;
    }
    j->restart_interval = 0;
    if (!stbi__decode_jpeg_header(in, j, STBI__SCAN_load)) return 0;
@@ -1227,7 +1208,6 @@ static uint8_t* stbi__resample_row_v_2(uint8_t *out, uint8_t *in_near, uint8_t *
 static uint8_t*  stbi__resample_row_h_2(uint8_t *out, uint8_t *in_near, uint8_t *in_far, int w, int hs)
 {
    // need to generate two samples horizontally for every one in input
-   int i;
    uint8_t *input = in_near;
 
    if (w == 1) {
@@ -1238,6 +1218,8 @@ static uint8_t*  stbi__resample_row_h_2(uint8_t *out, uint8_t *in_near, uint8_t 
 
    out[0] = input[0];
    out[1] = stbi__div4(input[0]*3 + input[1] + 2);
+
+   int i;
    for (i=1; i < w-1; ++i) {
       int n = 3*input[i]+2;
       out[i*2+0] = stbi__div4(n+input[i-1]);
@@ -1257,16 +1239,15 @@ static uint8_t*  stbi__resample_row_h_2(uint8_t *out, uint8_t *in_near, uint8_t 
 static uint8_t *stbi__resample_row_hv_2(uint8_t *out, uint8_t *in_near, uint8_t *in_far, int w, int hs)
 {
    // need to generate 2x2 samples for every one in input
-   int i,t0,t1;
    if (w == 1) {
       out[0] = out[1] = stbi__div4(3*in_near[0] + in_far[0] + 2);
       return out;
    }
 
-   t1 = 3*in_near[0] + in_far[0];
+   int t1 = 3*in_near[0] + in_far[0];
    out[0] = stbi__div4(t1+2);
-   for (i=1; i < w; ++i) {
-      t0 = t1;
+   for (int i=1; i < w; ++i) {
+      int t0 = t1;
       t1 = 3*in_near[i]+in_far[i];
       out[i*2-1] = stbi__div16(3*t0 + t1 + 8);
       out[i*2  ] = stbi__div16(3*t1 + t0 + 8);
@@ -1326,14 +1307,12 @@ static void stbi__setup_jpeg(stbi__jpeg *j) {
 static void stbi__cleanup_jpeg(stbi__jpeg *z) {
     int ncomp = z->os->img_n;
     for (int i = 0; i < ncomp; ++i) {
-        if (z->img_comp[i].raw_data) {
-            free(z->img_comp[i].raw_data);
-            z->img_comp[i].raw_data = NULL;
+        if (z->img_comp[i].data) {
+            free(z->img_comp[i].data);
             z->img_comp[i].data = NULL;
         }
-        if (z->img_comp[i].raw_coeff) {
-            free(z->img_comp[i].raw_coeff);
-            z->img_comp[i].raw_coeff = 0;
+        if (z->img_comp[i].coeff) {
+            free(z->img_comp[i].coeff);
             z->img_comp[i].coeff = 0;
         }
         if (z->img_comp[i].linebuf) {
@@ -1359,7 +1338,6 @@ static uint8_t stbi__blinn_8x8(uint8_t x, uint8_t y) {
 }
 
 static uint8_t *load_jpeg_image(std::istream& in, stbi__jpeg *z, int *out_x, int *out_y, int *comp, int req_comp) {
-   int n, decode_n, is_rgb;
    z->os->img_n = 0; // make stbi__cleanup_jpeg safe
 
    // validate req_comp
@@ -1369,14 +1347,11 @@ static uint8_t *load_jpeg_image(std::istream& in, stbi__jpeg *z, int *out_x, int
    if (!stbi__decode_jpeg_image(in, z)) { stbi__cleanup_jpeg(z); return NULL; }
 
    // determine actual number of components to generate
-   n = req_comp ? req_comp : z->os->img_n >= 3 ? 3 : 1;
+   int n = req_comp ? req_comp : z->os->img_n >= 3 ? 3 : 1;
 
-   is_rgb = z->os->img_n == 3 && (z->rgb == 3 || (z->app14_color_transform == 0 && !z->jfif));
+   int is_rgb = z->os->img_n == 3 && (z->rgb == 3 || (z->app14_color_transform == 0 && !z->jfif));
 
-   if (z->os->img_n == 3 && n < 3 && !is_rgb)
-      decode_n = 1;
-   else
-      decode_n = z->os->img_n;
+   int decode_n = (z->os->img_n == 3 && n < 3 && !is_rgb) ? 1 : z->os->img_n;
 
    // resample and color-convert
    {
@@ -1409,7 +1384,7 @@ static uint8_t *load_jpeg_image(std::istream& in, stbi__jpeg *z, int *out_x, int
       }
 
       // can't error after this so, this is safe
-      output = (uint8_t *) stbi__malloc_mad3(n, z->os->img_x, z->os->img_y, 1);
+      output = (uint8_t *) malloc(n * z->os->img_x * z->os->img_y + 1);
 
       // now go ahead and resample
       for (j=0; j < z->os->img_y; ++j) {
