@@ -81,7 +81,7 @@ namespace c4 {
         BaseByteInputStream bbs;
     public:
         template<typename...Ts>
-        byte_input_stream(Ts... args) : bbs(args...) {}
+        explicit byte_input_stream(Ts... args) : bbs(args...) {}
 
         byte_input_stream(byte_input_stream<BaseByteInputStream>&) = delete;
         byte_input_stream<BaseByteInputStream>& operator=(byte_input_stream<BaseByteInputStream>&) = delete;

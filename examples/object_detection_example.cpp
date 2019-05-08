@@ -49,13 +49,8 @@ c4::matrix<uint8_t> generate_matrix(float mean, float sd) {
 
 int main(int argc, char* argv[]) {
     try{
-        int width, height, n;
-        unsigned char *data = c4::stbi_load("test.jpg", &width, &height, &n, 0);
-
-        c4::rgb_image img(height, width);
-
-        c4::rgb_to_img(data, width, height, width * n, c4::RgbByteOrder::RGB, img);
-        free(data);
+        c4::rgb_image img;
+        c4::read_jpeg("test.jpg", img);
 
         c4::write_bmp24("test.bmp", img);
 
