@@ -123,12 +123,6 @@ inline void skip(std::istream& in, int n) {
 }
 
 
-enum {
-   STBI__SCAN_load=0,
-   STBI__SCAN_type,
-   STBI__SCAN_header
-};
-
 static uint8_t stbi__compute_y(int r, int g, int b) {
    return (uint8_t) (((r*77) + (g*150) +  (29*b)) >> 8);
 }
@@ -158,7 +152,6 @@ static uint8_t stbi__compute_y(int r, int g, int b) {
 
 struct stbi__huffman {
    uint8_t  fast[1 << FAST_BITS];
-   // weirdly, repacking this into AoS is a 10% speed loss, instead of a win
    uint16_t code[256];
    uint8_t  values[256];
    uint8_t  size[257];
@@ -166,7 +159,72 @@ struct stbi__huffman {
    int    delta[17];   // old 'firstsymbol' - old 'firstcode'
 };
 
-struct stbi__jpeg {
+static void stbi__build_huffman(stbi__huffman& h, int *count) {
+    int i, j, k = 0;
+    unsigned int code;
+    // build size list for each symbol (from JPEG spec)
+    for (i = 0; i < 16; ++i)
+        for (j = 0; j < count[i]; ++j)
+            h.size[k++] = (uint8_t)(i + 1);
+    h.size[k] = 0;
+
+    // compute actual symbols (from jpeg spec)
+    code = 0;
+    k = 0;
+    for (j = 1; j <= 16; ++j) {
+        // compute delta to add to code to compute symbol id
+        h.delta[j] = k - code;
+        if (h.size[k] == j) {
+            while (h.size[k] == j)
+                h.code[k++] = (uint16_t)(code++);
+            if (code - 1 >= (1u << j)) THROW_EXCEPTION("Corrupt JPEG: bad code lengths");
+        }
+        // compute largest code + 1 for this size, preshifted as needed later
+        h.maxcode[j] = code << (16 - j);
+        code <<= 1;
+    }
+    h.maxcode[j] = 0xffffffff;
+
+    // build non-spec acceleration table; 255 is flag for not-accelerated
+    memset(h.fast, 255, 1 << FAST_BITS);
+    for (i = 0; i < k; ++i) {
+        int s = h.size[i];
+        if (s <= FAST_BITS) {
+            int c = h.code[i] << (FAST_BITS - s);
+            int m = 1 << (FAST_BITS - s);
+            for (j = 0; j < m; ++j) {
+                h.fast[c + j] = (uint8_t)i;
+            }
+        }
+    }
+}
+
+// build a table that decodes both magnitude and value of small ACs in
+// one go.
+static void stbi__build_fast_ac(int16_t *fast_ac, stbi__huffman& h) {
+    for (int i = 0; i < (1 << FAST_BITS); ++i) {
+        uint8_t fast = h.fast[i];
+        fast_ac[i] = 0;
+        if (fast < 255) {
+            int rs = h.values[fast];
+            int run = (rs >> 4) & 15;
+            int magbits = rs & 15;
+            int len = h.size[fast];
+
+            if (magbits && len + magbits <= FAST_BITS) {
+                // magnitude code followed by receive_extend code
+                int k = ((i << len) & ((1 << FAST_BITS) - 1)) >> (FAST_BITS - magbits);
+                int m = 1 << (magbits - 1);
+                if (k < m) k += (~0U << magbits) + 1;
+                // if the result is small enough, we can fit it in fast_ac table
+                if (k >= -128 && k <= 127)
+                    fast_ac[i] = (int16_t)((k * 256) + (run * 16) + (len + magbits));
+            }
+        }
+    }
+}
+
+struct stbi__jpeg_decoder {
     struct {
         uint32_t img_x, img_y;
         int img_n, img_out_n;
@@ -183,8 +241,7 @@ struct stbi__jpeg {
    int img_mcu_w, img_mcu_h;
 
 // definition of jpeg image component
-   struct
-   {
+   struct {
       int id;
       int h,v;
       int tq;
@@ -217,73 +274,7 @@ struct stbi__jpeg {
    int restart_interval, todo;
 } ;
 
-static int stbi__build_huffman(stbi__huffman *h, int *count) {
-   int i,j,k=0;
-   unsigned int code;
-   // build size list for each symbol (from JPEG spec)
-   for (i=0; i < 16; ++i)
-      for (j=0; j < count[i]; ++j)
-         h->size[k++] = (uint8_t) (i+1);
-   h->size[k] = 0;
-
-   // compute actual symbols (from jpeg spec)
-   code = 0;
-   k = 0;
-   for(j=1; j <= 16; ++j) {
-      // compute delta to add to code to compute symbol id
-      h->delta[j] = k - code;
-      if (h->size[k] == j) {
-         while (h->size[k] == j)
-            h->code[k++] = (uint16_t) (code++);
-         if (code-1 >= (1u << j)) THROW_EXCEPTION("Corrupt JPEG: bad code lengths");
-      }
-      // compute largest code + 1 for this size, preshifted as needed later
-      h->maxcode[j] = code << (16-j);
-      code <<= 1;
-   }
-   h->maxcode[j] = 0xffffffff;
-
-   // build non-spec acceleration table; 255 is flag for not-accelerated
-   memset(h->fast, 255, 1 << FAST_BITS);
-   for (i=0; i < k; ++i) {
-      int s = h->size[i];
-      if (s <= FAST_BITS) {
-         int c = h->code[i] << (FAST_BITS-s);
-         int m = 1 << (FAST_BITS-s);
-         for (j=0; j < m; ++j) {
-            h->fast[c+j] = (uint8_t) i;
-         }
-      }
-   }
-   return 1;
-}
-
-// build a table that decodes both magnitude and value of small ACs in
-// one go.
-static void stbi__build_fast_ac(int16_t *fast_ac, stbi__huffman *h) {
-   for (int i=0; i < (1 << FAST_BITS); ++i) {
-      uint8_t fast = h->fast[i];
-      fast_ac[i] = 0;
-      if (fast < 255) {
-         int rs = h->values[fast];
-         int run = (rs >> 4) & 15;
-         int magbits = rs & 15;
-         int len = h->size[fast];
-
-         if (magbits && len + magbits <= FAST_BITS) {
-            // magnitude code followed by receive_extend code
-            int k = ((i << len) & ((1 << FAST_BITS) - 1)) >> (FAST_BITS - magbits);
-            int m = 1 << (magbits - 1);
-            if (k < m) k += (~0U << magbits) + 1;
-            // if the result is small enough, we can fit it in fast_ac table
-            if (k >= -128 && k <= 127)
-               fast_ac[i] = (int16_t) ((k * 256) + (run * 16) + (len + magbits));
-         }
-      }
-   }
-}
-
-static void stbi__grow_buffer_unsafe(std::istream& in, stbi__jpeg& j) {
+static void stbi__grow_buffer_unsafe(std::istream& in, stbi__jpeg_decoder& j) {
    do {
       unsigned int b = j.nomore ? 0 : get8(in);
       if (b == 0xff) {
@@ -304,8 +295,7 @@ static void stbi__grow_buffer_unsafe(std::istream& in, stbi__jpeg& j) {
 static const uint32_t stbi__bmask[17]={0,1,3,7,15,31,63,127,255,511,1023,2047,4095,8191,16383,32767,65535};
 
 // decode a jpeg huffman value from the bitstream
-inline static int stbi__jpeg_huff_decode(std::istream& in, stbi__jpeg& j, stbi__huffman *h)
-{
+inline static int stbi__jpeg_huff_decode(std::istream& in, stbi__jpeg_decoder& j, stbi__huffman& h) {
    unsigned int temp;
    int c,k;
 
@@ -314,14 +304,14 @@ inline static int stbi__jpeg_huff_decode(std::istream& in, stbi__jpeg& j, stbi__
    // look at the top FAST_BITS and determine what symbol ID it is,
    // if the code is <= FAST_BITS
    c = (j.code_buffer >> (32 - FAST_BITS)) & ((1 << FAST_BITS)-1);
-   k = h->fast[c];
+   k = h.fast[c];
    if (k < 255) {
-      int s = h->size[k];
+      int s = h.size[k];
       if (s > j.code_bits)
          return -1;
       j.code_buffer <<= s;
       j.code_bits -= s;
-      return h->values[k];
+      return h.values[k];
    }
 
    // naive test is to shift the code_buffer down so k bits are
@@ -332,7 +322,7 @@ inline static int stbi__jpeg_huff_decode(std::istream& in, stbi__jpeg& j, stbi__
    // that way we don't need to shift inside the loop.
    temp = j.code_buffer >> 16;
    for (k=FAST_BITS+1 ; ; ++k)
-      if (temp < h->maxcode[k])
+      if (temp < h.maxcode[k])
          break;
    if (k == 17) {
       // error! code not found
@@ -344,13 +334,13 @@ inline static int stbi__jpeg_huff_decode(std::istream& in, stbi__jpeg& j, stbi__
       return -1;
 
    // convert the huffman code to the symbol id
-   c = ((j.code_buffer >> (32 - k)) & stbi__bmask[k]) + h->delta[k];
-   assert((((j.code_buffer) >> (32 - h->size[c])) & stbi__bmask[h->size[c]]) == h->code[c]);
+   c = ((j.code_buffer >> (32 - k)) & stbi__bmask[k]) + h.delta[k];
+   assert((((j.code_buffer) >> (32 - h.size[c])) & stbi__bmask[h.size[c]]) == h.code[c]);
 
    // convert the id to a symbol
    j.code_bits -= k;
    j.code_buffer <<= k;
-   return h->values[c];
+   return h.values[c];
 }
 
 // bias[n] = (-1<<n) + 1
@@ -358,7 +348,7 @@ static const int stbi__jbias[16] = {0,-1,-3,-7,-15,-31,-63,-127,-255,-511,-1023,
 
 // combined JPEG 'receive' and JPEG 'extend', since baseline
 // always extends everything it receives.
-inline static int stbi__extend_receive(std::istream& in, stbi__jpeg& j, int n)
+inline static int stbi__extend_receive(std::istream& in, stbi__jpeg_decoder& j, int n)
 {
    unsigned int k;
    int sgn;
@@ -374,7 +364,7 @@ inline static int stbi__extend_receive(std::istream& in, stbi__jpeg& j, int n)
 }
 
 // get some unsigned bits
-inline static int stbi__jpeg_get_bits(std::istream& in, stbi__jpeg& j, int n)
+inline static int stbi__jpeg_get_bits(std::istream& in, stbi__jpeg_decoder& j, int n)
 {
    unsigned int k;
    if (j.code_bits < n) stbi__grow_buffer_unsafe(in, j);
@@ -385,7 +375,7 @@ inline static int stbi__jpeg_get_bits(std::istream& in, stbi__jpeg& j, int n)
    return k;
 }
 
-inline static int stbi__jpeg_get_bit(std::istream& in, stbi__jpeg& j)
+inline static int stbi__jpeg_get_bit(std::istream& in, stbi__jpeg_decoder& j)
 {
    unsigned int k;
    if (j.code_bits < 1) stbi__grow_buffer_unsafe(in, j);
@@ -413,7 +403,7 @@ static const uint8_t stbi__jpeg_dezigzag[64+15] =
 };
 
 // decode one 64-entry block--
-static int stbi__jpeg_decode_block(std::istream& in, stbi__jpeg& j, short data[64], stbi__huffman *hdc, stbi__huffman *hac, int16_t *fac, int b, uint16_t *dequant)
+static void stbi__jpeg_decode_block(std::istream& in, stbi__jpeg_decoder& j, short data[64], stbi__huffman& hdc, stbi__huffman& hac, int16_t *fac, int b, uint16_t *dequant)
 {
    int diff,dc,k;
    int t;
@@ -462,11 +452,9 @@ static int stbi__jpeg_decode_block(std::istream& in, stbi__jpeg& j, short data[6
          }
       }
    } while (k < 64);
-   return 1;
 }
 
-static int stbi__jpeg_decode_block_prog_dc(std::istream& in, stbi__jpeg& j, short data[64], stbi__huffman *hdc, int b)
-{
+static void stbi__jpeg_decode_block_prog_dc(std::istream& in, stbi__jpeg_decoder& j, short data[64], stbi__huffman& hdc, int b) {
    int diff,dc;
    int t;
    if (j.spec_end != 0) THROW_EXCEPTION("Corrupt JPEG: can't merge dc and ac");
@@ -487,13 +475,11 @@ static int stbi__jpeg_decode_block_prog_dc(std::istream& in, stbi__jpeg& j, shor
       if (stbi__jpeg_get_bit(in, j))
          data[0] += (short) (1 << j.succ_low);
    }
-   return 1;
 }
 
 // @OPTIMIZE: store non-zigzagged during the decode passes,
 // and only de-zigzag when dequantizing
-static int stbi__jpeg_decode_block_prog_ac(std::istream& in, stbi__jpeg& j, short data[64], stbi__huffman *hac, int16_t *fac)
-{
+static void stbi__jpeg_decode_block_prog_ac(std::istream& in, stbi__jpeg_decoder& j, short data[64], stbi__huffman& hac, int16_t *fac) {
    int k;
    if (j.spec_start == 0) THROW_EXCEPTION("Corrupt JPEG: can't merge dc and ac");
 
@@ -502,7 +488,7 @@ static int stbi__jpeg_decode_block_prog_ac(std::istream& in, stbi__jpeg& j, shor
 
       if (j.eob_run) {
          --j.eob_run;
-         return 1;
+         return;
       }
 
       k = j.spec_start;
@@ -608,7 +594,6 @@ static int stbi__jpeg_decode_block_prog_ac(std::istream& in, stbi__jpeg& j, shor
          } while (k <= j.spec_end);
       }
    }
-   return 1;
 }
 
 #define stbi__f2f(x)  ((int) (((x) * 4096 + 0.5)))
@@ -715,7 +700,7 @@ static void stbi__idct_block(uint8_t *out, int out_stride, short data[64]) {
 // if there's a pending marker from the entropy stream, return that
 // otherwise, fetch from the stream and get a marker. if there's no
 // marker, return 0xff, which is never a valid marker value
-static uint8_t stbi__get_marker(std::istream& in, stbi__jpeg& j) {
+static uint8_t stbi__get_marker(std::istream& in, stbi__jpeg_decoder& j) {
    uint8_t x;
    if (j.marker != STBI__MARKER_none) { x = j.marker; j.marker = STBI__MARKER_none; return x; }
    x = get8(in);
@@ -731,7 +716,7 @@ static uint8_t stbi__get_marker(std::istream& in, stbi__jpeg& j) {
 
 // after a restart interval, stbi__jpeg_reset the entropy decoder and
 // the dc prediction
-static void stbi__jpeg_reset(stbi__jpeg& j) {
+static void stbi__jpeg_reset(stbi__jpeg_decoder& j) {
    j.code_bits = 0;
    j.code_buffer = 0;
    j.nomore = 0;
@@ -743,7 +728,7 @@ static void stbi__jpeg_reset(stbi__jpeg& j) {
    // since we don't even allow 1<<30 pixels
 }
 
-static int stbi__parse_entropy_coded_data(std::istream& in, stbi__jpeg& z) {
+static void stbi__parse_entropy_coded_data(std::istream& in, stbi__jpeg_decoder& z) {
    stbi__jpeg_reset(z);
    if (!z.progressive) {
       if (z.scan_n == 1) {
@@ -759,19 +744,19 @@ static int stbi__parse_entropy_coded_data(std::istream& in, stbi__jpeg& z) {
          for (j=0; j < h; ++j) {
             for (i=0; i < w; ++i) {
                int ha = z.img_comp[n].ha;
-               if (!stbi__jpeg_decode_block(in, z, data, z.huff_dc+z.img_comp[n].hd, z.huff_ac+ha, z.fast_ac[ha], n, z.dequant[z.img_comp[n].tq])) return 0;
+               stbi__jpeg_decode_block(in, z, data, z.huff_dc[z.img_comp[n].hd], z.huff_ac[ha], z.fast_ac[ha], n, z.dequant[z.img_comp[n].tq]);
                stbi__idct_block(z.img_comp[n].data.data()+z.img_comp[n].w2*j*8+i*8, z.img_comp[n].w2, data);
                // every data block is an MCU, so countdown the restart interval
                if (--z.todo <= 0) {
                   if (z.code_bits < 24) stbi__grow_buffer_unsafe(in, z);
                   // if it's NOT a restart, then just bail, so we get corrupt data
                   // rather than no data
-                  if (!STBI__RESTART(z.marker)) return 1;
+                  if (!STBI__RESTART(z.marker)) return;
                   stbi__jpeg_reset(z);
                }
             }
          }
-         return 1;
+         return;
       } else { // interleaved
          int i,j,k,x,y;
          short data[64];
@@ -787,7 +772,7 @@ static int stbi__parse_entropy_coded_data(std::istream& in, stbi__jpeg& z) {
                         int x2 = (i*z.img_comp[n].h + x)*8;
                         int y2 = (j*z.img_comp[n].v + y)*8;
                         int ha = z.img_comp[n].ha;
-                        if (!stbi__jpeg_decode_block(in, z, data, z.huff_dc+z.img_comp[n].hd, z.huff_ac+ha, z.fast_ac[ha], n, z.dequant[z.img_comp[n].tq])) return 0;
+                        stbi__jpeg_decode_block(in, z, data, z.huff_dc[z.img_comp[n].hd], z.huff_ac[ha], z.fast_ac[ha], n, z.dequant[z.img_comp[n].tq]);
                         stbi__idct_block(z.img_comp[n].data.data() +z.img_comp[n].w2*y2+x2, z.img_comp[n].w2, data);
                      }
                   }
@@ -796,12 +781,12 @@ static int stbi__parse_entropy_coded_data(std::istream& in, stbi__jpeg& z) {
                // so now count down the restart interval
                if (--z.todo <= 0) {
                   if (z.code_bits < 24) stbi__grow_buffer_unsafe(in, z);
-                  if (!STBI__RESTART(z.marker)) return 1;
+                  if (!STBI__RESTART(z.marker)) return;
                   stbi__jpeg_reset(z);
                }
             }
          }
-         return 1;
+         return;
       }
    } else {
       if (z.scan_n == 1) {
@@ -817,22 +802,20 @@ static int stbi__parse_entropy_coded_data(std::istream& in, stbi__jpeg& z) {
             for (i=0; i < w; ++i) {
                short *data = z.img_comp[n].coeff.data() + 64 * (i + j * z.img_comp[n].coeff_w);
                if (z.spec_start == 0) {
-                  if (!stbi__jpeg_decode_block_prog_dc(in, z, data, &z.huff_dc[z.img_comp[n].hd], n))
-                     return 0;
+                   stbi__jpeg_decode_block_prog_dc(in, z, data, z.huff_dc[z.img_comp[n].hd], n);
                } else {
                   int ha = z.img_comp[n].ha;
-                  if (!stbi__jpeg_decode_block_prog_ac(in, z, data, &z.huff_ac[ha], z.fast_ac[ha]))
-                     return 0;
+                  stbi__jpeg_decode_block_prog_ac(in, z, data, z.huff_ac[ha], z.fast_ac[ha]);
                }
                // every data block is an MCU, so countdown the restart interval
                if (--z.todo <= 0) {
                   if (z.code_bits < 24) stbi__grow_buffer_unsafe(in, z);
-                  if (!STBI__RESTART(z.marker)) return 1;
+                  if (!STBI__RESTART(z.marker)) return;
                   stbi__jpeg_reset(z);
                }
             }
          }
-         return 1;
+         return;
       } else { // interleaved
          int i,j,k,x,y;
          for (j=0; j < z.img_mcu_y; ++j) {
@@ -847,8 +830,7 @@ static int stbi__parse_entropy_coded_data(std::istream& in, stbi__jpeg& z) {
                         int x2 = (i*z.img_comp[n].h + x);
                         int y2 = (j*z.img_comp[n].v + y);
                         short *data = z.img_comp[n].coeff.data() + 64 * (x2 + y2 * z.img_comp[n].coeff_w);
-                        if (!stbi__jpeg_decode_block_prog_dc(in, z, data, &z.huff_dc[z.img_comp[n].hd], n))
-                           return 0;
+                        stbi__jpeg_decode_block_prog_dc(in, z, data, z.huff_dc[z.img_comp[n].hd], n);
                      }
                   }
                }
@@ -856,12 +838,12 @@ static int stbi__parse_entropy_coded_data(std::istream& in, stbi__jpeg& z) {
                // so now count down the restart interval
                if (--z.todo <= 0) {
                   if (z.code_bits < 24) stbi__grow_buffer_unsafe(in, z);
-                  if (!STBI__RESTART(z.marker)) return 1;
+                  if (!STBI__RESTART(z.marker)) return;
                   stbi__jpeg_reset(z);
                }
             }
          }
-         return 1;
+         return;
       }
    }
 }
@@ -871,7 +853,7 @@ static void stbi__jpeg_dequantize(short *data, uint16_t *dequant) {
       data[i] *= dequant[i];
 }
 
-static void stbi__jpeg_finish(stbi__jpeg& z) {
+static void stbi__jpeg_finish(stbi__jpeg_decoder& z) {
    if (z.progressive) {
       // dequantize and idct the data
       int i,j,n;
@@ -889,7 +871,7 @@ static void stbi__jpeg_finish(stbi__jpeg& z) {
    }
 }
 
-static int stbi__process_marker(std::istream& in, stbi__jpeg& z, int m) {
+static void stbi__process_marker(std::istream& in, stbi__jpeg_decoder& z, int m) {
    int L;
    switch (m) {
       case STBI__MARKER_none: // no marker found
@@ -898,7 +880,7 @@ static int stbi__process_marker(std::istream& in, stbi__jpeg& z, int m) {
       case 0xDD: // DRI - specify restart interval
          if (get16be(in) != 4) THROW_EXCEPTION("Corrupt JPEG: bad DRI len");
          z.restart_interval = get16be(in);
-         return 1;
+         return;
 
       case 0xDB: // DQT - define quantization table
          L = get16be(in)-2;
@@ -913,7 +895,8 @@ static int stbi__process_marker(std::istream& in, stbi__jpeg& z, int m) {
                z.dequant[t][stbi__jpeg_dezigzag[i]] = (uint16_t)(sixteen ? get16be(in) : get8(in));
             L -= (sixteen ? 129 : 65);
          }
-         return L==0;
+         ASSERT_EQUAL(L, 0);
+         return;
 
       case 0xC4: // DHT - define huffman table
          L = get16be(in)-2;
@@ -930,19 +913,20 @@ static int stbi__process_marker(std::istream& in, stbi__jpeg& z, int m) {
             }
             L -= 17;
             if (tc == 0) {
-               if (!stbi__build_huffman(z.huff_dc+th, sizes)) return 0;
+                stbi__build_huffman(z.huff_dc[th], sizes);
                v = z.huff_dc[th].values;
             } else {
-               if (!stbi__build_huffman(z.huff_ac+th, sizes)) return 0;
+               stbi__build_huffman(z.huff_ac[th], sizes);
                v = z.huff_ac[th].values;
             }
             for (i=0; i < n; ++i)
                v[i] = get8(in);
             if (tc != 0)
-               stbi__build_fast_ac(z.fast_ac[th], z.huff_ac + th);
+               stbi__build_fast_ac(z.fast_ac[th], z.huff_ac[th]);
             L -= n;
          }
-         return L==0;
+         ASSERT_EQUAL(L, 0);
+         return;
    }
 
    // check for comment block or APP blocks
@@ -984,14 +968,13 @@ static int stbi__process_marker(std::istream& in, stbi__jpeg& z, int m) {
       }
 
       skip(in, L);
-      return 1;
+   } else {
+       THROW_EXCEPTION("Corrupt JPEG: unknown marker");
    }
-
-   THROW_EXCEPTION("Corrupt JPEG: unknown marker");
 }
 
 // after we see SOS
-static int stbi__process_scan_header(std::istream& in, stbi__jpeg& z) {
+static void stbi__process_scan_header(std::istream& in, stbi__jpeg_decoder& z) {
    int i;
    int Ls = get16be(in);
    z.scan_n = get8(in);
@@ -1003,7 +986,8 @@ static int stbi__process_scan_header(std::istream& in, stbi__jpeg& z) {
       for (which = 0; which < z.os.img_n; ++which)
          if (z.img_comp[which].id == id)
             break;
-      if (which == z.os.img_n) return 0; // no match
+      ASSERT_TRUE(which < z.os.img_n);
+
       z.img_comp[which].hd = q >> 4;   if (z.img_comp[which].hd > 3) THROW_EXCEPTION("Corrupt JPEG: bad DC huff");
       z.img_comp[which].ha = q & 15;   if (z.img_comp[which].ha > 3) THROW_EXCEPTION("Corrupt JPEG: bad AC huff");
       z.order[i] = which;
@@ -1023,11 +1007,9 @@ static int stbi__process_scan_header(std::istream& in, stbi__jpeg& z) {
          z.spec_end = 63;
       }
    }
-
-   return 1;
 }
 
-static int stbi__process_frame_header(std::istream& in, stbi__jpeg& z, int scan)
+static void stbi__process_frame_header(std::istream& in, stbi__jpeg_decoder& z)
 {
    auto *os = &z.os;
    int Lf,p,i,q, h_max=1,v_max=1,c;
@@ -1038,10 +1020,6 @@ static int stbi__process_frame_header(std::istream& in, stbi__jpeg& z, int scan)
    c = get8(in);
    if (c != 3 && c != 1 && c != 4) THROW_EXCEPTION("Corrupt JPEG: bad component count");
    os->img_n = c;
-   for (i=0; i < c; ++i) {
-      z.img_comp[i].data.clear();
-      z.img_comp[i].linebuf.clear();
-   }
 
    if (Lf != 8+3*os->img_n) THROW_EXCEPTION("Corrupt JPEG: bad SOF len");
 
@@ -1056,8 +1034,6 @@ static int stbi__process_frame_header(std::istream& in, stbi__jpeg& z, int scan)
       z.img_comp[i].v = q & 15;    if (!z.img_comp[i].v || z.img_comp[i].v > 4) THROW_EXCEPTION("Corrupt JPEG: bad V");
       z.img_comp[i].tq = get8(in);  if (z.img_comp[i].tq > 3) THROW_EXCEPTION("Corrupt JPEG: bad TQ");
    }
-
-   if (scan != STBI__SCAN_load) return 1;
 
    for (i=0; i < os->img_n; ++i) {
       if (z.img_comp[i].h > h_max) h_max = z.img_comp[i].h;
@@ -1086,8 +1062,6 @@ static int stbi__process_frame_header(std::istream& in, stbi__jpeg& z, int scan)
       // so these muls can't overflow with 32-bit ints (which we require)
       z.img_comp[i].w2 = z.img_mcu_x * z.img_comp[i].h * 8;
       z.img_comp[i].h2 = z.img_mcu_y * z.img_comp[i].v * 8;
-      z.img_comp[i].coeff.clear();
-      z.img_comp[i].linebuf.clear();
       z.img_comp[i].data.resize(z.img_comp[i].w2 * z.img_comp[i].h2);
       if (z.progressive) {
          // w2, h2 are multiples of 8 (see above)
@@ -1096,8 +1070,6 @@ static int stbi__process_frame_header(std::istream& in, stbi__jpeg& z, int scan)
          z.img_comp[i].coeff.resize(z.img_comp[i].w2 * z.img_comp[i].h2);
       }
    }
-
-   return 1;
 }
 
 // use comparisons since in some cases we handle more than one case (e.g. SOF)
@@ -1109,17 +1081,16 @@ static int stbi__process_frame_header(std::istream& in, stbi__jpeg& z, int scan)
 
 #define stbi__SOF_progressive(x)   ((x) == 0xc2)
 
-static int stbi__decode_jpeg_header(std::istream& in, stbi__jpeg& z, int scan)
+static void stbi__decode_jpeg_header(std::istream& in, stbi__jpeg_decoder& z)
 {
    z.jfif = 0;
    z.app14_color_transform = -1; // valid values are 0,1,2
    z.marker = STBI__MARKER_none; // initialize cached marker to empty
    int m = stbi__get_marker(in, z);
    if (!stbi__SOI(m)) THROW_EXCEPTION("Corrupt JPEG: no SOI");
-   if (scan == STBI__SCAN_type) return 1;
    m = stbi__get_marker(in, z);
    while (!stbi__SOF(m)) {
-      if (!stbi__process_marker(in, z,m)) return 0;
+      stbi__process_marker(in, z,m);
       m = stbi__get_marker(in, z);
       while (m == STBI__MARKER_none) {
          // some files have extra padding after their blocks, so ok, we'll scan
@@ -1128,25 +1099,18 @@ static int stbi__decode_jpeg_header(std::istream& in, stbi__jpeg& z, int scan)
       }
    }
    z.progressive = stbi__SOF_progressive(m);
-   if (!stbi__process_frame_header(in, z, scan)) return 0;
-   return 1;
+   stbi__process_frame_header(in, z);
 }
 
 // decode image to YCbCr format
-static int stbi__decode_jpeg_image(std::istream& in, stbi__jpeg& j)
-{
-   int m;
-   for (m = 0; m < 4; m++) {
-      j.img_comp[m].data.clear();
-      j.img_comp[m].coeff.clear();
-   }
+static void stbi__decode_jpeg_image(std::istream& in, stbi__jpeg_decoder& j) {
    j.restart_interval = 0;
-   if (!stbi__decode_jpeg_header(in, j, STBI__SCAN_load)) return 0;
-   m = stbi__get_marker(in, j);
+   stbi__decode_jpeg_header(in, j);
+   int m = stbi__get_marker(in, j);
    while (!stbi__EOI(m)) {
       if (stbi__SOS(m)) {
-         if (!stbi__process_scan_header(in, j)) return 0;
-         if (!stbi__parse_entropy_coded_data(in, j)) return 0;
+         stbi__process_scan_header(in, j);
+         stbi__parse_entropy_coded_data(in, j);
          if (j.marker == STBI__MARKER_none ) {
             // handle 0s at the end of image data from IP Kamera 9060
             while (!in.eof()) {
@@ -1164,13 +1128,12 @@ static int stbi__decode_jpeg_image(std::istream& in, stbi__jpeg& j)
          if (Ld != 4) THROW_EXCEPTION("Corrupt JPEG: bad DNL len");
          if (NL != j.os.img_y) THROW_EXCEPTION("Corrupt JPEG: bad DNL height");
       } else {
-         if (!stbi__process_marker(in, j, m)) return 0;
+         stbi__process_marker(in, j, m);
       }
       m = stbi__get_marker(in, j);
    }
    if (j.progressive)
       stbi__jpeg_finish(j);
-   return 1;
 }
 
 // static jfif-centered resampling (across block boundaries)
@@ -1252,8 +1215,7 @@ static uint8_t *stbi__resample_row_hv_2(uint8_t *out, uint8_t *in_near, uint8_t 
    return out;
 }
 
-static uint8_t *stbi__resample_row_generic(uint8_t *out, uint8_t *in_near, uint8_t *in_far, int w, int hs)
-{
+static uint8_t *stbi__resample_row_generic(uint8_t *out, uint8_t *in_near, uint8_t *in_far, int w, int hs) {
    // resample with nearest-neighbor
    STBI_NOTUSED(in_far);
    for (int i=0; i < w; ++i)
@@ -1262,11 +1224,11 @@ static uint8_t *stbi__resample_row_generic(uint8_t *out, uint8_t *in_near, uint8
    return out;
 }
 
-// this is a reduced-precision calculation of YCbCr-to-RGB introduced
-// to make sure the code produces the same results in both SIMD and scalar
-#define stbi__float2fixed(x)  (((int) ((x) * 4096.0f + 0.5f)) << 8)
-static void stbi__YCbCr_to_RGB_row(uint8_t *out, const uint8_t *y, const uint8_t *pcb, const uint8_t *pcr, int count, int step)
-{
+inline int stbi__float2fixed(float x) {
+    return int(x * 4096.0f + 0.5f) << 8;
+}
+
+static void stbi__YCbCr_to_RGB_row(uint8_t *out, const uint8_t *y, const uint8_t *pcb, const uint8_t *pcr, int count, int step) {
    for (int i=0; i < count; ++i) {
       int y_fixed = (y[i] << 20) + (1<<19); // rounding
       int r,g,b;
@@ -1305,7 +1267,7 @@ static uint8_t stbi__blinn_8x8(uint8_t x, uint8_t y) {
 }
 
 static uint8_t *load_jpeg_image(std::istream& in,int *out_x, int *out_y, int *comp, int req_comp) {
-    stbi__jpeg z;
+    stbi__jpeg_decoder z;
 
    z.os.img_n = 0; // make stbi__cleanup_jpeg safe
 
@@ -1313,7 +1275,7 @@ static uint8_t *load_jpeg_image(std::istream& in,int *out_x, int *out_y, int *co
    if (req_comp < 0 || req_comp > 4) THROW_EXCEPTION("Internal error: bad req_comp");
 
    // load a jpeg image from whichever source, but leave in YCbCr format
-   if (!stbi__decode_jpeg_image(in, z)) { return NULL; }
+   stbi__decode_jpeg_image(in, z);
 
    // determine actual number of components to generate
    int n = req_comp ? req_comp : z.os.img_n >= 3 ? 3 : 1;
