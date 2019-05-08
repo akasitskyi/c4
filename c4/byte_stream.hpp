@@ -22,10 +22,8 @@
 
 #pragma once
 
-#include <vector>
 #include <string>
 #include <cassert>
-#include <istream>
 #include <fstream>
 
 namespace c4 {
