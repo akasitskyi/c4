@@ -28,6 +28,7 @@
 #include <istream>
 #include <fstream>
 
+#include "byte_stream.hpp"
 #include "matrix.hpp"
 #include "pixel.hpp"
 
@@ -74,23 +75,6 @@ namespace c4 {
             write_binary(out, uint32_t(0));
         }
 
-        inline uint8_t get8(std::istream& in) {
-            uint8_t r;
-            in.read((char*)&r, sizeof(r));
-            return r;
-        }
-
-        inline void skip(std::istream& in, int n) {
-            in.seekg(in.tellg() + std::streamoff(n));
-        }
-
-        inline int get16le(std::istream& in) {
-            return get8(in) | (get8(in) << 8);
-        }
-
-        inline uint32_t get32le(std::istream& in) {
-            return get16le(in) | (get16le(in) << 16);
-        }
     }
 
     struct bmp_header {
@@ -99,52 +83,53 @@ namespace c4 {
         int bpp, offset, hsz;
     };
 
-    inline bmp_header read_bmp_header(std::istream& in) {
+    template<class T>
+    inline bmp_header read_bmp_header(byte_input_stream<T>& in) {
         using namespace c4::detail;
 
         bmp_header info;
 
-        if (get8(in) != 'B' || get8(in) != 'M')
+        if (in.get8() != 'B' || in.get8() != 'M')
             throw std::logic_error("Not a BMP");
 
-        get32le(in); // discard filesize
-        get16le(in); // discard reserved
-        get16le(in); // discard reserved
-        info.offset = get32le(in);
-        info.hsz = get32le(in);
+        in.get32le(); // discard filesize
+        in.get16le(); // discard reserved
+        in.get16le(); // discard reserved
+        info.offset = in.get32le();
+        info.hsz = in.get32le();
 
         if (info.hsz != 12 && info.hsz != 40 && info.hsz != 56 && info.hsz != 108 && info.hsz != 124)
             throw std::logic_error("Corrupted BMP");
 
         if (info.hsz == 12) {
-            info.img_width = get16le(in);
-            info.img_height = get16le(in);
+            info.img_width = in.get16le();
+            info.img_height = in.get16le();
         }
         else {
-            info.img_width = get32le(in);
-            info.img_height = get32le(in);
+            info.img_width = in.get32le();
+            info.img_height = in.get32le();
         }
 
-        if (get16le(in) != 1)
+        if (in.get16le() != 1)
             throw std::logic_error("Corrupted BMP");
 
-        info.bpp = get16le(in);
+        info.bpp = in.get16le();
         if (info.hsz != 12) {
-            int compress = get32le(in);
+            int compress = in.get32le();
             if (compress == 1 || compress == 2)
                 throw std::logic_error("BMP type not supported: RLE");
 
-            get32le(in); // discard sizeof
-            get32le(in); // discard hres
-            get32le(in); // discard vres
-            get32le(in); // discard colorsused
-            get32le(in); // discard max important
+            in.get32le(); // discard sizeof
+            in.get32le(); // discard hres
+            in.get32le(); // discard vres
+            in.get32le(); // discard colorsused
+            in.get32le(); // discard max important
             if (info.hsz == 40 || info.hsz == 56) {
                 if (info.hsz == 56) {
-                    get32le(in);
-                    get32le(in);
-                    get32le(in);
-                    get32le(in);
+                    in.get32le();
+                    in.get32le();
+                    in.get32le();
+                    in.get32le();
                 }
                 if (info.bpp == 16 || info.bpp == 32) {
                     if (compress == 0) {
@@ -152,9 +137,9 @@ namespace c4 {
                     }
                     else if (compress == 3) {
                         // skip rgb masks
-                        get32le(in);
-                        get32le(in);
-                        get32le(in);
+                        in.get32le();
+                        in.get32le();
+                        in.get32le();
                     }
                     else
                         throw std::logic_error("Corrupted BMP");
@@ -165,18 +150,18 @@ namespace c4 {
                 if (info.hsz != 108 && info.hsz != 124)
                     throw std::logic_error("Corrupted BMP");
                 // skip rgb masks
-                get32le(in);
-                get32le(in);
-                get32le(in);
-                get32le(in);
-                get32le(in); // discard color space
+                in.get32le();
+                in.get32le();
+                in.get32le();
+                in.get32le();
+                in.get32le(); // discard color space
                 for (i = 0; i < 12; ++i)
-                    get32le(in); // discard color space parameters
+                    in.get32le(); // discard color space parameters
                 if (info.hsz == 124) {
-                    get32le(in); // discard rendering intent
-                    get32le(in); // discard offset of profile data
-                    get32le(in); // discard size of profile data
-                    get32le(in); // discard reserved
+                    in.get32le(); // discard rendering intent
+                    in.get32le(); // discard offset of profile data
+                    in.get32le(); // discard size of profile data
+                    in.get32le(); // discard reserved
                 }
             }
         }
@@ -184,7 +169,8 @@ namespace c4 {
     }
 
 
-    inline void read_bmp24(std::istream& in, matrix<pixel<uint8_t>>& out) {
+    template<class T>
+    inline void read_bmp24(byte_input_stream<T>& in, matrix<pixel<uint8_t>>& out) {
         using namespace c4::detail;
 
         bmp_header info = read_bmp_header(in);
@@ -197,17 +183,17 @@ namespace c4 {
 
         out.resize(info.img_height, info.img_width);
 
-        skip(in, info.offset - 14 - info.hsz);
+        in.skip(info.offset - 14 - info.hsz);
 
         int pad = (-3 * info.img_width) & 3;
 
         for (int j = 0; j < (int)info.img_height; ++j) {
             for (int i = 0; i < (int)info.img_width; ++i) {
-                out[j][i].b = get8(in);
-                out[j][i].g = get8(in);
-                out[j][i].r = get8(in);
+                out[j][i].b = in.get8();
+                out[j][i].g = in.get8();
+                out[j][i].r = in.get8();
             }
-            skip(in, pad);
+            in.skip(pad);
         }
 
         if (flip_vertically) {
@@ -216,8 +202,7 @@ namespace c4 {
     }
 
     inline void read_bmp24(const std::string& filepath, matrix<pixel<uint8_t>>& out) {
-        std::ifstream fin(filepath, std::ifstream::binary);
-        read_bmp24(fin, out);
+        read_bmp24(file_byte_input_stream(filepath), out);
     }
 
     inline void write_bmp24(std::ostream& out, const matrix_ref<pixel<uint8_t>>& img) {
