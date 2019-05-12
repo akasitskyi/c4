@@ -65,37 +65,37 @@ struct LBP {
     }
 };
 
-//struct LBP_2x2 {
-//    c4::matrix<uint8_t> operator()(const c4::matrix<uint8_t>& img) const {
-//        c4::matrix<uint8_t> lbp(img.height() - 5, img.width() - 5);
-//        
-//        c4::matrix<uint8_t> m(3, 3);
-//
-//        for (int i : c4::range(lbp.height())) {
-//            for (int j : c4::range(lbp.width())) {
-//                c4::scale_bilinear(img.submatrix(i, j, 6, 6), m);
-//
-//                const uint8_t c = m[1][1];
-//
-//                int v = 0;
-//
-//                v = (v << 1) | (m[0][0] > c);
-//                v = (v << 1) | (m[0][1] > c);
-//                v = (v << 1) | (m[0][2] > c);
-//                v = (v << 1) | (m[1][0] > c);
-//                v = (v << 1) | (m[1][2] > c);
-//                v = (v << 1) | (m[2][0] > c);
-//                v = (v << 1) | (m[2][1] > c);
-//                v = (v << 1) | (m[2][2] > c);
-//
-//                lbp[i][j] = uint8_t(v);
-//            }
-//        }
-//
-//        return lbp;
-//    }
-//};
-//
+struct LBP_2x2 {
+    c4::matrix<uint8_t> operator()(const c4::matrix<uint8_t>& img) const {
+        c4::matrix<uint8_t> lbp(img.height() - 5, img.width() - 5);
+        
+        c4::matrix<uint8_t> m(3, 3);
+
+        for (int i : c4::range(lbp.height())) {
+            for (int j : c4::range(lbp.width())) {
+                c4::scale_bilinear(img.submatrix(i, j, 6, 6), m);
+
+                const uint8_t c = m[1][1];
+
+                int v = 0;
+
+                v = (v << 1) | (m[0][0] > c);
+                v = (v << 1) | (m[0][1] > c);
+                v = (v << 1) | (m[0][2] > c);
+                v = (v << 1) | (m[1][0] > c);
+                v = (v << 1) | (m[1][2] > c);
+                v = (v << 1) | (m[2][0] > c);
+                v = (v << 1) | (m[2][1] > c);
+                v = (v << 1) | (m[2][2] > c);
+
+                lbp[i][j] = uint8_t(v);
+            }
+        }
+
+        return lbp;
+    }
+};
+
 template<class TForm>
 void generate_samples(const c4::matrix_dimensions& sample_size, const c4::matrix<uint8_t>& img, const std::vector<c4::rectangle<int>>& rects, std::vector<c4::matrix<uint8_t>>& train_x, std::vector<float>& train_y, int k, TForm tform) {
     c4::matrix<uint8_t> sample(sample_size);
