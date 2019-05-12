@@ -133,4 +133,71 @@ namespace c4 {
         const auto& p = *this;
         return sign((b - a) ^ (p - a)) != sign((c - a) ^ (p - a)) && sign((b - c) ^ (p - c)) != sign((a - c) ^ (p - c));
     }
+
+    template<typename T>
+    struct rectangle {
+        T x, y, w, h;
+
+        rectangle(T x, T y, T w, T h) : x(x), y(y), w(w), h(h) {}
+        rectangle() : x(0), y(0), w(0), h(0) {}
+
+        auto area() const {
+            return w * h;
+        }
+
+        template<typename T1>
+        auto scale_around_origin(T1 sx, T1 sy) const {
+            return rectangle<decltype(T() * T1())>(x * sx, y * sy, w * sx, h * sy);
+        }
+
+        template<typename T1>
+        auto scale_around_origin(T1 s) const {
+            return scale_around_origin(s, s);
+        }
+
+        template<typename T1>
+        auto scale_around_center(T1 sx, T1 sy) const {
+            auto cx2 = 2 * x + w;
+            auto cy2 = 2 * y + w;
+            auto w1 = w * sx;
+            auto h1 = h * sy;
+
+            auto x1 = (cx2 - w1) / 2;
+            auto y1 = (cy2 - h1) / 2;
+
+            return rectangle<decltype(T() * T1())>(x1, y1, w1, h1);
+        }
+
+        template<typename T1>
+        auto scale_around_center(T1 s) const {
+            return scale_around_center(s, s);
+        }
+
+        rectangle<T> intersect(const rectangle<T>& other) const {
+            rectangle<T> r;
+            
+            r.x = std::max(x, other.x);
+            r.y = std::max(y, other.y);
+            
+            const T x1 = std::min(x + w, other.x + other.w);
+            const T y1 = std::min(y + h, other.y + other.h);
+            
+            if (x1 < r.x || y1 < r.y)
+                return rectangle<T>();
+            
+            r.w = x1 - r.x;
+            r.h = y1 - r.y;
+
+            return r;
+        }
+    };
+
+    template<typename T>
+    inline double intersection_over_union(const rectangle<T>& a, const rectangle<T>& b) {
+        double sa = a.area();
+        double sb = b.area();
+        double si = a.intersect(b).area();
+
+        return si / (sa + sb - si);
+    }
 };

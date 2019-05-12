@@ -48,9 +48,16 @@ namespace __c4 {
             return sum;
         }
 
-        void train(const std::vector<matrix<uint8_t>>& x, const std::vector<float>& y) {
-            const float learning_rate = 1.f;
+        std::vector<double> predict(const std::vector<matrix<uint8_t>>& x) const {
+            std::vector<double> f(x.size());
+            for (int i : range(x)) {
+                f[i] = predict(x[i]);
+            }
 
+            return f;
+        }
+
+        void train(const std::vector<matrix<uint8_t>>& x, const std::vector<float>& y, const std::vector<matrix<uint8_t>>& test_x, const std::vector<float>& test_y) {
             weights.resize(x[0].dimensions());
             for (auto& v : weights) {
                 for (auto& t : v) {
@@ -58,9 +65,11 @@ namespace __c4 {
                 }
             }
 
-            std::vector<double> f(x.size(), 0.);
+            for (int it = 0; it < 1000; it++) {
+                std::vector<double> f = predict(x);
 
-            for (int it = 0; it < 1; it++) {
+                matrix<std::array<double, dim>> d(weights.dimensions());
+
                 for (int i : range(weights.height())) {
                     for (int j : range(weights.width())) {
                         std::vector<double> sf(dim, 0.);
@@ -73,24 +82,27 @@ namespace __c4 {
                             n[x[k][i][j]]++;
                         }
 
-                        std::vector<double> d(dim, 0.);
-
-                        for (int k : range(d)) {
+                        for (int k : range(dim)) {
                             if (n[k] == 0)
                                 continue;
 
-                            d[k] = learning_rate * (sy[k] - sf[k]) / n[k];
-                        }
-
-                        for (int k : range(d)) {
-                            weights[i][j][k] += d[k];
-                        }
-
-                        for (int k : range(x)) {
-                            f[k] += d[x[k][i][j]];
+                            d[i][j][k] = (sy[k] - sf[k]) / n[k];
                         }
                     }
                 }
+
+                for (int i : range(weights.height())) {
+                    for (int j : range(weights.width())) {
+                        for (int k : range(dim)) {
+                            weights[i][j][k] += d[i][j][k] / weights.dimensions().area();
+                        }
+                    }
+                }
+
+                const double train_mse = mean_squared_error(predict(x), y);
+                const double test_mse = mean_squared_error(predict(test_x), test_y);
+
+                LOGD << "it " << it << ", train_mse: " << train_mse << ", test_mse: " << test_mse;
             }
         }
     };

@@ -26,6 +26,7 @@
 #include <cassert>
 
 #include "range.hpp"
+#include "geometry.hpp"
 
 namespace c4 {
     template<class T>
@@ -232,6 +233,10 @@ namespace c4 {
             return { height_, width_ };
         }
 
+        rectangle<int> rect() const {
+            return rectangle<int>(0, 0, width_, height_);
+        }
+
         int height() const {
             return height_;
         }
@@ -250,6 +255,10 @@ namespace c4 {
 
         bool is_inside(int y, int x) const {
             return 0 <= y && y < height_ && 0 <= x && x < width_;
+        }
+
+        bool is_inside(const rectangle<int>& r) const {
+            return 0 <= r.y && r.y + r.h <= height_ && 0 <= r.x && r.x + r.w <= width_;
         }
 
         T* data() {
@@ -280,14 +289,22 @@ namespace c4 {
             return operator[](i)[j];
         }
 
+        matrix_ref<T> submatrix(const rectangle<int>& r) {
+            assert(is_inside(r));
+            return matrix_ref<T>(r.h, r.w, stride_, ptr_ + r.y * stride_ + r.x);
+        }
+
+        const matrix_ref<T> submatrix(const rectangle<int>& r) const {
+            assert(is_inside(r));
+            return matrix_ref<T>(r.h, r.w, stride_, ptr_ + r.y * stride_ + r.x);
+        }
+
         matrix_ref<T> submatrix(int i, int j, int h, int w) {
-            assert(is_inside(i, j) && is_inside(i + h - 1 , j + w - 1));
-            return matrix_ref<T>(h, w, stride_, ptr_ + i * stride_ + j);
+            return submatrix(rectangle<int>(j, i, w, h));
         }
 
         const matrix_ref<T> submatrix(int i, int j, int h, int w) const {
-            assert(is_inside(i, j) && is_inside(i + h - 1, j + w - 1));
-            return matrix_ref<T>(h, w, stride_, const_cast<T*>(ptr_ + i * stride_ + j));
+            return submatrix(rectangle<int>(j, i, w, h));
         }
 
         static const matrix_ref<T> create_const(int height, int width, int stride, const T* ptr) {

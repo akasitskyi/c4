@@ -27,6 +27,8 @@
 #include <limits>
 #include <type_traits>
 
+#include "exception.hpp"
+
 namespace c4 {
     template<typename T>
     inline T pi() {
@@ -169,6 +171,22 @@ namespace c4 {
         }
 
         return r;
+    }
+
+    template<typename T1, typename T2>
+    double mean_squared_error(const std::vector<T1>& a, const std::vector<T2>& b) {
+        ASSERT_EQUAL(a.size(), b.size());
+
+        if (isize(a) == 0)
+            return 0.;
+
+        double s = 0.;
+
+        for (int i : c4::range(a)) {
+            s += sqr(a[i] - b[i]);
+        }
+
+        return s / a.size();
     }
 
     // https://en.wikipedia.org/wiki/Linear_congruential_generator

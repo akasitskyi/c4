@@ -25,20 +25,19 @@
 #include "simd.hpp"
 #include "range.hpp"
 #include "matrix.hpp"
+#include "pixel.hpp"
 #include "logger.hpp"
 #include "fixed_point.hpp"
 
 namespace c4 {
     template<typename pixel_t>
     inline void scale_image_nearest_neighbor(const c4::matrix_ref<pixel_t>& src, c4::matrix_ref<pixel_t>& dst){
-        float iq = std::min<float>(float(src.height()) / dst.height(), float(src.width()) / dst.width());
-
         std::vector<int> J0(dst.width() + 1);
         for(int j : range(J0))
-            J0[j] = int(j * iq);
+            J0[j] = j * src.width() / dst.width();
 
         for(int i : range(dst.height())) {
-            int i0 = int(i * iq);
+            int i0 = i * src.height() / dst.height();
             pixel_t* pdst = dst[i];
             const pixel_t* psrc = src[i0];
             int n = (int)dst.width(); 
@@ -69,15 +68,16 @@ namespace c4 {
 
         template<typename src_pixel_t, typename dst_pixel_t>
         inline void scale_bilinear_floating_point_weights(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst) {
-            float q = float(dst.height() + dst.width()) / (src.height() + src.width());
+            const float qh = float(dst.height()) / src.height();
+            const float qw = float(dst.width()) / src.width();
 
             std::vector<int> i0v, i1v;
             std::vector<float> di0v;
-            calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
+            calc_bilinear_scaling_indexes(dst.height(), src.height(), qh, i0v, i1v, di0v);
 
             std::vector<int> j0v, j1v;
             std::vector<float> dj0v;
-            calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
+            calc_bilinear_scaling_indexes(dst.width(), src.width(), qw, j0v, j1v, dj0v);
 
             for (int i : range(dst.height())) {
                 int i0 = i0v[i];
@@ -108,18 +108,19 @@ namespace c4 {
 
         template<typename src_pixel_t, typename dst_pixel_t>
         inline void scale_bilinear_fixed_point_weights(const c4::matrix_ref<src_pixel_t>& src, c4::matrix_ref<dst_pixel_t>& dst) {
-            float q = float(dst.height() + dst.width()) / (src.height() + src.width());
+            const float qh = float(dst.height()) / src.height();
+            const float qw = float(dst.width()) / src.width();
 
             constexpr int shift = 10;
             const int one = 1 << shift;
 
             std::vector<int> i0v, i1v;
             std::vector<c4::fixed_point<int, shift> > di0v;
-            calc_bilinear_scaling_indexes(dst.height(), src.height(), q, i0v, i1v, di0v);
+            calc_bilinear_scaling_indexes(dst.height(), src.height(), qh, i0v, i1v, di0v);
 
             std::vector<int> j0v, j1v;
             std::vector<c4::fixed_point<int, shift> > dj0v;
-            calc_bilinear_scaling_indexes(dst.width(), src.width(), q, j0v, j1v, dj0v);
+            calc_bilinear_scaling_indexes(dst.width(), src.width(), qw, j0v, j1v, dj0v);
 
             for (int i : range(dst.height())) {
                 int i0 = i0v[i];
