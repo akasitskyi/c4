@@ -43,7 +43,7 @@ struct LBP {
 
         for (int i : c4::range(lbp.height())) {
             for (int j : c4::range(lbp.width())) {
-                const c4::matrix<uint8_t> m = img.submatrix(i - 1, j - 1, 3, 3);
+                const c4::matrix<uint8_t> m = img.submatrix(i, j, 3, 3);
                 const uint8_t c = m[1][1];
 
                 int v = 0;
@@ -73,9 +73,9 @@ struct LBP {
 //
 //        for (int i : c4::range(lbp.height())) {
 //            for (int j : c4::range(lbp.width())) {
-//                c4::scale_bilinear(img.submatrix(i - 2, j - 2, 6, 6), m);
+//                c4::scale_bilinear(img.submatrix(i, j, 6, 6), m);
 //
-//                const uint8_t c = img[1][1];
+//                const uint8_t c = m[1][1];
 //
 //                int v = 0;
 //
@@ -95,7 +95,7 @@ struct LBP {
 //        return lbp;
 //    }
 //};
-
+//
 template<class TForm>
 void generate_samples(const c4::matrix_dimensions& sample_size, const c4::matrix<uint8_t>& img, const std::vector<c4::rectangle<int>>& rects, std::vector<c4::matrix<uint8_t>>& train_x, std::vector<float>& train_y, int k, TForm tform) {
     c4::matrix<uint8_t> sample(sample_size);
