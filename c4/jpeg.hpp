@@ -1374,7 +1374,11 @@ namespace c4 {
     template<typename T>
     static void read_jpeg(const std::string& filename, c4::matrix<T>& img) {
         c4::file_byte_input_stream fin(filename);
-        detail::load_jpeg_image(fin, img);
+        try {
+            detail::load_jpeg_image(fin, img);
+        } catch (const std::exception& e) {
+            throw std::runtime_error(std::string(e.what()) + ", while reading " + filename);
+        }
     }
 
     template<typename T>

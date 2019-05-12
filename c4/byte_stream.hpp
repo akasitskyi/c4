@@ -25,6 +25,7 @@
 #include <string>
 #include <cassert>
 #include <fstream>
+#include "exception.hpp"
 
 namespace c4 {
     namespace detail {
@@ -55,7 +56,8 @@ namespace c4 {
             std::ifstream fin;
         public:
             FileByteInputStream(const std::string& filename) : fin(filename, std::fstream::binary) {
-                assert(fin.good());
+                if (!fin.good())
+                    THROW_EXCEPTION("Can't open file: " + filename);
             }
 
             inline uint8_t get_byte() {

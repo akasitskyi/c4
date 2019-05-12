@@ -80,6 +80,6 @@ namespace c4 {
 #define THROW_EXCEPTION(MSG) throw c4::exception(MSG, __FILE__, __LINE__)
 
 #define ASSERT_TRUE(C) if( C ) {} else THROW_EXCEPTION("Runtime assertion failed: " #C)
-#define ASSERT_EQUAL(A, B) { auto a = (A); auto b = (B); if( a != b ) THROW_EXCEPTION("Runtime assertion failed: " #A " == " #B ", " + std::to_string(a) + " != " + std::to_string(b)); }
+#define ASSERT_EQUAL(A, B) { auto __a = (A); auto __b = (B); if( __a != __b ) THROW_EXCEPTION("Runtime assertion failed: " #A " == " #B ", " + std::to_string(__a) + " != " + std::to_string(__b)); }
 
 };
