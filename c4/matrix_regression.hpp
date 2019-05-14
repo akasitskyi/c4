@@ -24,13 +24,14 @@
 
 #include <c4/matrix.hpp>
 #include <c4/exception.hpp>
+#include <c4/parallel.hpp>
 
 namespace __c4 {
     using namespace c4;
 
     template<int dim = 256>
     class matrix_regression {
-        matrix<std::array<double, dim>> weights;
+        matrix<std::array<float, dim>> weights;
     public:
         matrix_regression() {}
 
@@ -50,9 +51,9 @@ namespace __c4 {
 
         std::vector<double> predict(const std::vector<matrix<uint8_t>>& x) const {
             std::vector<double> f(x.size());
-            for (int i : range(x)) {
+            parallel_for(range(x), [&](int i) {
                 f[i] = predict(x[i]);
-            }
+            });
 
             return f;
         }
@@ -65,12 +66,12 @@ namespace __c4 {
                 }
             }
 
-            for (int it = 0; it < 1000; it++) {
+            for (int it = 0; it < 100; it++) {
                 std::vector<double> f = predict(x);
 
                 matrix<std::array<double, dim>> d(weights.dimensions());
 
-                for (int i : range(weights.height())) {
+                parallel_for(range(weights.height()), [&](int i) {
                     for (int j : range(weights.width())) {
                         std::vector<double> sf(dim, 0.);
                         std::vector<double> sy(dim, 0.);
@@ -89,12 +90,12 @@ namespace __c4 {
                             d[i][j][k] = (sy[k] - sf[k]) / n[k];
                         }
                     }
-                }
+                });
 
                 for (int i : range(weights.height())) {
                     for (int j : range(weights.width())) {
                         for (int k : range(dim)) {
-                            weights[i][j][k] += d[i][j][k] / weights.dimensions().area();
+                            weights[i][j][k] = float(weights[i][j][k] + d[i][j][k] / weights.dimensions().area());
                         }
                     }
                 }

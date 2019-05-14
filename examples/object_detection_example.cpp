@@ -161,7 +161,7 @@ struct dataset {
             std::string filename = image_info["filename"];
 
             // Right now we only have jpeg input...
-            if (!c4::ends_with(c4::to_lower(filename), ".jpg") || rnd() % 10)
+            if (!c4::ends_with(c4::to_lower(filename), ".jpg") || rnd() % 20)
                 continue;
 
             c4::matrix<uint8_t> img;
@@ -182,7 +182,27 @@ struct dataset {
 
 int main(int argc, char* argv[]) {
     try{
-        const c4::matrix_dimensions sample_size{ 40, 40 };
+        // step 20, k2:
+        // 32 - 0.0463786
+        // 40 - 0.0428498
+        // 48 - 0.0418165
+        // 56 - 0.0407401
+        // 60 - 0.030433
+        //*64 - 0.0264947
+        // 68 - 0.034898
+        // 72 - 0.0346339
+        // 80 - 0.0288526
+
+        // step 20, k3:
+        // 64 - 0.0181997
+
+        // step 20, k4:
+        // 64 - 0.0141404
+
+        // step 0, k2:
+        // 64 - 0.0178519
+
+        const c4::matrix_dimensions sample_size{ 64, 64 };
         dataset train_set(sample_size);
         train_set.load("labels_ibug_300W_train.json", 2);
 

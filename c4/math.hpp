@@ -25,6 +25,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <vector>
 #include <type_traits>
 
 #include "exception.hpp"
