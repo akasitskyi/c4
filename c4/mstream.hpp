@@ -22,47 +22,40 @@
 
 #pragma once
 
-#include <string>
-#include <cassert>
-#include <fstream>
-#include "exception.hpp"
+#include <istream>
 
 namespace c4 {
-    inline uint8_t get8(std::istream& in) {
-        uint8_t r;
-        in.read((char*)&r, sizeof(r));
-        return r;
-    }
+    namespace detail {
+        class imembuf : public std::streambuf {
+        protected:
+            imembuf(const char* ptr, size_t size) {
+                char* p = const_cast<char*>(ptr);
 
-    inline uint16_t get16le(std::istream& in) {
-        return uint16_t(get8(in) | (get8(in) << 8));
-    }
+                this->setg(p, p, p + size);
+            }
+        };
 
-    inline uint16_t get16be(std::istream& in) {
-        return uint16_t((get8(in) << 8) | get8(in));
-    }
+        class omembuf : public std::streambuf {
+        protected:
+            omembuf(char* p, size_t size) {
+                this->setp(p, p, p + size);
+            }
+        };
+    };
 
-    inline uint32_t get32le(std::istream& in) {
-        return uint32_t(get16le(in) | (get16le(in) << 16));
-    }
-
-    inline uint32_t get32be(std::istream& in) {
-        return uint32_t((get16be(in) << 16) | get16be(in));
-    }
-
-    inline void skip(std::istream& in, std::streamoff n) {
-        in.seekg(in.tellg() + n);
-    }
-
-    template<class T>
-    inline void write_le(std::ostream& out, T t) {
-        uint8_t v[sizeof(T)];
-
-        for (size_t i = 0; i < sizeof(T); i++) {
-            v[i] = uint8_t(t & 0xff);
-            t >>= 8;
+    class imstream : private detail::imembuf, public std::istream {
+    public:
+        imstream(const char* ptr, size_t size)
+            : imembuf(ptr, size)
+            , std::istream(static_cast<std::streambuf*>(this)) {
         }
+    };
 
-        out.write((const char*)v, sizeof(T));
-    }
+    class omstream : private detail::omembuf, public std::ostream {
+    public:
+        omstream(char* ptr, size_t size)
+            : omembuf(ptr, size)
+            , std::ostream(static_cast<std::streambuf*>(this)) {
+        }
+    };
 };

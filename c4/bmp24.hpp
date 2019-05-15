@@ -34,45 +34,31 @@
 
 namespace c4 {
     namespace detail {
-        inline void write_binary(std::ostream& out, uint8_t t) {
-            out.write((const char*)&t, sizeof(t));
-        }
-
-        template<class T>
-        inline void write_binary(std::ostream& out, T t) {
-            uint8_t v[sizeof(T)];
-            for (int i = 0; i < sizeof(T); i++) {
-                v[i] = uint8_t(t & 0xff);
-                t >>= 8;
-            }
-            out.write((const char*)v, sizeof(T));
-        }
-
         inline int bmp_stride(int width) {
             return (width * 3 + 3) & ~3;
         }
 
         inline void write_bmp_header(std::ostream& out, int width, int height) {
             // file header
-            write_binary(out, uint8_t('B'));
-            write_binary(out, uint8_t('M'));
-            write_binary(out, uint32_t(14 + 40 + bmp_stride(width) * height));
-            write_binary(out, uint16_t(0));
-            write_binary(out, uint16_t(0));
-            write_binary(out, uint32_t(14 + 40));
+            write_le(out, uint8_t('B'));
+            write_le(out, uint8_t('M'));
+            write_le(out, uint32_t(14 + 40 + bmp_stride(width) * height));
+            write_le(out, uint16_t(0));
+            write_le(out, uint16_t(0));
+            write_le(out, uint32_t(14 + 40));
 
             // bitmap header
-            write_binary(out, uint32_t(40));
-            write_binary(out, uint32_t(width));
-            write_binary(out, uint32_t(height));
-            write_binary(out, uint16_t(1));
-            write_binary(out, uint16_t(24));
-            write_binary(out, uint32_t(0));
-            write_binary(out, uint32_t(0));
-            write_binary(out, uint32_t(0));
-            write_binary(out, uint32_t(0));
-            write_binary(out, uint32_t(0));
-            write_binary(out, uint32_t(0));
+            write_le(out, uint32_t(40));
+            write_le(out, uint32_t(width));
+            write_le(out, uint32_t(height));
+            write_le(out, uint16_t(1));
+            write_le(out, uint16_t(24));
+            write_le(out, uint32_t(0));
+            write_le(out, uint32_t(0));
+            write_le(out, uint32_t(0));
+            write_le(out, uint32_t(0));
+            write_le(out, uint32_t(0));
+            write_le(out, uint32_t(0));
         }
 
     }
@@ -83,53 +69,52 @@ namespace c4 {
         int bpp, offset, hsz;
     };
 
-    template<class T>
-    inline bmp_header read_bmp_header(byte_input_stream<T>& in) {
+    inline bmp_header read_bmp_header(std::istream& in) {
         using namespace c4::detail;
 
         bmp_header info;
 
-        if (in.get8() != 'B' || in.get8() != 'M')
+        if (get8(in) != 'B' || get8(in) != 'M')
             throw std::logic_error("Not a BMP");
 
-        in.get32le(); // discard filesize
-        in.get16le(); // discard reserved
-        in.get16le(); // discard reserved
-        info.offset = in.get32le();
-        info.hsz = in.get32le();
+        get32le(in); // discard filesize
+        get16le(in); // discard reserved
+        get16le(in); // discard reserved
+        info.offset = get32le(in);
+        info.hsz = get32le(in);
 
         if (info.hsz != 12 && info.hsz != 40 && info.hsz != 56 && info.hsz != 108 && info.hsz != 124)
             throw std::logic_error("Corrupted BMP");
 
         if (info.hsz == 12) {
-            info.img_width = in.get16le();
-            info.img_height = in.get16le();
+            info.img_width = get16le(in);
+            info.img_height = get16le(in);
         }
         else {
-            info.img_width = in.get32le();
-            info.img_height = in.get32le();
+            info.img_width = get32le(in);
+            info.img_height = get32le(in);
         }
 
-        if (in.get16le() != 1)
+        if (get16le(in) != 1)
             throw std::logic_error("Corrupted BMP");
 
-        info.bpp = in.get16le();
+        info.bpp = get16le(in);
         if (info.hsz != 12) {
-            int compress = in.get32le();
+            int compress = get32le(in);
             if (compress == 1 || compress == 2)
                 throw std::logic_error("BMP type not supported: RLE");
 
-            in.get32le(); // discard sizeof
-            in.get32le(); // discard hres
-            in.get32le(); // discard vres
-            in.get32le(); // discard colorsused
-            in.get32le(); // discard max important
+            get32le(in); // discard sizeof
+            get32le(in); // discard hres
+            get32le(in); // discard vres
+            get32le(in); // discard colorsused
+            get32le(in); // discard max important
             if (info.hsz == 40 || info.hsz == 56) {
                 if (info.hsz == 56) {
-                    in.get32le();
-                    in.get32le();
-                    in.get32le();
-                    in.get32le();
+                    get32le(in);
+                    get32le(in);
+                    get32le(in);
+                    get32le(in);
                 }
                 if (info.bpp == 16 || info.bpp == 32) {
                     if (compress == 0) {
@@ -137,9 +122,9 @@ namespace c4 {
                     }
                     else if (compress == 3) {
                         // skip rgb masks
-                        in.get32le();
-                        in.get32le();
-                        in.get32le();
+                        get32le(in);
+                        get32le(in);
+                        get32le(in);
                     }
                     else
                         throw std::logic_error("Corrupted BMP");
@@ -150,18 +135,18 @@ namespace c4 {
                 if (info.hsz != 108 && info.hsz != 124)
                     throw std::logic_error("Corrupted BMP");
                 // skip rgb masks
-                in.get32le();
-                in.get32le();
-                in.get32le();
-                in.get32le();
-                in.get32le(); // discard color space
+                get32le(in);
+                get32le(in);
+                get32le(in);
+                get32le(in);
+                get32le(in); // discard color space
                 for (i = 0; i < 12; ++i)
-                    in.get32le(); // discard color space parameters
+                    get32le(in); // discard color space parameters
                 if (info.hsz == 124) {
-                    in.get32le(); // discard rendering intent
-                    in.get32le(); // discard offset of profile data
-                    in.get32le(); // discard size of profile data
-                    in.get32le(); // discard reserved
+                    get32le(in); // discard rendering intent
+                    get32le(in); // discard offset of profile data
+                    get32le(in); // discard size of profile data
+                    get32le(in); // discard reserved
                 }
             }
         }
@@ -169,8 +154,7 @@ namespace c4 {
     }
 
 
-    template<class T>
-    inline void read_bmp24(byte_input_stream<T>& in, matrix<pixel<uint8_t>>& out) {
+    inline void read_bmp24(std::istream& in, matrix<pixel<uint8_t>>& out) {
         using namespace c4::detail;
 
         bmp_header info = read_bmp_header(in);
@@ -183,17 +167,17 @@ namespace c4 {
 
         out.resize(info.img_height, info.img_width);
 
-        in.skip(info.offset - 14 - info.hsz);
+        skip(in, info.offset - 14 - info.hsz);
 
         int pad = (-3 * info.img_width) & 3;
 
         for (int j = 0; j < (int)info.img_height; ++j) {
             for (int i = 0; i < (int)info.img_width; ++i) {
-                out[j][i].b = in.get8();
-                out[j][i].g = in.get8();
-                out[j][i].r = in.get8();
+                out[j][i].b = get8(in);
+                out[j][i].g = get8(in);
+                out[j][i].r = get8(in);
             }
-            in.skip(pad);
+            skip(in, pad);
         }
 
         if (flip_vertically) {
@@ -202,7 +186,8 @@ namespace c4 {
     }
 
     inline void read_bmp24(const std::string& filepath, matrix<pixel<uint8_t>>& out) {
-        read_bmp24(file_byte_input_stream(filepath), out);
+        std::ifstream fin(filepath, std::ifstream::binary);
+        read_bmp24(fin, out);
     }
 
     inline void write_bmp24(std::ostream& out, const matrix_ref<pixel<uint8_t>>& img) {

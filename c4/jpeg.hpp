@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "byte_stream.hpp"
+#include "mstream.hpp"
 #include "exception.hpp"
 #include "matrix.hpp"
 #include "math.hpp"
@@ -199,13 +200,12 @@ namespace c4 {
             int scan_n, order[4];
             int restart_interval, todo;
 
-            template<class T>
-            void grow_buffer_unsafe(c4::byte_input_stream<T>& in) {
+            void grow_buffer_unsafe(std::istream& in) {
                 do {
-                    unsigned int b = nomore ? 0 : in.get8();
+                    unsigned int b = nomore ? 0 : get8(in);
                     if (b == 0xff) {
-                        int c = in.get8();
-                        while (c == 0xff) c = in.get8(); // consume fill bytes
+                        int c = get8(in);
+                        while (c == 0xff) c = get8(in); // consume fill bytes
                         if (c != 0) {
                             marker = (unsigned char)c;
                             nomore = 1;
@@ -219,8 +219,7 @@ namespace c4 {
 
             // combined JPEG 'receive' and JPEG 'extend', since baseline
             // always extends everything it receives.
-            template<class T>
-            inline int extend_receive(c4::byte_input_stream<T>& in, int n) {
+            inline int extend_receive(std::istream& in, int n) {
                 if (code_bits < n) grow_buffer_unsafe(in);
 
                 int sgn = (int32_t)code_buffer >> 31; // sign bit is always in MSB
@@ -233,8 +232,7 @@ namespace c4 {
             }
 
             // decode a jpeg huffman value from the bitstream
-            template<class T>
-            inline int jpeg_huff_decode(c4::byte_input_stream<T>& in, const huffman& h) {
+            inline int jpeg_huff_decode(std::istream& in, const huffman& h) {
                 if (code_bits < 16) grow_buffer_unsafe(in);
 
                 // look at the top FAST_BITS and determine what symbol ID it is,
@@ -281,8 +279,7 @@ namespace c4 {
         };
 
         // get some unsigned bits
-        template<class T>
-        inline static int jpeg_get_bits(c4::byte_input_stream<T>& in, jpeg_decoder& j, int n) {
+        inline static int jpeg_get_bits(std::istream& in, jpeg_decoder& j, int n) {
             if (j.code_bits < n) j.grow_buffer_unsafe(in);
             unsigned int k = lrot(j.code_buffer, n);
             j.code_buffer = k & ~bmask[n];
@@ -291,8 +288,7 @@ namespace c4 {
             return k;
         }
 
-        template<class T>
-        inline static int jpeg_get_bit(c4::byte_input_stream<T>& in, jpeg_decoder& j) {
+        inline static int jpeg_get_bit(std::istream& in, jpeg_decoder& j) {
             if (j.code_bits < 1) j.grow_buffer_unsafe(in);
             unsigned int k = j.code_buffer;
             j.code_buffer <<= 1;
@@ -317,8 +313,7 @@ namespace c4 {
         };
 
         // decode one 64-entry block--
-        template<class T>
-        static void jpeg_decode_block(c4::byte_input_stream<T>& in, jpeg_decoder& j, short data[64], huffman& hdc, huffman& hac, int16_t *fac, int b, uint16_t *dequant)
+        static void jpeg_decode_block(std::istream& in, jpeg_decoder& j, short data[64], huffman& hdc, huffman& hac, int16_t *fac, int b, uint16_t *dequant)
         {
             int diff, dc, k;
             int t;
@@ -371,8 +366,7 @@ namespace c4 {
             } while (k < 64);
         }
 
-        template<class T>
-        static void jpeg_decode_block_prog_dc(c4::byte_input_stream<T>& in, jpeg_decoder& j, short data[64], huffman& hdc, int b) {
+        static void jpeg_decode_block_prog_dc(std::istream& in, jpeg_decoder& j, short data[64], huffman& hdc, int b) {
             int diff, dc;
             int t;
             if (j.spec_end != 0) THROW_EXCEPTION("Corrupt JPEG: can't merge dc and ac");
@@ -398,8 +392,7 @@ namespace c4 {
 
         // @OPTIMIZE: store non-zigzagged during the decode passes,
         // and only de-zigzag when dequantizing
-        template<class T>
-        static void jpeg_decode_block_prog_ac(c4::byte_input_stream<T>& in, jpeg_decoder& j, short data[64], huffman& hac, int16_t *fac) {
+        static void jpeg_decode_block_prog_ac(std::istream& in, jpeg_decoder& j, short data[64], huffman& hac, int16_t *fac) {
             int k;
             if (j.spec_start == 0) THROW_EXCEPTION("Corrupt JPEG: can't merge dc and ac");
 
@@ -637,14 +630,13 @@ namespace c4 {
         // if there's a pending marker from the entropy stream, return that
         // otherwise, fetch from the stream and get a marker. if there's no
         // marker, return 0xff, which is never a valid marker value
-        template<class T>
-        static uint8_t get_marker(c4::byte_input_stream<T>& in, jpeg_decoder& j) {
+        static uint8_t get_marker(std::istream& in, jpeg_decoder& j) {
             uint8_t x;
             if (j.marker != STBI__MARKER_none) { x = j.marker; j.marker = STBI__MARKER_none; return x; }
-            x = in.get8();
+            x = get8(in);
             if (x != 0xff) return STBI__MARKER_none;
             while (x == 0xff)
-                x = in.get8(); // consume repeated 0xff fill bytes
+                x = get8(in); // consume repeated 0xff fill bytes
             return x;
         }
 
@@ -668,8 +660,7 @@ namespace c4 {
             // since we don't even allow 1<<30 pixels
         }
 
-        template<class T>
-        static void parse_entropy_coded_data(c4::byte_input_stream<T>& in, jpeg_decoder& z) {
+        static void parse_entropy_coded_data(std::istream& in, jpeg_decoder& z) {
             jpeg_reset(z);
             if (!z.progressive) {
                 if (z.scan_n == 1) {
@@ -816,45 +807,44 @@ namespace c4 {
             }
         }
 
-        template<class T>
-        static void process_marker(c4::byte_input_stream<T>& in, jpeg_decoder& z, int m) {
+        static void process_marker(std::istream& in, jpeg_decoder& z, int m) {
             int L;
             switch (m) {
             case STBI__MARKER_none: // no marker found
                 THROW_EXCEPTION("Corrupt JPEG: expected marker");
 
             case 0xDD: // DRI - specify restart interval
-                if (in.get16be() != 4) THROW_EXCEPTION("Corrupt JPEG: bad DRI len");
-                z.restart_interval = in.get16be();
+                if (get16be(in) != 4) THROW_EXCEPTION("Corrupt JPEG: bad DRI len");
+                z.restart_interval = get16be(in);
                 return;
 
             case 0xDB: // DQT - define quantization table
-                L = in.get16be() - 2;
+                L = get16be(in) - 2;
                 while (L > 0) {
-                    int q = in.get8();
+                    int q = get8(in);
                     int p = q >> 4, sixteen = (p != 0);
                     int t = q & 15, i;
                     if (p != 0 && p != 1) THROW_EXCEPTION("Corrupt JPEG: bad DQT type");
                     if (t > 3) THROW_EXCEPTION("Corrupt JPEG: bad DQT table");
 
                     for (i = 0; i < 64; ++i)
-                        z.dequant[t][jpeg_dezigzag[i]] = (uint16_t)(sixteen ? in.get16be() : in.get8());
+                        z.dequant[t][jpeg_dezigzag[i]] = (uint16_t)(sixteen ? get16be(in) : get8(in));
                     L -= (sixteen ? 129 : 65);
                 }
                 ASSERT_EQUAL(L, 0);
                 return;
 
             case 0xC4: // DHT - define huffman table
-                L = in.get16be() - 2;
+                L = get16be(in) - 2;
                 while (L > 0) {
                     uint8_t *v;
                     int sizes[16], i, n = 0;
-                    int q = in.get8();
+                    int q = get8(in);
                     int tc = q >> 4;
                     int th = q & 15;
                     if (tc > 1 || th > 3) THROW_EXCEPTION("Corrupt JPEG: bad DHT header");
                     for (i = 0; i < 16; ++i) {
-                        sizes[i] = in.get8();
+                        sizes[i] = get8(in);
                         n += sizes[i];
                     }
                     L -= 17;
@@ -867,7 +857,7 @@ namespace c4 {
                         v = z.huff_ac[th].values;
                     }
                     for (i = 0; i < n; ++i)
-                        v[i] = in.get8();
+                        v[i] = get8(in);
                     if (tc != 0)
                         z.huff_ac[th].build_fast_ac(z.fast_ac[th]);
                     L -= n;
@@ -878,7 +868,7 @@ namespace c4 {
 
             // check for comment block or APP blocks
             if ((m >= 0xE0 && m <= 0xEF) || m == 0xFE) {
-                L = in.get16be();
+                L = get16be(in);
                 if (L < 2) {
                     if (m == 0xFE)
                         THROW_EXCEPTION("Corrupt JPEG: bad COM len");
@@ -892,7 +882,7 @@ namespace c4 {
                     int ok = 1;
                     int i;
                     for (i = 0; i < 5; ++i)
-                        if (in.get8() != tag[i])
+                        if (get8(in) != tag[i])
                             ok = 0;
                     L -= 5;
                     if (ok)
@@ -903,19 +893,19 @@ namespace c4 {
                     int ok = 1;
                     int i;
                     for (i = 0; i < 6; ++i)
-                        if (in.get8() != tag[i])
+                        if (get8(in) != tag[i])
                             ok = 0;
                     L -= 6;
                     if (ok) {
-                        in.get8(); // version
-                        in.get16be(); // flags0
-                        in.get16be(); // flags1
-                        z.app14_color_transform = in.get8(); // color transform
+                        get8(in); // version
+                        get16be(in); // flags0
+                        get16be(in); // flags1
+                        z.app14_color_transform = get8(in); // color transform
                         L -= 6;
                     }
                 }
 
-                in.skip(L);
+                skip(in, L);
             }
             else {
                 THROW_EXCEPTION("Corrupt JPEG: unknown marker");
@@ -923,16 +913,15 @@ namespace c4 {
         }
 
         // after we see SOS
-        template<class T>
-        static void process_scan_header(c4::byte_input_stream<T>& in, jpeg_decoder& z) {
+        static void process_scan_header(std::istream& in, jpeg_decoder& z) {
             int i;
-            int Ls = in.get16be();
-            z.scan_n = in.get8();
+            int Ls = get16be(in);
+            z.scan_n = get8(in);
             if (z.scan_n < 1 || z.scan_n > 4 || z.scan_n > (int)z.os.img_n) THROW_EXCEPTION("Corrupt JPEG: bad SOS component count");
             if (Ls != 6 + 2 * z.scan_n) THROW_EXCEPTION("Corrupt JPEG: bad SOS len");
             for (i = 0; i < z.scan_n; ++i) {
-                int id = in.get8(), which;
-                int q = in.get8();
+                int id = get8(in), which;
+                int q = get8(in);
                 for (which = 0; which < z.os.img_n; ++which)
                     if (z.img_comp[which].id == id)
                         break;
@@ -944,9 +933,9 @@ namespace c4 {
             }
 
             {
-                z.spec_start = in.get8();
-                z.spec_end = in.get8(); // should be 63, but might be 0
-                int aa = in.get8();
+                z.spec_start = get8(in);
+                z.spec_end = get8(in); // should be 63, but might be 0
+                int aa = get8(in);
                 z.succ_high = (aa >> 4);
                 z.succ_low = (aa & 15);
                 if (z.progressive) {
@@ -960,16 +949,15 @@ namespace c4 {
             }
         }
 
-        template<class T>
-        static void process_frame_header(c4::byte_input_stream<T>& in, jpeg_decoder& z)
+        static void process_frame_header(std::istream& in, jpeg_decoder& z)
         {
             auto *os = &z.os;
             int Lf, p, i, q, h_max = 1, v_max = 1, c;
-            Lf = in.get16be();         if (Lf < 11) THROW_EXCEPTION("Corrupt JPEG: bad SOF len"); // JPEG
-            p = in.get8();            if (p != 8) THROW_EXCEPTION("JPEG format not supported: 8-bit only"); // JPEG baseline
-            os->img_y = in.get16be();   if (os->img_y == 0) THROW_EXCEPTION("JPEG format not supported: delayed height"); // Legal, but we don't handle it--but neither does IJG
-            os->img_x = in.get16be();   if (os->img_x == 0) THROW_EXCEPTION("Corrupt JPEG: 0 width"); // JPEG requires
-            c = in.get8();
+            Lf = get16be(in);         if (Lf < 11) THROW_EXCEPTION("Corrupt JPEG: bad SOF len"); // JPEG
+            p = get8(in);            if (p != 8) THROW_EXCEPTION("JPEG format not supported: 8-bit only"); // JPEG baseline
+            os->img_y = get16be(in);   if (os->img_y == 0) THROW_EXCEPTION("JPEG format not supported: delayed height"); // Legal, but we don't handle it--but neither does IJG
+            os->img_x = get16be(in);   if (os->img_x == 0) THROW_EXCEPTION("Corrupt JPEG: 0 width"); // JPEG requires
+            c = get8(in);
             if (c != 3 && c != 1 && c != 4) THROW_EXCEPTION("Corrupt JPEG: bad component count");
             os->img_n = c;
 
@@ -978,13 +966,13 @@ namespace c4 {
             z.rgb = 0;
             for (i = 0; i < os->img_n; ++i) {
                 static const unsigned char rgb[3] = { 'R', 'G', 'B' };
-                z.img_comp[i].id = in.get8();
+                z.img_comp[i].id = get8(in);
                 if (os->img_n == 3 && z.img_comp[i].id == rgb[i])
                     ++z.rgb;
-                q = in.get8();
+                q = get8(in);
                 z.img_comp[i].h = (q >> 4);  if (!z.img_comp[i].h || z.img_comp[i].h > 4) THROW_EXCEPTION("Corrupt JPEG: bad H");
                 z.img_comp[i].v = q & 15;    if (!z.img_comp[i].v || z.img_comp[i].v > 4) THROW_EXCEPTION("Corrupt JPEG: bad V");
-                z.img_comp[i].tq = in.get8();  if (z.img_comp[i].tq > 3) THROW_EXCEPTION("Corrupt JPEG: bad TQ");
+                z.img_comp[i].tq = get8(in);  if (z.img_comp[i].tq > 3) THROW_EXCEPTION("Corrupt JPEG: bad TQ");
             }
 
             for (i = 0; i < os->img_n; ++i) {
@@ -1044,8 +1032,7 @@ namespace c4 {
             return x == 0xc2;
         }
 
-        template<class T>
-        static void decode_jpeg_header(c4::byte_input_stream<T>& in, jpeg_decoder& z)
+        static void decode_jpeg_header(std::istream& in, jpeg_decoder& z)
         {
             z.jfif = 0;
             z.app14_color_transform = -1; // valid values are 0,1,2
@@ -1067,8 +1054,7 @@ namespace c4 {
         }
 
         // decode image to YCbCr format
-        template<class T>
-        static void decode_jpeg_image(c4::byte_input_stream<T>& in, jpeg_decoder& j) {
+        static void decode_jpeg_image(std::istream& in, jpeg_decoder& j) {
             j.restart_interval = 0;
             decode_jpeg_header(in, j);
             int m = get_marker(in, j);
@@ -1079,9 +1065,9 @@ namespace c4 {
                     if (j.marker == STBI__MARKER_none) {
                         // handle 0s at the end of image data from IP Kamera 9060
                         while (!in.eof()) {
-                            int x = in.get8();
+                            int x = get8(in);
                             if (x == 255) {
-                                j.marker = in.get8();
+                                j.marker = get8(in);
                                 break;
                             }
                         }
@@ -1089,8 +1075,8 @@ namespace c4 {
                     }
                 }
                 else if (DNL(m)) {
-                    int Ld = in.get16be();
-                    uint32_t NL = in.get16be();
+                    int Ld = get16be(in);
+                    uint32_t NL = get16be(in);
                     if (Ld != 4) THROW_EXCEPTION("Corrupt JPEG: bad DNL len");
                     if (NL != j.os.img_y) THROW_EXCEPTION("Corrupt JPEG: bad DNL height");
                 }
@@ -1216,166 +1202,169 @@ namespace c4 {
             return (uint8_t)((t + (t >> 8)) >> 8);
         }
 
-        template<class InputT, typename T>
-        static void load_jpeg_image(c4::byte_input_stream<InputT>& in, c4::matrix<T>& img) {
-            jpeg_decoder z;
+    }; // namespace detail
 
-            z.os.img_n = 0; // make cleanup_jpeg safe
+    template<typename T>
+    static void load_jpeg_image(std::istream& in, c4::matrix<T>& img) {
+        using namespace detail;
 
-            // load a jpeg image from whichever source, but leave in YCbCr format
-            decode_jpeg_image(in, z);
+        jpeg_decoder z;
 
-            // determine actual number of components to generate
-            const int n = sizeof(T) / sizeof(uint8_t);
+        z.os.img_n = 0; // make cleanup_jpeg safe
 
-            const int is_rgb = z.os.img_n == 3 && (z.rgb == 3 || (z.app14_color_transform == 0 && !z.jfif));
+                        // load a jpeg image from whichever source, but leave in YCbCr format
+        decode_jpeg_image(in, z);
 
-            const int decode_n = (z.os.img_n == 3 && n < 3 && !is_rgb) ? 1 : z.os.img_n;
+        // determine actual number of components to generate
+        const int n = sizeof(T) / sizeof(uint8_t);
 
-            // resample and color-convert
-            {
-                jpeg_resample res_comp[4];
+        const int is_rgb = z.os.img_n == 3 && (z.rgb == 3 || (z.app14_color_transform == 0 && !z.jfif));
 
+        const int decode_n = (z.os.img_n == 3 && n < 3 && !is_rgb) ? 1 : z.os.img_n;
+
+        // resample and color-convert
+        {
+            jpeg_resample res_comp[4];
+
+            for (int k = 0; k < decode_n; ++k) {
+                auto *r = &res_comp[k];
+
+                // allocate line buffer big enough for upsampling off the edges
+                // with upsample factor of 4
+                z.img_comp[k].linebuf.resize(z.os.img_x + 3);
+
+                r->hs = z.img_h_max / z.img_comp[k].h;
+                r->vs = z.img_v_max / z.img_comp[k].v;
+                r->ystep = r->vs >> 1;
+                r->w_lores = (z.os.img_x + r->hs - 1) / r->hs;
+                r->ypos = 0;
+                r->line0 = r->line1 = z.img_comp[k].data.data();
+
+                if (r->hs == 1 && r->vs == 1) r->resample = resample_row_1;
+                else if (r->hs == 1 && r->vs == 2) r->resample = resample_row_v_2;
+                else if (r->hs == 2 && r->vs == 1) r->resample = resample_row_h_2;
+                else if (r->hs == 2 && r->vs == 2) r->resample = resample_row_hv_2;
+                else                               r->resample = resample_row_generic;
+            }
+
+            // can't error after this so, this is safe
+            img.resize(z.os.img_y, z.os.img_x);
+            uint8_t *output = (uint8_t *)img.data();
+
+            uint8_t *coutput[4] = { NULL, NULL, NULL, NULL };
+
+            // now go ahead and resample
+            for (uint32_t j = 0; j < z.os.img_y; ++j) {
+                uint8_t *out = output + n * z.os.img_x * j;
                 for (int k = 0; k < decode_n; ++k) {
                     auto *r = &res_comp[k];
-
-                    // allocate line buffer big enough for upsampling off the edges
-                    // with upsample factor of 4
-                    z.img_comp[k].linebuf.resize(z.os.img_x + 3);
-
-                    r->hs = z.img_h_max / z.img_comp[k].h;
-                    r->vs = z.img_v_max / z.img_comp[k].v;
-                    r->ystep = r->vs >> 1;
-                    r->w_lores = (z.os.img_x + r->hs - 1) / r->hs;
-                    r->ypos = 0;
-                    r->line0 = r->line1 = z.img_comp[k].data.data();
-
-                    if (r->hs == 1 && r->vs == 1) r->resample = resample_row_1;
-                    else if (r->hs == 1 && r->vs == 2) r->resample = resample_row_v_2;
-                    else if (r->hs == 2 && r->vs == 1) r->resample = resample_row_h_2;
-                    else if (r->hs == 2 && r->vs == 2) r->resample = resample_row_hv_2;
-                    else                               r->resample = resample_row_generic;
+                    int y_bot = r->ystep >= (r->vs >> 1);
+                    coutput[k] = r->resample(z.img_comp[k].linebuf.data(),
+                        y_bot ? r->line1 : r->line0,
+                        y_bot ? r->line0 : r->line1,
+                        r->w_lores, r->hs);
+                    if (++r->ystep >= r->vs) {
+                        r->ystep = 0;
+                        r->line0 = r->line1;
+                        if (++r->ypos < z.img_comp[k].y)
+                            r->line1 += z.img_comp[k].w2;
+                    }
                 }
-
-                // can't error after this so, this is safe
-                img.resize(z.os.img_y, z.os.img_x);
-                uint8_t *output = (uint8_t *)img.data();
-
-                uint8_t *coutput[4] = { NULL, NULL, NULL, NULL };
-
-                // now go ahead and resample
-                for (uint32_t j = 0; j < z.os.img_y; ++j) {
-                    uint8_t *out = output + n * z.os.img_x * j;
-                    for (int k = 0; k < decode_n; ++k) {
-                        auto *r = &res_comp[k];
-                        int y_bot = r->ystep >= (r->vs >> 1);
-                        coutput[k] = r->resample(z.img_comp[k].linebuf.data(),
-                            y_bot ? r->line1 : r->line0,
-                            y_bot ? r->line0 : r->line1,
-                            r->w_lores, r->hs);
-                        if (++r->ystep >= r->vs) {
-                            r->ystep = 0;
-                            r->line0 = r->line1;
-                            if (++r->ypos < z.img_comp[k].y)
-                                r->line1 += z.img_comp[k].w2;
-                        }
-                    }
-                    if (n >= 3) {
-                        uint8_t *y = coutput[0];
-                        if (z.os.img_n == 3) {
-                            if (is_rgb) {
-                                for (uint32_t i = 0; i < z.os.img_x; ++i) {
-                                    out[0] = y[i];
-                                    out[1] = coutput[1][i];
-                                    out[2] = coutput[2][i];
-                                    out[3] = 255;
-                                    out += n;
-                                }
-                            }
-                            else {
-                                YCbCr_to_RGB_row(out, y, coutput[1], coutput[2], z.os.img_x, n);
-                            }
-                        }
-                        else if (z.os.img_n == 4) {
-                            if (z.app14_color_transform == 0) { // CMYK
-                                for (uint32_t i = 0; i < z.os.img_x; ++i) {
-                                    uint8_t m = coutput[3][i];
-                                    out[0] = blinn_8x8(coutput[0][i], m);
-                                    out[1] = blinn_8x8(coutput[1][i], m);
-                                    out[2] = blinn_8x8(coutput[2][i], m);
-                                    out[3] = 255;
-                                    out += n;
-                                }
-                            }
-                            else if (z.app14_color_transform == 2) { // YCCK
-                                YCbCr_to_RGB_row(out, y, coutput[1], coutput[2], z.os.img_x, n);
-                                for (uint32_t i = 0; i < z.os.img_x; ++i) {
-                                    uint8_t m = coutput[3][i];
-                                    out[0] = blinn_8x8(255 - out[0], m);
-                                    out[1] = blinn_8x8(255 - out[1], m);
-                                    out[2] = blinn_8x8(255 - out[2], m);
-                                    out += n;
-                                }
-                            }
-                            else { // YCbCr + alpha?  Ignore the fourth channel for now
-                                YCbCr_to_RGB_row(out, y, coutput[1], coutput[2], z.os.img_x, n);
-                            }
-                        }
-                        else
-                            for (uint32_t i = 0; i < z.os.img_x; ++i) {
-                                out[0] = out[1] = out[2] = y[i];
-                                out[3] = 255; // not used if n==3
-                                out += n;
-                            }
-                    }
-                    else {
+                if (n >= 3) {
+                    uint8_t *y = coutput[0];
+                    if (z.os.img_n == 3) {
                         if (is_rgb) {
-                            if (n == 1)
-                                for (uint32_t i = 0; i < z.os.img_x; ++i)
-                                    *out++ = jpeg_compute_y(coutput[0][i], coutput[1][i], coutput[2][i]);
-                            else {
-                                for (uint32_t i = 0; i < z.os.img_x; ++i, out += 2) {
-                                    out[0] = jpeg_compute_y(coutput[0][i], coutput[1][i], coutput[2][i]);
-                                    out[1] = 255;
-                                }
-                            }
-                        }
-                        else if (z.os.img_n == 4 && z.app14_color_transform == 0) {
                             for (uint32_t i = 0; i < z.os.img_x; ++i) {
-                                uint8_t m = coutput[3][i];
-                                uint8_t r = blinn_8x8(coutput[0][i], m);
-                                uint8_t g = blinn_8x8(coutput[1][i], m);
-                                uint8_t b = blinn_8x8(coutput[2][i], m);
-                                out[0] = jpeg_compute_y(r, g, b);
-                                out[1] = 255;
-                                out += n;
-                            }
-                        }
-                        else if (z.os.img_n == 4 && z.app14_color_transform == 2) {
-                            for (uint32_t i = 0; i < z.os.img_x; ++i) {
-                                out[0] = blinn_8x8(255 - coutput[0][i], coutput[3][i]);
-                                out[1] = 255;
+                                out[0] = y[i];
+                                out[1] = coutput[1][i];
+                                out[2] = coutput[2][i];
+                                out[3] = 255;
                                 out += n;
                             }
                         }
                         else {
-                            uint8_t *y = coutput[0];
-                            if (n == 1)
-                                for (uint32_t i = 0; i < z.os.img_x; ++i) out[i] = y[i];
-                            else
-                                for (uint32_t i = 0; i < z.os.img_x; ++i) { *out++ = y[i]; *out++ = 255; }
+                            YCbCr_to_RGB_row(out, y, coutput[1], coutput[2], z.os.img_x, n);
                         }
+                    }
+                    else if (z.os.img_n == 4) {
+                        if (z.app14_color_transform == 0) { // CMYK
+                            for (uint32_t i = 0; i < z.os.img_x; ++i) {
+                                uint8_t m = coutput[3][i];
+                                out[0] = blinn_8x8(coutput[0][i], m);
+                                out[1] = blinn_8x8(coutput[1][i], m);
+                                out[2] = blinn_8x8(coutput[2][i], m);
+                                out[3] = 255;
+                                out += n;
+                            }
+                        }
+                        else if (z.app14_color_transform == 2) { // YCCK
+                            YCbCr_to_RGB_row(out, y, coutput[1], coutput[2], z.os.img_x, n);
+                            for (uint32_t i = 0; i < z.os.img_x; ++i) {
+                                uint8_t m = coutput[3][i];
+                                out[0] = blinn_8x8(255 - out[0], m);
+                                out[1] = blinn_8x8(255 - out[1], m);
+                                out[2] = blinn_8x8(255 - out[2], m);
+                                out += n;
+                            }
+                        }
+                        else { // YCbCr + alpha?  Ignore the fourth channel for now
+                            YCbCr_to_RGB_row(out, y, coutput[1], coutput[2], z.os.img_x, n);
+                        }
+                    }
+                    else
+                        for (uint32_t i = 0; i < z.os.img_x; ++i) {
+                            out[0] = out[1] = out[2] = y[i];
+                            out[3] = 255; // not used if n==3
+                            out += n;
+                        }
+                }
+                else {
+                    if (is_rgb) {
+                        if (n == 1)
+                            for (uint32_t i = 0; i < z.os.img_x; ++i)
+                                *out++ = jpeg_compute_y(coutput[0][i], coutput[1][i], coutput[2][i]);
+                        else {
+                            for (uint32_t i = 0; i < z.os.img_x; ++i, out += 2) {
+                                out[0] = jpeg_compute_y(coutput[0][i], coutput[1][i], coutput[2][i]);
+                                out[1] = 255;
+                            }
+                        }
+                    }
+                    else if (z.os.img_n == 4 && z.app14_color_transform == 0) {
+                        for (uint32_t i = 0; i < z.os.img_x; ++i) {
+                            uint8_t m = coutput[3][i];
+                            uint8_t r = blinn_8x8(coutput[0][i], m);
+                            uint8_t g = blinn_8x8(coutput[1][i], m);
+                            uint8_t b = blinn_8x8(coutput[2][i], m);
+                            out[0] = jpeg_compute_y(r, g, b);
+                            out[1] = 255;
+                            out += n;
+                        }
+                    }
+                    else if (z.os.img_n == 4 && z.app14_color_transform == 2) {
+                        for (uint32_t i = 0; i < z.os.img_x; ++i) {
+                            out[0] = blinn_8x8(255 - coutput[0][i], coutput[3][i]);
+                            out[1] = 255;
+                            out += n;
+                        }
+                    }
+                    else {
+                        uint8_t *y = coutput[0];
+                        if (n == 1)
+                            for (uint32_t i = 0; i < z.os.img_x; ++i) out[i] = y[i];
+                        else
+                            for (uint32_t i = 0; i < z.os.img_x; ++i) { *out++ = y[i]; *out++ = 255; }
                     }
                 }
             }
         }
-    }; // namespace detail
+    }
 
     template<typename T>
     static void read_jpeg(const std::string& filename, c4::matrix<T>& img) {
-        c4::file_byte_input_stream fin(filename);
+        std::ifstream fin(filename, std::ifstream::binary);
         try {
-            detail::load_jpeg_image(fin, img);
+            load_jpeg_image(fin, img);
         } catch (const std::exception& e) {
             throw std::runtime_error(std::string(e.what()) + ", while reading " + filename);
         }
@@ -1383,7 +1372,7 @@ namespace c4 {
 
     template<typename T>
     static void read_jpeg(const uint8_t* ptr, size_t size, c4::matrix<T>& img) {
-        c4::memory_byte_input_stream fin(ptr, size);
-        detail::load_jpeg_image(fin, img);
+        imstream in(ptr, size);
+        load_jpeg_image(in, img);
     }
 }; // namespace c4
