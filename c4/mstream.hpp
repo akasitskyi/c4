@@ -49,6 +49,15 @@ namespace c4 {
             : imembuf(ptr, size)
             , std::istream(static_cast<std::streambuf*>(this)) {
         }
+
+        template<class Container,
+            typename = decltype(std::declval<Container&>().data()),
+            typename = decltype(std::declval<Container &>().size())
+        >
+        imstream(Container& container)
+            : imembuf(container.data(), container.size())
+            , std::istream(static_cast<std::streambuf*>(this)) {
+        }
     };
 
     class omstream : private detail::omembuf, public std::ostream {

@@ -106,5 +106,10 @@ namespace __c4 {
                 LOGD << "it " << it << ", train_mse: " << train_mse << ", test_mse: " << test_mse;
             }
         }
+
+        template <typename Archive>
+        void serialize(Archive& ar) {
+            ar(weights);
+        }
     };
 };

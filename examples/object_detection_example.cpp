@@ -24,7 +24,11 @@
 
 #include <fstream>
 
+#include <map>
+#include <unordered_map>
+
 #include <c4/math.hpp>
+#include <c4/mstream.hpp>
 #include <c4/logger.hpp>
 #include <c4/json.hpp>
 #include <c4/geometry.hpp>
@@ -36,6 +40,7 @@
 #include <c4/image.hpp>
 #include <c4/color_plane.hpp>
 #include <c4/bmp24.hpp>
+#include <c4/serialize.hpp>
 
 struct LBP {
     c4::matrix<uint8_t> operator()(const c4::matrix<uint8_t>& img) const {
@@ -180,8 +185,42 @@ struct dataset {
     }
 };
 
+enum TestEnum {
+    OPTIUON_1,
+    OPTION_2
+};
+
 int main(int argc, char* argv[]) {
     try{
+        {
+            const TestEnum test_enum(OPTIUON_1);
+
+            std::unordered_map<int, std::map<int, std::string>> test_map;
+            test_map[0][1] = "a";
+            std::vector<std::list<std::tuple<int, float, double>>> test_vec(1);
+            test_vec[0].emplace_back(0, 0.f, 0.0);
+
+            std::vector<char> data1(1000000);
+            c4::omstream mout(data1.data(), data1.size());
+            c4::imstream min(data1.data(), data1.size());
+
+            c4::serialize::output_archive out1(mout);
+
+            out1(test_enum, test_map, test_vec);
+
+            c4::serialize::input_archive in1(min);
+
+            TestEnum test_enum1;
+            decltype(test_map) test_map1;
+            decltype(test_vec) test_vec1;
+            in1(test_enum1, test_map1, test_vec1);
+
+            ASSERT_TRUE(test_enum1 == test_enum);
+            ASSERT_TRUE(test_map1 == test_map);
+            ASSERT_TRUE(test_vec1 == test_vec);
+
+            std::cout << "OK" << std::endl;
+        }
         // step 20, k2:
         // 32 - 0.0463786
         // 40 - 0.0428498
@@ -219,10 +258,25 @@ int main(int argc, char* argv[]) {
 
         mr.train(train_set.x, train_set.y, test_set.x, test_set.y);
 
-        //std::cout << mr.predict(generate_matrix(100.f, sd)) << std::endl;
-        //std::cout << mr.predict(generate_matrix(150.f, sd)) << std::endl;
-        //std::cout << mr.predict(generate_matrix(200.f, sd)) << std::endl;
+        c4::matrix<uint8_t> testm(10, 10);
 
+        std::vector<char> data(100000000);
+        c4::omstream mout(data.data(), data.size());
+        c4::imstream min(data.data(), data.size());
+
+        c4::serialize::output_archive out(mout);
+
+        out(mr);
+
+        c4::serialize::input_archive in(min);
+
+        __c4::matrix_regression<> mr1;
+        in(mr1);
+
+        const double train_mse = c4::mean_squared_error(mr1.predict(train_set.x), train_set.y);
+        const double test_mse = c4::mean_squared_error(mr1.predict(test_set.x), test_set.y);
+
+        LOGD << "RELOAD: train_mse: " << train_mse << ", test_mse: " << test_mse;
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
     }

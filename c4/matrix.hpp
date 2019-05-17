@@ -382,6 +382,20 @@ namespace c4 {
         void resize(matrix_dimensions dims){
             resize(dims.height, dims.width);
         }
+
+        template <typename Archive>
+        void save(Archive& archive) {
+            archive(height_, width_, stride_);
+            archive(serialize::as_binary(v.data(), (serialize::size_type)v.size()));
+        }
+
+        template <typename Archive>
+        void load(Archive& archive) {
+            int height, width, stride;
+            archive(height, width, stride);
+            resize(height, width, stride);
+            archive(serialize::as_binary(v.data(), (serialize::size_type)v.size()));
+        }
     };
 
     template<class T1, class T2>
@@ -534,8 +548,6 @@ namespace c4 {
         }
     }
 
-
-
     template<class T1, class T2, class F>
     inline void transform(const vector_ref<T1>& src, vector_ref<T2>& dst, F f) {
         assert(src.size() == dst.size());
@@ -602,5 +614,4 @@ namespace c4 {
 
         return dst;
     }
-
 };
