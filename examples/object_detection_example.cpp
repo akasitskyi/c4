@@ -200,13 +200,18 @@ int main(int argc, char* argv[]) {
             std::vector<std::list<std::tuple<int, float, double>>> test_vec(1);
             test_vec[0].emplace_back(0, 0.f, 0.0);
 
-            std::vector<char> data1(1000000);
-            c4::omstream mout(data1.data(), data1.size());
-            c4::imstream min(data1.data(), data1.size());
+            c4::ovstream mout;
 
             c4::serialize::output_archive out1(mout);
 
             out1(test_enum, test_map, test_vec);
+
+            std::vector<char> vec;
+            mout.swap_vector(vec);
+
+            PRINT_DEBUG(mout.get_vector().size());
+
+            c4::imstream min(vec.data(), vec.size());
 
             c4::serialize::input_archive in1(min);
 
@@ -260,14 +265,13 @@ int main(int argc, char* argv[]) {
 
         c4::matrix<uint8_t> testm(10, 10);
 
-        std::vector<char> data(100000000);
-        c4::omstream mout(data.data(), data.size());
-        c4::imstream min(data.data(), data.size());
+        c4::ovstream vout;
 
-        c4::serialize::output_archive out(mout);
+        c4::serialize::output_archive out(vout);
 
         out(mr);
 
+        c4::imstream min(vout.get_vector().data(), vout.get_vector().size());
         c4::serialize::input_archive in(min);
 
         __c4::matrix_regression<> mr1;

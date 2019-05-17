@@ -23,6 +23,8 @@
 #pragma once
 
 #include <istream>
+#include <ostream>
+#include <vector>
 
 namespace c4 {
     namespace detail {
@@ -31,14 +33,48 @@ namespace c4 {
             imembuf(const char* ptr, size_t size) {
                 char* p = const_cast<char*>(ptr);
 
-                this->setg(p, p, p + size);
+                setg(p, p, p + size);
             }
         };
 
         class omembuf : public std::streambuf {
         protected:
             omembuf(char* p, size_t size) {
-                this->setp(p, p, p + size);
+                setp(p, p, p + size);
+            }
+        };
+
+        class ovecbuf : public std::streambuf {
+            static constexpr size_t min_size = 256;
+
+            std::vector<char> v;
+
+        protected:
+            ovecbuf() : v(min_size) {
+                setp(v.data(), v.data(), v.data() + v.size());
+            }
+
+            virtual std::streambuf::int_type overflow(std::streambuf::int_type ch) {
+                if (ch != traits_type::eof()) {
+                    size_t size = v.size();
+
+                    v.resize((size + min_size) * 3 / 2);
+
+                    v[size++] = (char)ch;
+
+                    setp(v.data(), v.data() + size, v.data() + v.size());
+                }
+
+                return ch;
+            }
+
+            inline const std::vector<char>& get_vector() const {
+                return v;
+            }
+
+            inline void swap_vector(std::vector<char>& t) {
+                v.swap(t);
+                setp(v.data(), v.data(), v.data() + v.size());
             }
         };
     };
@@ -47,24 +83,31 @@ namespace c4 {
     public:
         imstream(const char* ptr, size_t size)
             : imembuf(ptr, size)
-            , std::istream(static_cast<std::streambuf*>(this)) {
-        }
-
-        template<class Container,
-            typename = decltype(std::declval<Container&>().data()),
-            typename = decltype(std::declval<Container &>().size())
-        >
-        imstream(Container& container)
-            : imembuf(container.data(), container.size())
-            , std::istream(static_cast<std::streambuf*>(this)) {
-        }
+            , std::istream(static_cast<std::streambuf*>(this))
+        {}
     };
 
     class omstream : private detail::omembuf, public std::ostream {
     public:
         omstream(char* ptr, size_t size)
             : omembuf(ptr, size)
-            , std::ostream(static_cast<std::streambuf*>(this)) {
+            , std::ostream(static_cast<std::streambuf*>(this))
+        {}
+    };
+
+    class ovstream : private detail::ovecbuf, public std::ostream {
+    public:
+        ovstream()
+            : ovecbuf()
+            , std::ostream(static_cast<std::streambuf*>(this))
+        {}
+
+        inline const std::vector<char>& get_vector() const{
+            return detail::ovecbuf::get_vector();
+        }
+
+        inline void swap_vector(std::vector<char>& t) {
+            return detail::ovecbuf::swap_vector(t);
         }
     };
 };
