@@ -72,6 +72,22 @@ namespace __c4 {
                 }
             }
 
+            matrix<std::vector<uint8_t>> rx(x[0].dimensions());
+
+            for (int i : range(rx.height())) {
+                for (int j : range(rx.width())) {
+                    rx[i][j].reserve(x.size());
+                }
+            }
+
+            for (const auto& m : x) {
+                for (int i : range(m.height())) {
+                    for (int j : range(m.width())) {
+                        rx[i][j].push_back(m[i][j]);
+                    }
+                }
+            }
+
             matrix<std::array<double, dim>> d(weights.dimensions());
             matrix<std::array<uint32_t, dim>> n_m(weights.dimensions());
             matrix<std::array<double, dim>> sy_m(weights.dimensions());
@@ -82,21 +98,21 @@ namespace __c4 {
                     auto& n = n_m[i][j];
 
                     for (int k : range(x)) {
-                        sy[x[k][i][j]] += y[k];
-                        n[x[k][i][j]]++;
+                        sy[rx[i][j][k]] += y[k];
+                        n[rx[i][j][k]]++;
                     }
                 }
             }
             
-            for (int it = 0; it < 100; it++) {
-                std::vector<double> f = predict(x);
+            std::vector<double> f = predict(x);
 
+            for (int it = 0; it < 100; it++) {
                 parallel_for(range(weights.height()), [&](int i) {
                     for (int j : range(weights.width())) {
                         std::vector<double> sf(dim, 0.);
 
                         for (int k : range(x)) {
-                            sf[x[k][i][j]] += f[k];
+                            sf[rx[i][j][k]] += f[k];
                         }
 
                         const auto& sy = sy_m[i][j];
@@ -120,7 +136,8 @@ namespace __c4 {
                     }
                 }
 
-                const double train_mse = mean_squared_error(predict(x), y);
+                f = predict(x);
+                const double train_mse = mean_squared_error(f, y);
                 const double test_mse = mean_squared_error(predict(test_x), test_y);
 
                 LOGD << "it " << it << ", train_mse: " << train_mse << ", test_mse: " << test_mse;

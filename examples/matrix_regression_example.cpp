@@ -95,7 +95,7 @@ struct dataset {
     dataset(const c4::matrix_dimensions& sample_size) : sample_size(sample_size) {}
 
     void load(const std::string& labels_filepath, const int k, const int sample) {
-        c4::fast_rand rnd;
+        c4::scoped_timer t("dataset::load");
 
         c4::json data_json;
 
@@ -104,12 +104,14 @@ struct dataset {
 
         train_data_fin >> data_json;
 
-        for (const auto& image_info : data_json["images"]) {
+        std::mutex mu;
+        c4::parallel_for(c4::range(data_json["images"].size()), [&](const int i) {
+            const auto& image_info = data_json["images"][i];
+
             std::string filename = image_info["filename"];
 
-            // Right now we only have jpeg input...
-            if (!c4::ends_with(c4::to_lower(filename), ".jpg") || rnd() % sample)
-                continue;
+            if (!c4::ends_with(c4::to_lower(filename), ".jpg") || i % sample)
+                return;
 
             c4::matrix<uint8_t> img;
             c4::read_jpeg(root + filename, img);
@@ -122,43 +124,36 @@ struct dataset {
                 rects.push_back(r);
             }
 
+            std::lock_guard<std::mutex> lock(mu);
             generate_samples(sample_size, img, rects, x, y, k, c4::LBP());
-        }
+        });
     }
 };
 
 int main(int argc, char* argv[]) {
     try{
         // FULL TEST:
-        // step 20, it100, k2:
-        // 64 - 0.0396186
-
         // step 20, it100, k2, sym:
-        // 64 - 0.0313635
-        // 85s -> 69s -> 59s
-
-        // step 20, it100, k3:
-        // 64 - 0.0308812
+        // 64 - 0.0367619
 
         // step 20, it100, k3, sym:
-        // 64 - 0.0261583
-
-        // step 20, it100, k4:
-        // 64 - 0.0263632
+        // 64 - 0.0308738
 
         // step 20, it100, k4, sym:
-        // 64 - 0.0237412
+        // 64 - 0.0278687
 
         // step 20, it100, k5, sym:
-        // 64 - 0.0224899
+        // 64 - 0.0263316
 
-        // step 50, it100, k2, sym:
+        // step 20, it100, k6, sym:
+        // 64 - 0.0253624
+
+        // step 20, it100, k7, sym:
         // 64 - 
-        // train time: 21s
 
         const c4::matrix_dimensions sample_size{ 64, 64 };
         dataset train_set(sample_size);
-        train_set.load("labels_ibug_300W_train.json", 2, 20);
+        train_set.load("labels_ibug_300W_train.json", 7, 20);
 
         std::cout << "train size: " << train_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.f) / train_set.y.size() << std::endl;
