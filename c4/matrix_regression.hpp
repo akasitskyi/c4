@@ -62,7 +62,7 @@ namespace __c4 {
             return f;
         }
 
-        void train(const std::vector<matrix<uint8_t>>& x, const std::vector<float>& y, const std::vector<matrix<uint8_t>>& test_x, const std::vector<float>& test_y, bool symmetry) {
+        void train(const std::vector<matrix<uint8_t>>& x, const std::vector<float>& y, const std::vector<matrix<uint8_t>>& test_x, const std::vector<float>& test_y, const int itc, const bool symmetry) {
             c4::scoped_timer t("matrix_regression::train()");
 
             weights.resize(x[0].dimensions());
@@ -106,7 +106,7 @@ namespace __c4 {
             
             std::vector<double> f = predict(x);
 
-            for (int it = 0; it < 100; it++) {
+            for (int it = 0; it < itc; it++) {
                 parallel_for(range(weights.height()), [&](int i) {
                     for (int j : range(weights.width())) {
                         std::vector<double> sf(dim, 0.);

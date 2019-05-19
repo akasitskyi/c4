@@ -202,21 +202,15 @@ namespace c4 {
         std::vector<size_t> groups = detail::init_groups(last - first, grain_size);
         std::vector<std::future<void>> futures;
 
-        iterator group_first = first;
-        iterator group_last = first + groups[0];
-        first = group_last;
-
-        for (int i : range(1, isize(groups))) {
+        for (size_t g : groups) {
             iterator group_first = first;
-            iterator group_last = first + groups[i];
+            iterator group_last = first + g;
             first = group_last;
 
             futures.emplace_back(tp.enqueue([group_first, group_last, f] {
                 detail::run_group(group_first, group_last, f);
             }));
         }
-
-        detail::run_group(group_first, group_last, f);
 
         for (auto& f : futures)
             f.wait();
@@ -230,21 +224,15 @@ namespace c4 {
         std::vector<size_t> groups = detail::init_groups(last - first, grain_size);
         std::vector<std::future<T>> futures;
 
-        iterator group_first = first;
-        iterator group_last = first + groups[0];
-        first = group_last;
-
-        for (int i : range(1, isize(groups))) {
+        for (size_t g : groups) {
             iterator group_first = first;
-            iterator group_last = first + groups[i];
+            iterator group_last = first + g;
             first = group_last;
 
             futures.emplace_back(tp.enqueue([group_first, group_last, f] {
                 return f(group_first, group_last);
             }));
         }
-
-        init = reduction(init, f(group_first, group_last));
 
         for (auto& f : futures)
             init = reduction(init, f.get());

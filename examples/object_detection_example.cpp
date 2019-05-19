@@ -45,7 +45,7 @@
 
 int main(int argc, char* argv[]) {
     try{
-        std::ifstream fin("matrix_regression-1.dat", std::ifstream::binary);
+        std::ifstream fin("matrix_regression_step3_k10_it500.dat", std::ifstream::binary);
         c4::serialize::input_archive in(fin);
 
         __c4::matrix_regression<> mr;
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
 
         c4::downscale_nx(img, scaled, 4);
 
-        const auto dets = sd.detect(scaled, 0.98);
+        const auto dets = sd.detect(scaled, 0.99);
 
         for (const auto& d : dets) {
             c4::draw_rect(scaled, d.rect.x, d.rect.y, d.rect.w, d.rect.h, uint8_t(255), 1);

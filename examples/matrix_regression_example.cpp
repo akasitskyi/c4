@@ -87,6 +87,20 @@ void generate_samples(const c4::matrix_dimensions& sample_size, const c4::matrix
     }
 }
 
+
+template<typename T>
+void merge_vectors(std::vector<std::vector<T>>& src, std::vector<T>& dst) {
+    size_t capacity = std::accumulate(src.begin(), src.end(), dst.size(), [](size_t a, const std::vector<T>& v) { return a + v.size(); });
+    dst.reserve(capacity);
+
+    for (auto& t : src) {
+        dst.insert(dst.end(), std::make_move_iterator(t.begin()), std::make_move_iterator(t.end()));
+        t.clear();
+        t.shrink_to_fit();
+    }
+}
+
+
 struct dataset {
     std::vector<c4::matrix<uint8_t>> x;
     std::vector<float> y;
@@ -103,6 +117,9 @@ struct dataset {
         std::ifstream train_data_fin(root + labels_filepath);
 
         train_data_fin >> data_json;
+
+        c4::enumerable_thread_specific<std::vector<c4::matrix<uint8_t>>> ts_x;
+        c4::enumerable_thread_specific<std::vector<float>> ts_y;
 
         std::mutex mu;
         c4::parallel_for(c4::range(data_json["images"].size()), [&](const int i) {
@@ -124,15 +141,16 @@ struct dataset {
                 rects.push_back(r);
             }
 
-            std::lock_guard<std::mutex> lock(mu);
-            generate_samples(sample_size, img, rects, x, y, k, c4::LBP());
+            generate_samples(sample_size, img, rects, ts_x.local(), ts_y.local(), k, c4::LBP());
         });
+
+        merge_vectors(ts_x, x);
+        merge_vectors(ts_y, y);
     }
 };
 
 int main(int argc, char* argv[]) {
     try{
-        // FULL TEST:
         // step 20, it100, k2, sym:
         // 64 - 0.0367619
 
@@ -149,11 +167,77 @@ int main(int argc, char* argv[]) {
         // 64 - 0.0253624
 
         // step 20, it100, k7, sym:
-        // 64 - 
+        // 64 - 0.0247578
 
-        const c4::matrix_dimensions sample_size{ 64, 64 };
+        // step 20, it100, k8, sym:
+        // 64 - 0.0243022
+
+        // step 20, it100, k9, sym:
+        // 64 - 0.0239536
+
+        // step 20, it100, k10, sym:
+        // 64 - 0.0236716
+
+        // step 20, it100, k12, sym:
+        // 64 - 0.0234398
+
+
+        // step 20, it200, k2, sym:
+        // 64 - 0.0368679
+
+        // step 20, it200, k10, sym:
+        // 64 - 0.0219404
+
+
+        // step 20, it500, k10, sym:
+        // 64 - 0.020858
+
+        // step 20, it500, k12, sym:
+        // 64 - 0.0205338
+
+
+        // step 10, it500, k6, sym:
+        // 64 - 0.0194836
+
+        // step 10, it500, k10, sym:
+        // 64 - 0.0180317
+
+        // step 10, it500, k12, sym:
+        // 64 - 0.0180055
+
+
+        // step  3, it500, k10, sym:
+        // 64 - 0.0160341
+
+        // step  3, it500, k8, sym:
+        // 52 - 0.0160341
+
+        // step  3, it500, k6, sym:
+        // 40 - 0.0152601
+
+        // step  3, it500, k5, sym:
+        // 32 - 0.0180542
+
+        // step  3, it500, k6, sym:
+        // 32 - 0.0172336
+
+
+        // step  1, it500, k6, sym:
+        // 32 - 0.0159794
+
+        // step  1, it500, k7, sym:
+        // 32 - 0.015796
+
+        // step  1, it500, k8, sym:
+        // 32 - 0.0157435
+
+        // step  1, it500, k8, sym:
+        // 40 - 0.0143788
+
+
+        const c4::matrix_dimensions sample_size{ 40, 40 };
         dataset train_set(sample_size);
-        train_set.load("labels_ibug_300W_train.json", 7, 20);
+        train_set.load("labels_ibug_300W_train.json", 8, 1);
 
         std::cout << "train size: " << train_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.f) / train_set.y.size() << std::endl;
@@ -166,7 +250,7 @@ int main(int argc, char* argv[]) {
 
         __c4::matrix_regression<> mr;
 
-        mr.train(train_set.x, train_set.y, test_set.x, test_set.y, true);
+        mr.train(train_set.x, train_set.y, test_set.x, test_set.y, 500, true);
 
         {
             std::ofstream fout("matrix_regression.dat", std::ofstream::binary);
