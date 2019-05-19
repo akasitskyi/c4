@@ -35,6 +35,10 @@ namespace __c4 {
     public:
         matrix_regression() {}
 
+        matrix_dimensions dimensions() const {
+            return weights.dimensions();
+        }
+
         double predict(const matrix_ref<uint8_t>& img) const {
             ASSERT_TRUE(img.dimensions() == weights.dimensions());
             
@@ -58,7 +62,7 @@ namespace __c4 {
             return f;
         }
 
-        void train(const std::vector<matrix<uint8_t>>& x, const std::vector<float>& y, const std::vector<matrix<uint8_t>>& test_x, const std::vector<float>& test_y) {
+        void train(const std::vector<matrix<uint8_t>>& x, const std::vector<float>& y, const std::vector<matrix<uint8_t>>& test_x, const std::vector<float>& test_y, bool symmetry) {
             weights.resize(x[0].dimensions());
             for (auto& v : weights) {
                 for (auto& t : v) {
@@ -95,7 +99,8 @@ namespace __c4 {
                 for (int i : range(weights.height())) {
                     for (int j : range(weights.width())) {
                         for (int k : range(dim)) {
-                            weights[i][j][k] = float(weights[i][j][k] + d[i][j][k] / weights.dimensions().area());
+                            double add = symmetry ? (d[i][j][k] + d[i][weights.width() - j - 1][k]) / 2 : d[i][j][k];
+                            weights[i][j][k] = float(weights[i][j][k] + add / weights.dimensions().area());
                         }
                     }
                 }

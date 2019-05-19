@@ -141,6 +141,10 @@ namespace c4 {
         rectangle(T x, T y, T w, T h) : x(x), y(y), w(w), h(h) {}
         rectangle() : x(0), y(0), w(0), h(0) {}
 
+        template<class T2>
+        explicit rectangle(const rectangle<T2>& r) : x((T)r.x), y((T)r.y), w((T)r.w), h((T)r.h) {
+        }
+
         auto area() const {
             return w * h;
         }

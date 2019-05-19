@@ -311,7 +311,9 @@ namespace c4 {
         class input_archive {
             std::istream& is;
         public:
-            explicit input_archive(std::istream& is) : is(is) {}
+            explicit input_archive(std::istream& is) : is(is) {
+                ASSERT_TRUE(is.good());
+            }
 
             template <typename Item, typename... Items>
             void operator()(Item&& first, Items&& ... items) {
@@ -359,10 +361,12 @@ namespace c4 {
             template <typename Item>
             std::enable_if_t<is_binary_serializable<std::remove_reference_t<Item>>::value> load_item(Item&& item) {
                 is.read((char *)std::addressof(item), sizeof(item));
+                ASSERT_TRUE(is.good());
             }
 
             void load_item(binary&& item) {
                 is.read((char *)item.ptr, item.size);
+                ASSERT_TRUE(is.good());
             }
         };
 
