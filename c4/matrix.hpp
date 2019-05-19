@@ -317,7 +317,9 @@ namespace c4 {
         class matrix_buffer {
         protected:
             std::vector<T> v;
-            matrix_buffer(size_t size = 0) : v(size) {}
+            matrix_buffer() {}
+            matrix_buffer(size_t size) : v(size) {}
+            matrix_buffer(size_t size, const T& init) : v(size, init) {}
         };
     };
 
@@ -325,7 +327,9 @@ namespace c4 {
     class matrix : private detail::matrix_buffer<T>, public matrix_ref<T> {
     public:
         matrix(int height, int width, int stride) : detail::matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, detail::matrix_buffer<T>::v.data()) {}
+        matrix(int height, int width, int stride, const T& init) : detail::matrix_buffer<T>(height * stride, init), matrix_ref<T>(height, width, stride, detail::matrix_buffer<T>::v.data()) {}
         matrix(int height, int width) : matrix(height, width, width) {}
+        matrix(int height, int width, const T& init) : matrix(height, width, width, init) {}
         matrix(matrix_dimensions dims, int stride) : matrix(dims.height, dims.width, stride) {}
         matrix(matrix_dimensions dims) : matrix(dims.height, dims.width) {}
         matrix() : matrix(0, 0, 0) {}

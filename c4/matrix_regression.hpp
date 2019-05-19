@@ -63,6 +63,8 @@ namespace __c4 {
         }
 
         void train(const std::vector<matrix<uint8_t>>& x, const std::vector<float>& y, const std::vector<matrix<uint8_t>>& test_x, const std::vector<float>& test_y, bool symmetry) {
+            c4::scoped_timer t("matrix_regression::train()");
+
             weights.resize(x[0].dimensions());
             for (auto& v : weights) {
                 for (auto& t : v) {
@@ -70,22 +72,35 @@ namespace __c4 {
                 }
             }
 
+            matrix<std::array<double, dim>> d(weights.dimensions());
+            matrix<std::array<uint32_t, dim>> n_m(weights.dimensions());
+            matrix<std::array<double, dim>> sy_m(weights.dimensions());
+
+            for (int i : range(weights.height())) {
+                for (int j : range(weights.width())) {
+                    auto& sy = sy_m[i][j];
+                    auto& n = n_m[i][j];
+
+                    for (int k : range(x)) {
+                        sy[x[k][i][j]] += y[k];
+                        n[x[k][i][j]]++;
+                    }
+                }
+            }
+            
             for (int it = 0; it < 100; it++) {
                 std::vector<double> f = predict(x);
-
-                matrix<std::array<double, dim>> d(weights.dimensions());
 
                 parallel_for(range(weights.height()), [&](int i) {
                     for (int j : range(weights.width())) {
                         std::vector<double> sf(dim, 0.);
-                        std::vector<double> sy(dim, 0.);
-                        std::vector<size_t> n(dim, 0);
 
                         for (int k : range(x)) {
                             sf[x[k][i][j]] += f[k];
-                            sy[x[k][i][j]] += y[k];
-                            n[x[k][i][j]]++;
                         }
+
+                        const auto& sy = sy_m[i][j];
+                        const auto& n = n_m[i][j];
 
                         for (int k : range(dim)) {
                             if (n[k] == 0)
@@ -99,8 +114,8 @@ namespace __c4 {
                 for (int i : range(weights.height())) {
                     for (int j : range(weights.width())) {
                         for (int k : range(dim)) {
-                            double add = symmetry ? (d[i][j][k] + d[i][weights.width() - j - 1][k]) / 2 : d[i][j][k];
-                            weights[i][j][k] = float(weights[i][j][k] + add / weights.dimensions().area());
+                            double add = (symmetry ? (d[i][j][k] + d[i][weights.width() - j - 1][k]) / 2 : d[i][j][k]) / weights.dimensions().area();
+                            weights[i][j][k] = float(weights[i][j][k] + add);
                         }
                     }
                 }

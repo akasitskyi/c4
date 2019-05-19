@@ -37,6 +37,22 @@
 #include "range.hpp"
 
 namespace c4 {
+    static uint32_t env_num_threads() {
+        uint32_t threads = 0;
+#pragma warning(push)
+#pragma warning(disable: 4996)
+        if (const char* c4_num_threads = std::getenv("C4_NUM_THREADS")) {
+#pragma warning(pop)
+            threads = std::strtol(c4_num_threads, nullptr, 10);
+        }
+
+        if (threads == 0) {
+            threads = std::thread::hardware_concurrency();
+        }
+
+        return threads;
+    }
+
     class thread_pool {
         std::mutex mu;
         std::vector<std::thread> workers;
@@ -45,20 +61,7 @@ namespace c4 {
         bool stop;
 
     public:
-        thread_pool(unsigned int threads = 0) : stop(false) {
-            if (threads == 0){
-#pragma warning(push)
-#pragma warning(disable: 4996)
-                if (const char* c4_num_threads = std::getenv("C4_NUM_THREADS")) {
-#pragma warning(pop)
-                    threads = std::strtol(c4_num_threads, nullptr, 10);
-                }
-
-                if (threads == 0) {
-                    threads = std::thread::hardware_concurrency();
-                }
-            }
-
+        thread_pool(unsigned int threads = env_num_threads()) : stop(false) {
             for (unsigned int i = 0; i < threads; i++) {
                 workers.emplace_back([this] {
                     for (;;) {
@@ -193,12 +196,19 @@ namespace c4 {
 
     template<class iterator, class F>
     inline void parallel_for(iterator first, iterator last, size_t grain_size, F f, thread_pool& tp = thread_pool::get_default_pool()) {
+        if (first >= last)
+            return;
+
         std::vector<size_t> groups = detail::init_groups(last - first, grain_size);
         std::vector<std::future<void>> futures;
 
-        for (size_t g : groups) {
+        iterator group_first = first;
+        iterator group_last = first + groups[0];
+        first = group_last;
+
+        for (int i : range(1, isize(groups))) {
             iterator group_first = first;
-            iterator group_last = first + g;
+            iterator group_last = first + groups[i];
             first = group_last;
 
             futures.emplace_back(tp.enqueue([group_first, group_last, f] {
@@ -206,24 +216,35 @@ namespace c4 {
             }));
         }
 
+        detail::run_group(group_first, group_last, f);
+
         for (auto& f : futures)
             f.wait();
     }
 
     template<class iterator, class T, class Reduction, class F>
     inline T parallel_reduce(iterator first, iterator last, size_t grain_size, T init, Reduction reduction, F f, thread_pool& tp = thread_pool::get_default_pool()) {
+        if (first >= last)
+            return init;
+
         std::vector<size_t> groups = detail::init_groups(last - first, grain_size);
         std::vector<std::future<T>> futures;
 
-        for (size_t g : groups) {
+        iterator group_first = first;
+        iterator group_last = first + groups[0];
+        first = group_last;
+
+        for (int i : range(1, isize(groups))) {
             iterator group_first = first;
-            iterator group_last = first + g;
+            iterator group_last = first + groups[i];
             first = group_last;
 
             futures.emplace_back(tp.enqueue([group_first, group_last, f] {
                 return f(group_first, group_last);
             }));
         }
+
+        init = reduction(init, f(group_first, group_last));
 
         for (auto& f : futures)
             init = reduction(init, f.get());

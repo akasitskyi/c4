@@ -130,27 +130,35 @@ struct dataset {
 int main(int argc, char* argv[]) {
     try{
         // FULL TEST:
-        // step 20, k2:
+        // step 20, it100, k2:
         // 64 - 0.0396186
 
-        // step 20, k2, sym:
+        // step 20, it100, k2, sym:
         // 64 - 0.0313635
+        // 85s -> 69s -> 59s
 
-        // step 20, k3:
+        // step 20, it100, k3:
         // 64 - 0.0308812
 
-        // step 20, k3, sym:
+        // step 20, it100, k3, sym:
         // 64 - 0.0261583
 
-        // step 20, k4:
+        // step 20, it100, k4:
         // 64 - 0.0263632
 
-        // step 20, k4, sym:
+        // step 20, it100, k4, sym:
         // 64 - 0.0237412
+
+        // step 20, it100, k5, sym:
+        // 64 - 0.0224899
+
+        // step 50, it100, k2, sym:
+        // 64 - 
+        // train time: 21s
 
         const c4::matrix_dimensions sample_size{ 64, 64 };
         dataset train_set(sample_size);
-        train_set.load("labels_ibug_300W_train.json", 4, 20);
+        train_set.load("labels_ibug_300W_train.json", 2, 20);
 
         std::cout << "train size: " << train_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.f) / train_set.y.size() << std::endl;
