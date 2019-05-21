@@ -22,71 +22,145 @@
 
 #pragma once
 
+#include <map>
 #include <vector>
+#include <future>
+#include <string>
+#include <memory>
+#include <iostream>
+#include <cstdlib>
 #include <c4/range.hpp>
 #include <c4/string.hpp>
 
 namespace c4 {
     class cmd_opts {
-        std::vector<std::string> args;
+        class cmd_flag {
+            friend class cmd_opts;
+
+            std::shared_ptr<bool> ptr;
+            cmd_flag() : ptr(new bool) {
+                *ptr = false;
+            }
+
+        public:
+            operator bool() const {
+                return *ptr;
+            }
+        };
+
+        template<typename T>
+        class cmd_opt {
+            friend class cmd_opts;
+
+            std::shared_ptr<std::string> ptr;
+
+            cmd_opt() : ptr(new std::string()) {}
+            
+            cmd_opt(const T& t) : cmd_opt() {
+                *ptr = std::to_string(t);
+            }
+
+        public:
+            operator T() const {
+                return string_to<T>(*ptr);
+            }
+        };
+
+        std::map<std::string, std::shared_ptr<std::string>> optional;
+        std::map<std::string, std::shared_ptr<std::string>> required;
+        std::map<std::string, std::shared_ptr<bool>> flags;
+
+        std::vector<std::string> free_args;
+
+        void assert_unique(const std::string name) const {
+            if (optional.count(name) || required.count(name) || flags.count(name))
+                throw std::logic_error("Can't add multiple options with the same name: " + name);
+        }
+
+        cmd_flag add_flag_internal(const std::string name) {
+            assert_unique(name);
+            cmd_flag flag;
+            flags.emplace(name, flag.ptr);
+            return flag;
+        }
+
+        template<typename T>
+        cmd_opt<T> add_optional_internal(const std::string name, const T& init) {
+            assert_unique(name);
+            cmd_opt<T> opt(init);
+            optional.emplace(name, opt.ptr);
+            return opt;
+        }
+
+        template<typename T>
+        cmd_opt<T> add_required_internal(const std::string& name) {
+            assert_unique(name);
+            cmd_opt<T> opt;
+            required.emplace(name, opt.ptr);
+            return opt;
+        }
+
+        void fail_with_error(const std::string& error) const {
+            std::cout << error << std::endl;
+            exit(EXIT_FAILURE);
+        }
 
     public:
 
-        cmd_opts(int argc, const char** argv) : args(argv, argv + argc) {}
+        cmd_opts() {}
 
-        bool extract(const std::string& option) {
-            auto it = std::find(args.begin(), args.end(), "--" + option);
-            if (it != args.end()) {
-                args.erase(it);
-                return true;
+        template<typename T>
+        cmd_opt<T> add_optional(const std::string& name, const T& init) {
+            return add_optional_internal("--" + name, init);
+        }
+
+        template<typename T>
+        cmd_opt<T> add_required(const std::string& name) {
+            return add_required_internal<T>("--" + name);
+        }
+
+        cmd_flag add_flag(const std::string& name) {
+            return add_flag_internal("--" + name);
+        }
+
+        void parse(const int argc, char** argv) {
+            for (int i = 0; i < argc;) {
+                const std::string arg = argv[i++];
+
+                auto optional_it = optional.find(arg);
+                if (optional_it != optional.end()) {
+                    if (i == argc)
+                        fail_with_error("Cmd line option '" + arg + "' needs to have a following value");
+                    *optional_it->second = argv[i++];
+                    continue;
+                }
+
+                auto required_it = required.find(arg);
+                if (required_it != required.end()) {
+                    if (i == argc)
+                        fail_with_error("Cmd line option '" + arg + "' needs to have a following value");
+                    *required_it->second = argv[i++];
+                    continue;
+                }
+
+                auto flag_it = flags.find(arg);
+                if (flag_it != flags.end()) {
+                    *flag_it->second = true;
+                    continue;
+                }
+
+                free_args.push_back(arg);
             }
 
-            return false;
-        }
-
-        template<typename T>
-        T extract(const std::string& option, const T& default_value) {
-            return extract_by_token("--" + option, default_value);
-        }
-
-        template<typename T>
-        T extract(const char option, const T& default_value) {
-            return extract_by_token(std::string("-") + c, default_value);
-        }
-
-        template<typename T>
-        bool try_extract(const std::string& option, T& value) {
-            return try_extract_by_token("--" + option, value);
-        }
-
-        template<typename T>
-        bool try_extract(const char option, T& value) {
-            return try_extract_by_token(std::string("-") + c, value);
-        }
-
-        std::vector<std::string> arguments_left() {
-            return args;
-        }
-
-    private:
-        template<typename T>
-        T extract_by_token(const std::string& token, T r) {
-            try_extract_by_token(r);
-
-            return r;
-        }
-
-        template<typename T>
-        bool try_extract_by_token(const std::string& token, T& r) {
-            for (auto i : range(args.size() - 1).reverse()) {
-                if (args[i] == token && args[i + 1][0] != '-') {
-                    r = string_to<T>(args[i + 1]);
-                    args.erase(args.begin() + i, args.begin() + i + 2);
-                    return true;
+            for (auto& opt : required) {
+                if (opt.second->empty()) {
+                    fail_with_error("Required cmd line argument not found: " + opt.first);
                 }
             }
+        }
 
-            return false;
+        std::vector<std::string> get_free_args() const {
+            return free_args;
         }
     };
 };

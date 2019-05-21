@@ -62,6 +62,30 @@ namespace __c4 {
             return f;
         }
 
+        void predict(const matrix<std::vector<uint8_t>>& rx, std::vector<double>& f) const {
+            enumerable_thread_specific<std::vector<double>> f_ts(std::vector<double>(rx[0][0].size()));
+
+            parallel_for(range(weights.height()), [&](int i) {
+                auto& f = f_ts.local();
+                for (int j : range(weights.width())) {
+                    const auto& w = weights[i][j];
+                    const auto& rxv = rx[i][j];
+
+                    for (int k : range(rxv)) {
+                        f[k] += w[rxv[k]];
+                    }
+                }
+            });
+
+            parallel_for(range(f), [&](int k) {
+                double s = 0.;
+                for (const auto& fi : f_ts) {
+                    s += fi[k];
+                }
+                f[k] = s;
+            });
+        }
+
         void train(const std::vector<matrix<uint8_t>>& x, const std::vector<float>& y, const std::vector<matrix<uint8_t>>& test_x, const std::vector<float>& test_y, const int itc, const bool symmetry) {
             c4::scoped_timer t("matrix_regression::train()");
 
@@ -73,38 +97,39 @@ namespace __c4 {
             }
 
             matrix<std::vector<uint8_t>> rx(x[0].dimensions());
-
             for (int i : range(rx.height())) {
                 for (int j : range(rx.width())) {
                     rx[i][j].reserve(x.size());
                 }
             }
 
-            for (const auto& m : x) {
-                for (int i : range(m.height())) {
+            parallel_for(range(x[0].height()), [&](int i) {
+                for (const auto& m : x) {
                     for (int j : range(m.width())) {
                         rx[i][j].push_back(m[i][j]);
                     }
                 }
-            }
+            });
 
             matrix<std::array<double, dim>> d(weights.dimensions());
             matrix<std::array<uint32_t, dim>> n_m(weights.dimensions());
             matrix<std::array<double, dim>> sy_m(weights.dimensions());
 
-            for (int i : range(weights.height())) {
+            parallel_for(range(weights.height()), [&](int i) {
                 for (int j : range(weights.width())) {
                     auto& sy = sy_m[i][j];
                     auto& n = n_m[i][j];
+                    auto& rx_ij = rx[i][j];
 
                     for (int k : range(x)) {
-                        sy[rx[i][j][k]] += y[k];
-                        n[rx[i][j][k]]++;
+                        sy[rx_ij[k]] += y[k];
+                        n[rx_ij[k]]++;
                     }
                 }
-            }
+            });
             
-            std::vector<double> f = predict(x);
+            std::vector<double> f(x.size());
+            predict(rx, f);
 
             for (int it = 0; it < itc; it++) {
                 parallel_for(range(weights.height()), [&](int i) {
@@ -136,7 +161,7 @@ namespace __c4 {
                     }
                 }
 
-                f = predict(x);
+                predict(rx, f);
                 const double train_mse = mean_squared_error(f, y);
                 const double test_mse = mean_squared_error(predict(test_x), test_y);
 

@@ -36,12 +36,12 @@
 #include <c4/string.hpp>
 #include <c4/matrix_regression.hpp>
 
-
 #include <c4/image.hpp>
 #include <c4/color_plane.hpp>
 #include <c4/bmp24.hpp>
 #include <c4/serialize.hpp>
 #include <c4/lbp.hpp>
+#include <c4/cmd_opts.hpp>
 
 template<class TForm>
 void generate_samples(const c4::matrix_dimensions& sample_size, const c4::matrix<uint8_t>& img, const std::vector<c4::rectangle<int>>& rects, std::vector<c4::matrix<uint8_t>>& train_x, std::vector<float>& train_y, int k, TForm tform) {
@@ -108,7 +108,7 @@ struct dataset {
 
     dataset(const c4::matrix_dimensions& sample_size) : sample_size(sample_size) {}
 
-    void load(const std::string& labels_filepath, const int k, const int sample) {
+    void load(const std::string& labels_filepath, const int k = 0, const int sample = 1) {
         c4::scoped_timer t("dataset::load");
 
         c4::json data_json;
@@ -234,23 +234,43 @@ int main(int argc, char* argv[]) {
         // step  1, it500, k8, sym:
         // 40 - 0.0143788
 
+        // step  1, it500, k9, sym:
+        // 40 - 0.0143286
 
-        const c4::matrix_dimensions sample_size{ 40, 40 };
-        dataset train_set(sample_size);
-        train_set.load("labels_ibug_300W_train.json", 8, 1);
+        // step  1, it500, k10, sym:
+        // 40 - 0.0143431
+
+        // step  1, it500, k10, sym:
+        // 48 - 0.0150839
+
+
+        // step  1, it1000, k9, sym:
+        // 40 - 0.0139379
+
+        c4::cmd_opts opts;
+        auto sample_size = opts.add_required<int>("sample_size");
+        auto max_shift = opts.add_required<int>("max_shift");
+        auto train_load_step = opts.add_required<int>("train_load_step");
+        auto iterations = opts.add_required<int>("iterations");
+
+        opts.parse(argc, argv);
+
+        const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
+        dataset train_set(sample_dims);
+        train_set.load("labels_ibug_300W_train.json", max_shift, train_load_step);
 
         std::cout << "train size: " << train_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.f) / train_set.y.size() << std::endl;
 
-        dataset test_set(sample_size);
-        test_set.load("labels_ibug_300W_test.json", 0, 1);
+        dataset test_set(sample_dims);
+        test_set.load("labels_ibug_300W_test.json");
 
         std::cout << "test size: " << test_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(test_set.y.begin(), test_set.y.end(), 0.f) / test_set.y.size() << std::endl;
 
         __c4::matrix_regression<> mr;
 
-        mr.train(train_set.x, train_set.y, test_set.x, test_set.y, 500, true);
+        mr.train(train_set.x, train_set.y, test_set.x, test_set.y, iterations, true);
 
         {
             std::ofstream fout("matrix_regression.dat", std::ofstream::binary);
