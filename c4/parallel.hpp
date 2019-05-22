@@ -199,6 +199,11 @@ namespace c4 {
         if (first >= last)
             return;
 
+        if (tp.get_thread_index() != -1) { // we are called from the very same pool!
+            detail::run_group(first, last, f);
+            return;
+        }
+
         std::vector<size_t> groups = detail::init_groups(last - first, grain_size);
         std::vector<std::future<void>> futures;
 
@@ -220,6 +225,12 @@ namespace c4 {
     inline T parallel_reduce(iterator first, iterator last, size_t grain_size, T init, Reduction reduction, F f, thread_pool& tp = thread_pool::get_default_pool()) {
         if (first >= last)
             return init;
+
+
+        if (tp.get_thread_index() != -1) { // we are called from the very same pool!
+            init = reduction(init, f(first, last));
+            return init;
+        }
 
         std::vector<size_t> groups = detail::init_groups(last - first, grain_size);
         std::vector<std::future<T>> futures;
