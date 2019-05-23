@@ -164,12 +164,14 @@ namespace c4 {
             assert(size >= 0);
             assert(grain_size > 0);
 
-            std::vector<size_t> groups(size / grain_size, grain_size);
-            size -= groups.size() * grain_size;
+            const size_t groups_n = std::max<size_t>(size / grain_size, 1);
+            grain_size = size / groups_n;
 
-            for (int k = 0; size > 0; k++) {
-                groups[k]++;
-                size--;
+            std::vector<size_t> groups(groups_n, grain_size);
+            size -= groups_n * grain_size; // < groups_n
+
+            while (size > 0) {
+                groups[--size]++;
             }
 
             return groups;
