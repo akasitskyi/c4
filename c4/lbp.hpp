@@ -27,7 +27,7 @@
 namespace c4 {
     struct LBP {
         c4::matrix<uint8_t> operator()(const c4::matrix<uint8_t>& img) const {
-            c4::matrix<uint8_t> lbp(img.height() - 2, img.width() - 2);
+            c4::matrix<uint8_t> lbp(calc_dimensions(img.dimensions()));
 
             for (int i : c4::range(lbp.height())) {
                 for (int j : c4::range(lbp.width())) {
@@ -50,6 +50,10 @@ namespace c4 {
             }
 
             return lbp;
+        }
+
+        c4::matrix_dimensions calc_dimensions(const c4::matrix_dimensions& md) const {
+            return { md.height - 2, md.width - 2 };
         }
 
         c4::matrix_dimensions reverse_dimensions(const c4::matrix_dimensions& md) const {

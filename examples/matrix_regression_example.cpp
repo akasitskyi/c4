@@ -102,14 +102,15 @@ void merge_vectors(std::vector<std::vector<T>>& src, std::vector<T>& dst) {
 
 
 struct dataset {
-    std::vector<c4::matrix<uint8_t>> x;
+    c4::matrix<std::vector<uint8_t>> rx;
+
     std::vector<float> y;
     const c4::matrix_dimensions sample_size;
 
-    dataset(const c4::matrix_dimensions& sample_size) : sample_size(sample_size) {}
+    dataset(const c4::matrix_dimensions& sample_size) : sample_size(sample_size), rx(c4::LBP().calc_dimensions(sample_size)) {}
 
-    void load(const std::string& labels_filepath, const int k = 0, const int sample = 1) {
-        c4::scoped_timer t("dataset::load");
+    void load_dlib(const std::string& labels_filepath, const int k = 0, const int sample = 1) {
+        c4::scoped_timer t("dataset::load_dlib");
 
         c4::json data_json;
 
@@ -118,34 +119,72 @@ struct dataset {
 
         train_data_fin >> data_json;
 
-        c4::enumerable_thread_specific<std::vector<c4::matrix<uint8_t>>> ts_x;
-        c4::enumerable_thread_specific<std::vector<float>> ts_y;
+        std::vector<std::pair<std::string, std::vector<c4::rectangle<int>>>> data;
 
-        std::mutex mu;
-        c4::parallel_for(c4::range(data_json["images"].size()), [&](const int i) {
+        for (int i : c4::range(data_json["images"].size())) {
             const auto& image_info = data_json["images"][i];
 
-            std::string filename = image_info["filename"];
+            const std::string filename = image_info["filename"];
 
             if (!c4::ends_with(c4::to_lower(filename), ".jpg") || i % sample)
-                return;
-
-            c4::matrix<uint8_t> img;
-            c4::read_jpeg(root + filename, img);
-
-            const auto& boxes = image_info["boxes"];
+                continue;
 
             std::vector<c4::rectangle<int>> rects;
-            for (const auto& box : boxes) {
+
+            for (const auto& box : image_info["boxes"]) {
                 c4::rectangle<int> r(box["left"], box["top"], box["width"], box["height"]);
                 rects.push_back(r);
             }
 
-            generate_samples(sample_size, img, rects, ts_x.local(), ts_y.local(), k, c4::LBP());
+            data.emplace_back(root + filename, rects);
+        }
+
+        load(data, k);
+    }
+
+    void load(const std::vector<std::pair<std::string, std::vector<c4::rectangle<int>>>>& data, const int k = 0) {
+        c4::scoped_timer t("dataset::load");
+
+
+        c4::enumerable_thread_specific<std::vector<c4::matrix<uint8_t>>> ts_x;
+        c4::enumerable_thread_specific<std::vector<float>> ts_y;
+
+        c4::parallel_for(c4::range(data.size()), [&](c4::range r) {
+            auto& xl = ts_x.local();
+            auto& yl = ts_y.local();
+
+            for (int i : r) {
+                const auto& image_info = data[i];
+
+                c4::matrix<uint8_t> img;
+                c4::read_jpeg(image_info.first, img);
+
+                generate_samples(sample_size, img, image_info.second, xl, yl, k, c4::LBP());
+            }
         });
 
-        merge_vectors(ts_x, x);
-        merge_vectors(ts_y, y);
+        const size_t capacity = std::accumulate(ts_y.begin(), ts_y.end(), ts_y.size(), [](size_t a, const std::vector<float>& v) { return a + v.size(); });
+        PRINT_DEBUG(capacity);
+
+        y.reserve(capacity);
+
+        for (auto& row : rx) {
+            for (auto& v : row) {
+                v.reserve(capacity);
+            }
+        }
+
+        for (auto& t : ts_y) {
+            y.insert(y.end(), t.begin(), t.end());
+            t.clear();
+            t.shrink_to_fit();
+        }
+
+        for (auto& t : ts_x) {
+            __c4::matrix_regression<>::push_back_repack(t, rx);
+            t.clear();
+            t.shrink_to_fit();
+        }
     }
 };
 
@@ -257,20 +296,20 @@ int main(int argc, char* argv[]) {
 
         const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
         dataset train_set(sample_dims);
-        train_set.load("labels_ibug_300W_train.json", max_shift, train_load_step);
+        train_set.load_dlib("labels_ibug_300W_train.json", max_shift, train_load_step);
 
         std::cout << "train size: " << train_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.f) / train_set.y.size() << std::endl;
 
         dataset test_set(sample_dims);
-        test_set.load("labels_ibug_300W_test.json");
+        test_set.load_dlib("labels_ibug_300W_test.json");
 
         std::cout << "test size: " << test_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(test_set.y.begin(), test_set.y.end(), 0.f) / test_set.y.size() << std::endl;
 
         __c4::matrix_regression<> mr;
 
-        mr.train(train_set.x, train_set.y, test_set.x, test_set.y, iterations, true);
+        mr.train(train_set.rx, train_set.y, test_set.rx, test_set.y, iterations, true);
 
         {
             std::ofstream fout("matrix_regression.dat", std::ofstream::binary);
@@ -286,8 +325,8 @@ int main(int argc, char* argv[]) {
             __c4::matrix_regression<> mr1;
             in(mr1);
 
-            const double train_mse = c4::mean_squared_error(mr1.predict(train_set.x), train_set.y);
-            const double test_mse = c4::mean_squared_error(mr1.predict(test_set.x), test_set.y);
+            const double train_mse = c4::mean_squared_error(mr1.predict(train_set.rx), train_set.y);
+            const double test_mse = c4::mean_squared_error(mr1.predict(test_set.rx), test_set.y);
 
             LOGD << "RELOAD: train_mse: " << train_mse << ", test_mse: " << test_mse;
         }

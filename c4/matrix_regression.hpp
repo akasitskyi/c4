@@ -86,20 +86,18 @@ namespace __c4 {
             });
         }
 
-        void train(const std::vector<matrix<uint8_t>>& x, const std::vector<float>& y, const std::vector<matrix<uint8_t>>& test_x, const std::vector<float>& test_y, const int itc, const bool symmetry) {
-            c4::scoped_timer t("matrix_regression::train()");
+        std::vector<double> predict(const matrix<std::vector<uint8_t>>& rx) const {
+            std::vector<double> f(rx[0][0].size());
+            predict(rx, f);
+            return f;
+        }
 
-            weights.resize(x[0].dimensions());
-            for (auto& v : weights) {
-                for (auto& t : v) {
-                    std::fill(t.begin(), t.end(), 0.f);
-                }
-            }
+        static void push_back_repack(const std::vector<matrix<uint8_t>>& x, matrix<std::vector<uint8_t>>& rx) {
+            ASSERT_TRUE(x[0].dimensions() == rx.dimensions());
 
-            matrix<std::vector<uint8_t>> rx(x[0].dimensions());
             for (int i : range(rx.height())) {
                 for (int j : range(rx.width())) {
-                    rx[i][j].reserve(x.size());
+                    rx[i][j].reserve(rx[i][j].size() + x.size());
                 }
             }
 
@@ -111,6 +109,18 @@ namespace __c4 {
                 }
             });
 
+        }
+
+        void train(const matrix<std::vector<uint8_t>>& rx, const std::vector<float>& y, const matrix<std::vector<uint8_t>>& test_rx, const std::vector<float>& test_y, const int itc, const bool symmetry) {
+            c4::scoped_timer t("matrix_regression::train()");
+
+            weights.resize(rx.dimensions());
+            for (auto& v : weights) {
+                for (auto& t : v) {
+                    std::fill(t.begin(), t.end(), 0.f);
+                }
+            }
+
             matrix<std::array<double, dim>> d(weights.dimensions());
             matrix<std::array<uint32_t, dim>> n_m(weights.dimensions());
             matrix<std::array<double, dim>> sy_m(weights.dimensions());
@@ -121,23 +131,23 @@ namespace __c4 {
                     auto& n = n_m[i][j];
                     auto& rx_ij = rx[i][j];
 
-                    for (int k : range(x)) {
+                    for (int k : range(rx_ij)) {
                         sy[rx_ij[k]] += y[k];
                         n[rx_ij[k]]++;
                     }
                 }
             });
             
-            std::vector<double> f(x.size());
-            predict(rx, f);
+            std::vector<double> f = predict(rx);
 
             for (int it = 0; it < itc; it++) {
                 parallel_for(range(weights.height()), [&](int i) {
                     for (int j : range(weights.width())) {
                         std::vector<double> sf(dim, 0.);
+                        auto& rx_ij = rx[i][j];
 
-                        for (int k : range(x)) {
-                            sf[rx[i][j][k]] += f[k];
+                        for (int k : range(rx_ij)) {
+                            sf[rx_ij[k]] += f[k];
                         }
 
                         const auto& sy = sy_m[i][j];
@@ -163,7 +173,7 @@ namespace __c4 {
 
                 predict(rx, f);
                 const double train_mse = mean_squared_error(f, y);
-                const double test_mse = mean_squared_error(predict(test_x), test_y);
+                const double test_mse = mean_squared_error(predict(test_rx), test_y);
 
                 LOGD << "it " << it << ", train_mse: " << train_mse << ", test_mse: " << test_mse;
             }
