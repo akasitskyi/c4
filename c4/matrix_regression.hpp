@@ -26,9 +26,7 @@
 #include <c4/exception.hpp>
 #include <c4/parallel.hpp>
 
-namespace __c4 {
-    using namespace c4;
-
+namespace c4 {
     template<int dim = 256>
     class matrix_regression {
         matrix<std::array<float, dim>> weights;
@@ -108,7 +106,6 @@ namespace __c4 {
                     }
                 }
             });
-
         }
 
         void train(const matrix<std::vector<uint8_t>>& rx, const std::vector<float>& y, const matrix<std::vector<uint8_t>>& test_rx, const std::vector<float>& test_y, const int itc, const bool symmetry) {

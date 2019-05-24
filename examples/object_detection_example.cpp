@@ -42,25 +42,34 @@
 #include <c4/bmp24.hpp>
 #include <c4/serialize.hpp>
 #include <c4/lbp.hpp>
+#include <c4/dataset.hpp>
+#include <c4/math.hpp>
 
 int main(int argc, char* argv[]) {
     try{
-        std::ifstream fin("matrix_regression_step3_k10_it500.dat", std::ifstream::binary);
+        std::ifstream fin("matrix_regression.dat", std::ifstream::binary);
         c4::serialize::input_archive in(fin);
 
         __c4::matrix_regression<> mr;
         in(mr);
-
+        
         __c4::window_detector<c4::LBP, 256> wd(mr, c4::LBP());
 
-        __c4::scaling_detector<c4::LBP, 256> sd(wd, 0.9f);
-        
+        __c4::scaling_detector<c4::LBP, 256> sd(wd, 0.95f);
+
+        c4::dataset test_set(wd.dimensions());
+        test_set.load_dlib("labels_ibug_300W_test.json");
+
+        const double test_mse = c4::mean_squared_error(mr.predict(test_set.rx), test_set.y);
+        LOGD << "test_mse: " << test_mse;
+
+
         c4::matrix<uint8_t> img, scaled;
         c4::read_jpeg(argv[1], img);
 
-        c4::downscale_nx(img, scaled, 4);
+        c4::downscale_nx(img, scaled, 8);
 
-        const auto dets = sd.detect(scaled, 0.99);
+        const auto dets = sd.detect(scaled, 0.97);
 
         for (const auto& d : dets) {
             c4::draw_rect(scaled, d.rect.x, d.rect.y, d.rect.w, d.rect.h, uint8_t(255), 1);
