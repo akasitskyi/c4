@@ -72,8 +72,6 @@ namespace c4 {
         }
 
         ~Logger(){
-            ss << "\n";
-            
             switch(level)
             {
 #ifdef ANDROID
@@ -96,20 +94,20 @@ namespace c4 {
 #endif
 #else
             case LOG_ERROR :
-                std::cerr << "E: " << (ss.str().c_str());
+                std::cerr << "E: " << (ss.str().c_str()) << std::endl;
                 break;
             case LOG_WARN :
-                std::cerr << "W: " << (ss.str().c_str());
+                std::cerr << "W: " << (ss.str().c_str()) << std::endl;
                 break;
             case LOG_INFO :
-                std::cout << "I: " << (ss.str().c_str());
+                std::cout << "I: " << (ss.str().c_str()) << std::endl;
                 break;
 #ifndef C4_DEBUG_OUTPUT_DISABLED
             case LOG_DEBUG :
-                std::cout << "D: " << (ss.str().c_str());
+                std::cout << "D: " << (ss.str().c_str()) << std::endl;
                 break;
             case LOG_VERBOSE :
-                std::cout << "V: " << (ss.str().c_str());
+                std::cout << "V: " << (ss.str().c_str()) << std::endl;
                 break;
 #endif
 #endif

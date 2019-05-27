@@ -62,6 +62,9 @@ namespace c4 {
 
         public:
             operator T() const {
+                if (ptr->empty())
+                    throw std::logic_error("Trying to get cmd_opt before parsing args");
+
                 return string_to<T>(*ptr);
             }
         };

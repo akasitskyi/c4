@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include "image.hpp"
 #include "bmp24.hpp"
 #include "string.hpp"
@@ -30,7 +32,7 @@ namespace c4 {
 	class image_dumper {
         std::string suffix;
 		bool enabled;
-		int cnt;
+		std::atomic<int> cnt;
 
         image_dumper() : suffix(""), enabled(false), cnt(0) {}
         image_dumper(const image_dumper&) = delete;

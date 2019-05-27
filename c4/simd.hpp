@@ -65,21 +65,7 @@
 #include <nmmintrin.h>
 #endif
 
-#define __C4_SIMD_WARNING_SLOW "The function may be slow due to the serial implementation"
-
-#ifdef __GNUC__
-    #if (__GNUC__ * 100 + __GNUC_MINOR__) <  405
-        #define __C4_SIMD_SLOW__ __attribute__((deprecated))
-    #else
-        #define __C4_SIMD_SLOW__ __attribute__((deprecated(__C4_SIMD_WARNING_SLOW)))
-    #endif
-#else
-    #if defined(_MSC_VER) || defined (__INTEL_COMPILER)  
-        #define __C4_SIMD_SLOW__ __declspec(deprecated(__C4_SIMD_WARNING_SLOW))
-    #else
-        #define __C4_SIMD_SLOW__
-    #endif
-#endif
+#define __C4_SIMD_SLOW__ [[deprecated("The function may be slow due to the serial implementation")]]
 
 #ifdef USE_ARM_NEON
 #define __C4_SIMD_SLOW_NEON__ __C4_SIMD_SLOW__

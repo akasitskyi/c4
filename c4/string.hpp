@@ -24,6 +24,8 @@
 
 #include <string>
 #include <cctype>
+#include <sstream>
+#include <iomanip>
 
 namespace c4 {
     inline bool ends_with(const std::string& s, const std::string& t) {

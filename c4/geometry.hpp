@@ -177,6 +177,14 @@ namespace c4 {
             return scale_around_center(s, s);
         }
 
+        inline bool operator==(const rectangle<T>& other) const {
+            return x == other.x && y == other.y && h == other.h && w == other.w;
+        }
+
+        inline bool operator!=(const rectangle<T>& other) const {
+            return !operator==(other);
+        }
+
         rectangle<T> intersect(const rectangle<T>& other) const {
             rectangle<T> r;
             

@@ -77,12 +77,12 @@ namespace c4 {
     }
 
     template<class pixel_t>
-    inline void draw_rect(matrix_ref<pixel_t>& img, int x0, int y0, int width, int height, pixel_t color, int thickness = 1){
-        y0 = std::max(y0, thickness / 2);
-        x0 = std::max(x0, thickness / 2);
+    inline void draw_rect(matrix_ref<pixel_t>& img, rectangle<int> r, pixel_t color, int thickness = 1){
+        int y0 = std::max(r.y, thickness / 2);
+        int x0 = std::max(r.x, thickness / 2);
 
-        int y1 = std::min(y0 + height - 1, img.height() - (thickness - thickness / 2));
-        int x1 = std::min(x0 + width - 1, img.width() - (thickness - thickness / 2));
+        int y1 = std::min(y0 + r.h - 1, img.height() - (thickness - thickness / 2));
+        int x1 = std::min(x0 + r.w - 1, img.width() - (thickness - thickness / 2));
         
         for(int d : range(-thickness / 2, thickness - thickness / 2)) {
             for(int y : range(y0, y1 + 1)) {
