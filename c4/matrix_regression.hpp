@@ -91,6 +91,9 @@ namespace c4 {
         }
 
         static void push_back_repack(const std::vector<matrix<uint8_t>>& x, matrix<std::vector<uint8_t>>& rx) {
+            if (x.empty())
+                return;
+
             ASSERT_TRUE(x[0].dimensions() == rx.dimensions());
 
             for (int i : range(rx.height())) {
@@ -137,7 +140,7 @@ namespace c4 {
             
             std::vector<double> f = predict(rx);
 
-            for (int it = 0; it < itc; it++) {
+            for (int it = 1; it <= itc; it++) {
                 parallel_for(range(weights.height()), [&](int i) {
                     for (int j : range(weights.width())) {
                         std::vector<double> sf(dim, 0.);
@@ -169,10 +172,13 @@ namespace c4 {
                 }
 
                 predict(rx, f);
-                const double train_mse = mean_squared_error(f, y);
-                const double test_mse = mean_squared_error(predict(test_rx), test_y);
 
-                LOGD << "it " << it << ", train_mse: " << train_mse << ", test_mse: " << test_mse;
+                if (it % 100 == 0) {
+                    const double train_mse = mean_squared_error(f, y);
+                    const double test_mse = mean_squared_error(predict(test_rx), test_y);
+
+                    LOGD << "it " << it << ", train_mse: " << train_mse << ", test_mse: " << test_mse;
+                }
             }
         }
 

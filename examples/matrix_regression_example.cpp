@@ -58,119 +58,113 @@ void merge_vectors(std::vector<std::vector<T>>& src, std::vector<T>& dst) {
 
 int main(int argc, char* argv[]) {
     try{
-        // step 20, it100, k2, sym:
-        // 64 - 0.0367619
+        // step 100, 40, k2, sym, rect 3.0:
+        // train size: 939874
+        // test size: 211606
+        // it500  - 0.0175486
 
-        // step 20, it100, k3, sym:
-        // 64 - 0.0308738
+        // step 100, 42, k1, sym, rect 3.0:
+        // train size: 341386
+        // test size: 211606
+        // it500  - 0.0181418
 
-        // step 20, it100, k4, sym:
-        // 64 - 0.0278687
+        // step 100, 42, k2, sym, rect 3.0:
+        // train size: 939874
+        // test size: 211606
+        // it500  - 0.0175391
+        // it1000 - 0.0172517
 
-        // step 20, it100, k5, sym:
-        // 64 - 0.0263316
+        // step 20, 42, k2, sym, rect 3.0:
+        // train size: 4687386
+        // test size: 211606
+        // it500  - 0.0168998
+        // it1000 - 0.0160926
 
-        // step 20, it100, k6, sym:
-        // 64 - 0.0253624
+        // step 10, 42, k1, sym, rect 3.0:
+        // train size: 3399126
+        // test size: 211606
+        // it100  - 0.0233916
+        // it200  - 0.019282
+        // it300  - 0.0178331
+        // it400  - 0.0171015
+        // it500  - 0.016661
+        // it1000 - 0.0158567
 
-        // step 20, it100, k7, sym:
-        // 64 - 0.0247578
+        // step 10, 42, k2, sym, rect 3.0:
+        // train size: 9361442
+        // test size: 211606
+        // it100  - 0.023423
+        // it200  - 0.0193024
+        // it300  - 0.0178743
+        // it400  - 0.0171582
+        // it500  - 0.0167218
+        // it1000 - 0.0158606
 
-        // step 20, it100, k8, sym:
-        // 64 - 0.0243022
+        // step 5, 42, k1, sym, rect 3.0:
+        // train size: 6805994
+        // test size: 211606
+        // it100  - 0.0232507
+        // it200  - 0.0191452
+        // it300  - 0.0176935
+        // it400  - 0.0169541
+        // it500  - 0.0165028
+        // it1000 - 0.0156271
 
-        // step 20, it100, k9, sym:
-        // 64 - 0.0239536
+        // step 3, 42, k1, sym, rect 3.0:
+        // train size: 11361096
+        // test size: 211606
+        // it100  - 0.0233746
+        // it200  - 0.0192269
+        // it300  - 0.0177527
+        // it400  - 0.0169967
+        // it500  - 0.0165323
+        // it1000 - 0.015609
 
-        // step 20, it100, k10, sym:
-        // 64 - 0.0236716
+        //*step 1, 42, k0, sym, rect 3.0:
+        // train size: 3837654
+        // test size: 211606
+        // it100  - 0.0229642
+        // it200  - 0.0189504
+        // it300  - 0.0175291
+        // it400  - 0.0168034
+        // it500  - 0.0163626
+        // it1000 - 0.0155334
 
-        // step 20, it100, k12, sym:
-        // 64 - 0.0234398
+        // step 100, 42, k3, sym, rect 3.0:
+        // train size: 1821108
+        // test size: 211606
+        // it500  - 0.0176195
 
-
-        // step 20, it200, k2, sym:
-        // 64 - 0.0368679
-
-        // step 20, it200, k10, sym:
-        // 64 - 0.0219404
-
-
-        // step 20, it500, k10, sym:
-        // 64 - 0.020858
-
-        // step 20, it500, k12, sym:
-        // 64 - 0.0205338
-
-
-        // step 10, it500, k6, sym:
-        // 64 - 0.0194836
-
-        // step 10, it500, k10, sym:
-        // 64 - 0.0180317
-
-        // step 10, it500, k12, sym:
-        // 64 - 0.0180055
-
-
-        // step  3, it500, k10, sym:
-        // 64 - 0.0160341
-
-        // step  3, it500, k8, sym:
-        // 52 - 0.0160341
-
-        // step  3, it500, k6, sym:
-        // 40 - 0.0152601
-
-        // step  3, it500, k5, sym:
-        // 32 - 0.0180542
-
-        // step  3, it500, k6, sym:
-        // 32 - 0.0172336
-
-
-        // step  1, it500, k6, sym:
-        // 32 - 0.0159794
-
-        // step  1, it500, k7, sym:
-        // 32 - 0.015796
-
-        // step  1, it500, k8, sym:
-        // 32 - 0.0157435
-
-        // step  1, it500, k8, sym:
-        // 40 - 0.0143788
-
-        // step  1, it500, k9, sym:
-        // 40 - 0.0143286
-
-        // step  1, it500, k10, sym:
-        // 40 - 0.0143431
-
-        // step  1, it500, k10, sym:
-        // 48 - 0.0150839
-
-
-        // step  1, it1000, k9, sym:
-        // 40 - 0.0139379
+        // step 100, 44, k2, sym, rect 3.0:
+        // train size: 939874
+        // test size: 211606
+        // it500  - 0.0176728
 
         c4::cmd_opts opts;
         auto sample_size = opts.add_required<int>("sample_size");
+        auto face_scale = opts.add_required<int>("face_scale");
         auto max_shift = opts.add_required<int>("max_shift");
         auto train_load_step = opts.add_required<int>("train_load_step");
         auto iterations = opts.add_required<int>("iterations");
 
         opts.parse(argc, argv);
 
+        PRINT_DEBUG(sample_size);
+        PRINT_DEBUG(face_scale);
+        PRINT_DEBUG(max_shift);
+        PRINT_DEBUG(train_load_step);
+
         const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
         c4::dataset train_set(sample_dims);
-        train_set.load_vggface2("C:/vggface2/train/", "C:/vggface2/train/loose_bb_train.csv", max_shift, train_load_step);
+        //train_set.load_vggface2("C:/vggface2/train/", "C:/vggface2/train/loose_bb_train.csv", max_shift, train_load_step);
+        train_set.load_vggface2_landmark("C:/vggface2/train/", "C:/vggface2/train/loose_landmark_train.csv", face_scale, max_shift, train_load_step);
 
         std::cout << "train size: " << train_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.f) / train_set.y.size() << std::endl;
 
         c4::dataset test_set(sample_dims);
-        test_set.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_bb_test.csv");
+        //test_set.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_bb_test.csv");
+        test_set.load_vggface2_landmark("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale);
 
         std::cout << "test size: " << test_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(test_set.y.begin(), test_set.y.end(), 0.f) / test_set.y.size() << std::endl;

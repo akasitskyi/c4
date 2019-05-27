@@ -35,18 +35,21 @@
 #include "parallel.hpp"
 #include "logger.hpp"
 #include "matrix_regression.hpp"
+#include "image_dumper.hpp"
+#include "drawing.hpp"
 
 namespace c4 {
     struct dataset {
-        matrix<std::vector<uint8_t>> rx;
-
-        std::vector<float> y;
         const matrix_dimensions sample_size;
+        const bool dump_rects;
 
-        dataset(const matrix_dimensions& sample_size) : sample_size(sample_size), rx(LBP().calc_dimensions(sample_size)) {}
+        matrix<std::vector<uint8_t>> rx;
+        std::vector<float> y;
+
+        dataset(const matrix_dimensions& sample_size, const bool dump_rects = false) : sample_size(sample_size), dump_rects(dump_rects), rx(LBP().calc_dimensions(sample_size)) {}
 
         template<class TForm>
-        static void generate_samples(const matrix_dimensions& sample_size, const matrix<uint8_t>& img, const std::vector<rectangle<int>>& rects, std::vector<matrix<uint8_t>>& train_x, std::vector<float>& train_y, int k, TForm tform) {
+        static void generate_samples(const matrix_dimensions& sample_size, const matrix<uint8_t>& img, const std::vector<rectangle<int>>& rects, std::vector<matrix<uint8_t>>& pos, std::vector<matrix<uint8_t>>& neg, const float neg_to_pos_ratio, int k, TForm tform) {
             matrix<uint8_t> sample(sample_size);
 
             int positive = 0;
@@ -56,11 +59,11 @@ namespace c4 {
                     for (int dy = -k; dy <= k; dy++) {
                         rectangle<int> r1(r.x + dx, r.y + dy, r.w, r.h);
 
-                        const auto cropped_rect = r1.intersect(img.rect());
-                        scale_bilinear(img.submatrix(cropped_rect), sample);
-                        train_x.push_back(tform(sample));
-                        train_y.push_back(1.f);
+                        if (r1.intersect(img.rect()) != r1)
+                            continue;
 
+                        scale_bilinear(img.submatrix(r1), sample);
+                        pos.push_back(tform(sample));
                         positive++;
                     }
                 }
@@ -70,11 +73,12 @@ namespace c4 {
                 return;
 
             fast_rand rnd;
-            int negatives = positive * 1;
-            while (negatives--) {
+            const int need_neg = int(positive * neg_to_pos_ratio);
+            int negatives = 0;
+            for(int it = 0; negatives < need_neg && it < need_neg * 10; it++) {
                 rectangle<int> r;
-                r.y = rnd() % (img.height() - sample.height());
-                r.x = rnd() % (img.width() - sample.width());
+                r.y = rnd() % (img.height() - sample_size.height);
+                r.x = rnd() % (img.width() - sample_size.width);
                 r.h = sample_size.height;
                 r.w = sample_size.width;
 
@@ -83,31 +87,55 @@ namespace c4 {
                     iou_max = std::max(iou_max, intersection_over_union(r, t));
                 }
                 if (iou_max < 0.1) {
-                    train_x.push_back(tform(img.submatrix(r.y, r.x, r.h, r.w)));
-                    train_y.push_back(0.f);
+                    neg.push_back(tform(img.submatrix(r)));
+                    negatives++;
                 }
             }
         }
 
-        void load(const std::vector<std::pair<std::string, std::vector<rectangle<int>>>>& data, const int k = 0) {
+        void load(const std::vector<std::pair<std::string, std::vector<rectangle<int>>>>& data, const int k, const float neg_to_pos_ratio) {
             scoped_timer t("dataset::load");
 
-
-            enumerable_thread_specific<std::vector<matrix<uint8_t>>> ts_x;
-            enumerable_thread_specific<std::vector<float>> ts_y;
+            enumerable_thread_specific<std::vector<matrix<uint8_t>>> ts_xp;
+            enumerable_thread_specific<std::vector<matrix<uint8_t>>> ts_xn;
 
             parallel_for(data, [&](const std::pair<std::string, std::vector<rectangle<int>>>& r) {
-                auto& xl = ts_x.local();
-                auto& yl = ts_y.local();
+                auto& xp = ts_xp.local();
+                auto& xn = ts_xn.local();
 
                 matrix<uint8_t> img;
                 read_jpeg(r.first, img);
 
-                generate_samples(sample_size, img, r.second, xl, yl, k, LBP());
+                generate_samples(sample_size, img, r.second, xp, xn, (k ? 1.3 : 2) * neg_to_pos_ratio, k, LBP());
+
+                if (dump_rects) {
+                    for (const auto& rect : r.second) {
+                        draw_rect(img, rect, uint8_t{ 255 });
+                    }
+                    force_dump_image(img, "fd");
+                }
             });
 
-            const size_t capacity = std::accumulate(ts_y.begin(), ts_y.end(), ts_y.size(), [](size_t a, const std::vector<float>& v) { return a + v.size(); });
-            PRINT_DEBUG(capacity);
+            auto counter = [](int a, const std::vector<matrix<uint8_t>>& v) { return a + isize(v); };
+            
+            int num_p = std::accumulate(ts_xp.begin(), ts_xp.end(), 0, counter);
+            int num_n = std::accumulate(ts_xn.begin(), ts_xn.end(), 0, counter);
+
+            auto multipop = [](enumerable_thread_specific<std::vector<matrix<uint8_t>>>& ts_x, int pop_cnt) {
+                for (auto& t : ts_x) {
+                    while (!t.empty() && pop_cnt > 0) {
+                        t.pop_back();
+                        pop_cnt--;
+                    }
+
+                    t.shrink_to_fit();
+                }
+            };
+
+            multipop(ts_xp, num_p - int(num_n / neg_to_pos_ratio + 0.5f));
+            multipop(ts_xn, num_n - int(num_p * neg_to_pos_ratio + 0.5f));
+
+            const int capacity = std::accumulate(ts_xp.begin(), ts_xp.end(), 0, counter) + std::accumulate(ts_xn.begin(), ts_xn.end(), 0, counter);
 
             y.reserve(capacity);
 
@@ -117,22 +145,22 @@ namespace c4 {
                 }
             }
 
-            for (auto& t : ts_y) {
-                y.insert(y.end(), t.begin(), t.end());
+            for (auto& t : ts_xp) {
+                matrix_regression<>::push_back_repack(t, rx);
+                y.resize(y.size() + t.size(), 1.f);
                 t.clear();
                 t.shrink_to_fit();
             }
 
-            for (auto& t : ts_x) {
+            for (auto& t : ts_xn) {
                 matrix_regression<>::push_back_repack(t, rx);
+                y.resize(y.size() + t.size(), 0.f);
                 t.clear();
                 t.shrink_to_fit();
             }
         }
 
         void load_dlib(const std::string& labels_filepath, const int k = 0, const int sample = 1) {
-            scoped_timer t("dataset::load_dlib");
-
             json data_json;
 
             std::string root = "C:/portraits-data/ibug_300W_large_face_landmark_dataset/";
@@ -160,12 +188,11 @@ namespace c4 {
                 data.emplace_back(root + filename, rects);
             }
 
-            load(data, k);
+            load(data, k, 1.f);
         }
-
+        
+        [[deprecated]]
         void load_vggface2(const std::string& root, const std::string& labels_filepath, const int k = 0, const int sample = 1) {
-            scoped_timer t("dataset::load_vggface2");
-
             std::vector<std::pair<std::string, std::vector<rectangle<int>>>> data;
 
             std::ifstream fin(labels_filepath);
@@ -181,7 +208,56 @@ namespace c4 {
                 data.emplace_back(root + row[0] + ".jpg", std::vector<rectangle<int>>{ rectangle<int>(stoi(row[1]), stoi(row[2]), stoi(row[3]), stoi(row[4])) });
             }
 
-            load(data, 0);
+            load(data, k, 1.f);
+        }
+
+        void load_vggface2_landmark(const std::string& root, const std::string& labels_filepath, const float face_scale, const int k = 0, const int sample = 1) {
+            std::vector<std::pair<std::string, std::vector<rectangle<int>>>> data;
+
+            std::ifstream fin(labels_filepath);
+
+            csv csv;
+            csv.read(fin);
+            for (int i : range(1, isize(csv.data))) {
+                if (i % sample)
+                    continue;
+
+                const auto& row = csv.data[i];
+                std::vector<point<float>> v(5);
+                for (int j : range(v)) {
+                    v[j].x = string_to<float>(row[2 * j + 1]);
+                    v[j].y = string_to<float>(row[2 * j + 2]);
+                }
+
+                const point<float> center = std::accumulate(v.begin(), v.end(), point<float>()) * (1.f / v.size());
+
+                float max_d = 0.f;
+                for (auto p : v) {
+                    max_d = std::max(max_d, dist(p, center));
+                }
+
+                const float half_side = max_d * face_scale;
+                const int side = int(2 * half_side + 0.5f);
+
+                rectangle<int> r(int(center.x - half_side + 0.5f), int(center.y - half_side + 0.5f), side, side);
+
+                if (dump_rects) {
+                    matrix<uint8_t> img;
+                    read_jpeg(root + row[0] + ".jpg", img);
+
+                    draw_rect(img, r, uint8_t(255));
+
+                    for (int j : range(v)) {
+                        draw_point(img, int(v[j].y), int(v[j].x), uint8_t(255), 10);
+                    }
+
+                    force_dump_image(img, "lm");
+                }
+
+                data.emplace_back(root + row[0] + ".jpg", std::vector<rectangle<int>>{ r });
+            }
+
+            load(data, k, 1.f);
         }
     };
 }; // namespace c4
