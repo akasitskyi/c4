@@ -41,35 +41,39 @@
 namespace c4 {
     struct dataset {
         const matrix_dimensions sample_size;
+        const matrix_dimensions negative_sample_crop_size;
         const bool dump_rects;
 
         matrix<std::vector<uint8_t>> rx;
         std::vector<float> y;
 
-        dataset(const matrix_dimensions& sample_size, const bool dump_rects = false) : sample_size(sample_size), dump_rects(dump_rects), rx(LBP().calc_dimensions(sample_size)) {}
+        dataset(const matrix_dimensions& sample_size, const matrix_dimensions& negative_sample_crop_size, const bool dump_rects = false) : sample_size(sample_size), negative_sample_crop_size(negative_sample_crop_size), dump_rects(dump_rects), rx(LBP().calc_dimensions(sample_size)) {}
 
         template<class TForm>
-        static void generate_samples(const matrix_dimensions& sample_size, const matrix<uint8_t>& img, const std::vector<rectangle<int>>& rects, std::vector<matrix<uint8_t>>& pos, std::vector<matrix<uint8_t>>& neg, const float neg_to_pos_ratio, int k, TForm tform) {
-            matrix<uint8_t> sample(sample_size);
-
+        static void generate_samples(const matrix_dimensions& sample_size, const matrix_dimensions& negative_sample_crop_size, const matrix<uint8_t>& img, const std::vector<rectangle<int>>& sample_rects, const std::vector<rectangle<int>>& crop_rects, std::vector<matrix<uint8_t>>& pos, std::vector<matrix<uint8_t>>& neg, const float neg_to_pos_ratio, int k, TForm tform) {
             int positive = 0;
 
-            for (const auto& r : rects) {
+            for (int i : range(sample_rects)) {
+                matrix<uint8_t> sample(sample_size);
+
+                const auto& sample_rect = sample_rects[i];
+                const auto& crop_rect = crop_rects[i];
                 for (int dx = -k; dx <= k; dx++) {
                     for (int dy = -k; dy <= k; dy++) {
-                        rectangle<int> r1(r.x + dx, r.y + dy, r.w, r.h);
+                        rectangle<int> sample_rect1(sample_rect.x + dx, sample_rect.y + dy, sample_rect.w, sample_rect.h);
+                        rectangle<int> crop_rect1(crop_rect.x + dx, crop_rect.y + dy, crop_rect.w, crop_rect.h);
 
-                        if (r1.intersect(img.rect()) != r1)
+                        if (crop_rect1.intersect(img.rect()) != crop_rect1)
                             continue;
 
-                        scale_bilinear(img.submatrix(r1), sample);
+                        scale_bilinear(img.submatrix(sample_rect1), sample);
                         pos.push_back(tform(sample));
                         positive++;
                     }
                 }
             }
 
-            if (img.height() <= sample.height() || img.width() <= sample.width())
+            if (img.height() <= negative_sample_crop_size.height || img.width() <= negative_sample_crop_size.width)
                 return;
 
             fast_rand rnd;
@@ -77,43 +81,41 @@ namespace c4 {
             int negatives = 0;
             for(int it = 0; negatives < need_neg && it < need_neg * 10; it++) {
                 rectangle<int> r;
-                r.y = rnd() % (img.height() - sample_size.height);
-                r.x = rnd() % (img.width() - sample_size.width);
-                r.h = sample_size.height;
-                r.w = sample_size.width;
+                r.y = rnd() % (img.height() - negative_sample_crop_size.height);
+                r.x = rnd() % (img.width() - negative_sample_crop_size.width);
+                r.h = negative_sample_crop_size.height;
+                r.w = negative_sample_crop_size.width;
 
                 double iou_max = 0.;
-                for (const auto& t : rects) {
+                for (const auto& t : crop_rects) {
                     iou_max = std::max(iou_max, intersection_over_union(r, t));
                 }
                 if (iou_max < 0.1) {
+                    r.h = sample_size.height;
+                    r.w = sample_size.width;
                     neg.push_back(tform(img.submatrix(r)));
                     negatives++;
                 }
             }
         }
 
-        void load(const std::vector<std::pair<std::string, std::vector<rectangle<int>>>>& data, const int k, const float neg_to_pos_ratio) {
+        void load(const std::vector<std::pair<std::string, std::vector<rectangle<int>>>>& sample_rects, const std::vector<std::pair<std::string, std::vector<rectangle<int>>>>& crop_rects, const int k, const float neg_to_pos_ratio) {
             scoped_timer t("dataset::load");
 
             enumerable_thread_specific<std::vector<matrix<uint8_t>>> ts_xp;
             enumerable_thread_specific<std::vector<matrix<uint8_t>>> ts_xn;
 
-            parallel_for(data, [&](const std::pair<std::string, std::vector<rectangle<int>>>& r) {
+            parallel_for(range(sample_rects), [&](int i) {
+                const auto& sample_r = sample_rects[i];
+                const auto& crop_r = crop_rects[i];
+
                 auto& xp = ts_xp.local();
                 auto& xn = ts_xn.local();
 
                 matrix<uint8_t> img;
-                read_jpeg(r.first, img);
+                read_jpeg(sample_r.first, img);
 
-                generate_samples(sample_size, img, r.second, xp, xn, (k ? 1.3 : 2) * neg_to_pos_ratio, k, LBP());
-
-                if (dump_rects) {
-                    for (const auto& rect : r.second) {
-                        draw_rect(img, rect, uint8_t{ 255 });
-                    }
-                    force_dump_image(img, "fd");
-                }
+                generate_samples(sample_size, negative_sample_crop_size, img, sample_r.second, crop_r.second, xp, xn, (k ? 1.3f : 2) * neg_to_pos_ratio, k, LBP());
             });
 
             auto counter = [](int a, const std::vector<matrix<uint8_t>>& v) { return a + isize(v); };
@@ -188,7 +190,7 @@ namespace c4 {
                 data.emplace_back(root + filename, rects);
             }
 
-            load(data, k, 1.f);
+            load(data, data, k, 1.f);
         }
         
         [[deprecated]]
@@ -208,11 +210,12 @@ namespace c4 {
                 data.emplace_back(root + row[0] + ".jpg", std::vector<rectangle<int>>{ rectangle<int>(stoi(row[1]), stoi(row[2]), stoi(row[3]), stoi(row[4])) });
             }
 
-            load(data, k, 1.f);
+            load(data, data, k, 1.f);
         }
 
-        void load_vggface2_landmark(const std::string& root, const std::string& labels_filepath, const float face_scale, const int k = 0, const int sample = 1) {
-            std::vector<std::pair<std::string, std::vector<rectangle<int>>>> data;
+        void load_vggface2_landmark(const std::string& root, const std::string& labels_filepath, const float sample_rect_scale, const float crop_rect_scale, const int k, const int sample) {
+            std::vector<std::pair<std::string, std::vector<rectangle<int>>>> sample_rects;
+            std::vector<std::pair<std::string, std::vector<rectangle<int>>>> crop_rects;
 
             std::ifstream fin(labels_filepath);
 
@@ -236,16 +239,21 @@ namespace c4 {
                     max_d = std::max(max_d, dist(p, center));
                 }
 
-                const float half_side = max_d * face_scale;
-                const int side = int(2 * half_side + 0.5f);
+                auto make_rect = [center, max_d](float scale) {
+                    const float half_side = max_d * scale;
+                    const int side = int(2 * half_side + 0.5f);
+                    return rectangle<int>(int(center.x - half_side + 0.5f), int(center.y - half_side + 0.5f), side, side);
+                };
 
-                rectangle<int> r(int(center.x - half_side + 0.5f), int(center.y - half_side + 0.5f), side, side);
+                const rectangle<int> sample_rect = make_rect(sample_rect_scale);
+                const rectangle<int> crop_rect = make_rect(crop_rect_scale);
 
                 if (dump_rects) {
                     matrix<uint8_t> img;
                     read_jpeg(root + row[0] + ".jpg", img);
 
-                    draw_rect(img, r, uint8_t(255));
+                    draw_rect(img, sample_rect, uint8_t(255));
+                    draw_rect(img, crop_rect, uint8_t(128));
 
                     for (int j : range(v)) {
                         draw_point(img, int(v[j].y), int(v[j].x), uint8_t(255), 10);
@@ -254,10 +262,11 @@ namespace c4 {
                     force_dump_image(img, "lm");
                 }
 
-                data.emplace_back(root + row[0] + ".jpg", std::vector<rectangle<int>>{ r });
+                sample_rects.emplace_back(root + row[0] + ".jpg", std::vector<rectangle<int>>{ sample_rect });
+                crop_rects.emplace_back(root + row[0] + ".jpg", std::vector<rectangle<int>>{ crop_rect });
             }
 
-            load(data, k, 1.f);
+            load(sample_rects, crop_rects, k, 1.f);
         }
     };
 }; // namespace c4

@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
 
         c4::cmd_opts opts;
         auto sample_size = opts.add_required<int>("sample_size");
-        auto face_scale = opts.add_required<int>("face_scale");
+        auto face_scale = opts.add_required<float>("face_scale");
         auto max_shift = opts.add_required<int>("max_shift");
         auto train_load_step = opts.add_required<int>("train_load_step");
         auto iterations = opts.add_required<int>("iterations");
@@ -155,16 +155,17 @@ int main(int argc, char* argv[]) {
         PRINT_DEBUG(train_load_step);
 
         const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
-        c4::dataset train_set(sample_dims);
+        const c4::matrix_dimensions negative_sample_dims{ 64, 64 };
+        c4::dataset train_set(sample_dims, negative_sample_dims);
         //train_set.load_vggface2("C:/vggface2/train/", "C:/vggface2/train/loose_bb_train.csv", max_shift, train_load_step);
-        train_set.load_vggface2_landmark("C:/vggface2/train/", "C:/vggface2/train/loose_landmark_train.csv", face_scale, max_shift, train_load_step);
+        train_set.load_vggface2_landmark("C:/vggface2/train/", "C:/vggface2/train/loose_landmark_train.csv", face_scale, 3.0, max_shift, train_load_step);
 
         std::cout << "train size: " << train_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.f) / train_set.y.size() << std::endl;
 
-        c4::dataset test_set(sample_dims);
+        c4::dataset test_set(sample_dims, negative_sample_dims);
         //test_set.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_bb_test.csv");
-        test_set.load_vggface2_landmark("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale);
+        test_set.load_vggface2_landmark("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale, 3.0, 0, 1);
 
         std::cout << "test size: " << test_set.y.size() << std::endl;
         std::cout << "positive ratio: " << std::accumulate(test_set.y.begin(), test_set.y.end(), 0.f) / test_set.y.size() << std::endl;
