@@ -57,7 +57,7 @@ namespace c4 {
             cmd_opt() : ptr(new std::string()) {}
             
             cmd_opt(const T& t) : cmd_opt() {
-                *ptr = std::to_string(t);
+                *ptr = to_string(t);
             }
 
         public:
@@ -66,6 +66,10 @@ namespace c4 {
                     throw std::logic_error("Trying to get cmd_opt before parsing args");
 
                 return string_to<T>(*ptr);
+            }
+
+            friend std::ostream& operator<<(std::ostream& out, const cmd_opt<T>& t) {
+                return out << (T)t;
             }
         };
 
@@ -112,9 +116,9 @@ namespace c4 {
 
         cmd_opts() {}
 
-        template<typename T>
-        cmd_opt<T> add_optional(const std::string& name, const T& init) {
-            return add_optional_internal("--" + name, init);
+        template<typename T, typename U>
+        cmd_opt<T> add_optional(const std::string& name, const U& init) {
+            return add_optional_internal("--" + name, static_cast<T>(init));
         }
 
         template<typename T>

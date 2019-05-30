@@ -42,6 +42,13 @@ namespace c4 {
     }
 
     template<typename T>
+    inline std::string to_string(T q) {
+        std::stringstream ss;
+        ss << q;
+        return ss.str();
+    }
+
+    template<typename T>
     inline std::string to_string(T q, int w) {
         std::stringstream ss;
         if (std::is_integral<T>())
