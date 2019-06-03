@@ -28,24 +28,44 @@
 #include <c4/matrix_regression.hpp>
 #include <c4/scaling.hpp>
 
-namespace __c4 {
-    using namespace c4;
-
+namespace c4 {
     struct detection {
         rectangle<int> rect;
         double confidence;
     };
 
+    static void merge_rects(std::vector<detection>& dets, const double iou_threshold) {
+        while (true) {
+            bool changed = false;
+            for (int i = 0; i < isize(dets); i++) {
+                for (int j : range(i)) {
+                    if (intersection_over_union(dets[i].rect, dets[j].rect) > iou_threshold) {
+                        dets[i].rect.x = (dets[i].rect.x + dets[j].rect.x + 1) / 2;
+                        dets[i].rect.y = (dets[i].rect.y + dets[j].rect.y + 1) / 2;
+                        dets[i].rect.w = (dets[i].rect.w + dets[j].rect.w + 1) / 2;
+                        dets[i].rect.h = (dets[i].rect.h + dets[j].rect.h + 1) / 2;
+
+                        dets.erase(dets.begin() + j);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!changed)
+                break;
+        }
+    }
+
     template<class TForm, int dim = 256>
     class window_detector {
         const matrix_regression<dim> mr;
-        const TForm tform;
     public:
 
-        window_detector(const matrix_regression<dim>& mr, const TForm& tform) : mr(mr), tform(tform) {}
+        window_detector(const matrix_regression<dim>& mr) : mr(mr) {}
 
         std::vector<detection> detect(const matrix_ref<uint8_t>& img, double threshold) const {
-            c4::matrix<uint8_t> timg = tform(img);
+            c4::matrix<uint8_t> timg = TForm::transform(img);
 
             std::vector<detection> dets;
 
@@ -65,7 +85,7 @@ namespace __c4 {
         }
 
         matrix_dimensions dimensions() const {
-            return tform.reverse_dimensions(mr.dimensions());
+            return TForm::reverse_dimensions(mr.dimensions());
         }
 
         template <typename Archive>
@@ -92,17 +112,17 @@ namespace __c4 {
             for (float scale = scale_step; int(img.height() * scale) >= min_dims.height && int(img.width() * scale) >= min_dims.width; scale *= scale_step) {
                 scaled.resize(int(img.height() * scale), int(img.width() * scale));
 
-                scale_bilinear(img, scaled);
+                scale_image_hq(img, scaled);
 
                 std::vector<detection> scale_dets = wd.detect(scaled, threshold);
-
-                PRINT_DEBUG(scale_dets.size());
 
                 for (detection& d : scale_dets) {
                     d.rect = rectangle<int>(d.rect.scale_around_origin(1.f / scale));
                     dets.push_back(d);
                 }
             }
+
+            merge_rects(dets, 0.7);
 
             return dets;
         }

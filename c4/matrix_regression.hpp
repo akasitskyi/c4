@@ -25,6 +25,7 @@
 #include <c4/matrix.hpp>
 #include <c4/exception.hpp>
 #include <c4/parallel.hpp>
+#include <c4/progress_indicator.hpp>
 
 namespace c4 {
     template<int dim = 256>
@@ -140,6 +141,8 @@ namespace c4 {
             
             std::vector<double> f = predict(rx);
 
+            progress_indicator progress(itc);
+
             for (int it = 1; it <= itc; it++) {
                 parallel_for(range(weights.height()), [&](int i) {
                     for (int j : range(weights.width())) {
@@ -179,6 +182,8 @@ namespace c4 {
 
                     LOGD << "it " << it << ", train_mse: " << train_mse << ", test_mse: " << test_mse;
                 }
+
+                progress.did_some(1);
             }
         }
 

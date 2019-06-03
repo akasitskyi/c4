@@ -24,6 +24,7 @@
 
 #include "matrix.hpp"
 #include "range.hpp"
+#include "pixel.hpp"
 #include "geometry.hpp"
 
 namespace c4 {

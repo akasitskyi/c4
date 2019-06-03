@@ -22,10 +22,11 @@
 
 #pragma once
 
-#include <cstdint>
-#include <tuple>
-#include <type_traits>
 #include <array>
+#include <tuple>
+#include <memory>
+#include <cstdint>
+#include <type_traits>
 
 namespace c4 {
     namespace serialize {

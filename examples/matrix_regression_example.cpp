@@ -35,6 +35,8 @@
 #include <c4/scaling.hpp>
 #include <c4/string.hpp>
 #include <c4/matrix_regression.hpp>
+#include <c4/classification_metrics.hpp>
+#include <c4/object_detection.hpp>
 
 #include <c4/image.hpp>
 #include <c4/color_plane.hpp>
@@ -43,103 +45,21 @@
 #include <c4/dataset.hpp>
 #include <c4/cmd_opts.hpp>
 
-template<typename T>
-void merge_vectors(std::vector<std::vector<T>>& src, std::vector<T>& dst) {
-    size_t capacity = std::accumulate(src.begin(), src.end(), dst.size(), [](size_t a, const std::vector<T>& v) { return a + v.size(); });
-    dst.reserve(capacity);
+c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& filepath) {
+    std::ifstream fin(filepath, std::ifstream::binary);
+    c4::serialize::input_archive in(fin);
 
-    for (auto& t : src) {
-        dst.insert(dst.end(), std::make_move_iterator(t.begin()), std::make_move_iterator(t.end()));
-        t.clear();
-        t.shrink_to_fit();
-    }
+    c4::matrix_regression<> mr;
+    in(mr);
+
+    c4::window_detector<c4::LBP, 256> wd(mr);
+
+    c4::scaling_detector<c4::LBP, 256> sd(wd, 0.95f);
+    return sd;
 }
-
 
 int main(int argc, char* argv[]) {
     try{
-        // step 100, 40, k2, sym, rect 3.0:
-        // train size: 939874
-        // test size: 211606
-        // it500  - 0.0175486
-
-        // step 100, 42, k1, sym, rect 3.0:
-        // train size: 341386
-        // test size: 211606
-        // it500  - 0.0181418
-
-        // step 100, 42, k2, sym, rect 3.0:
-        // train size: 939874
-        // test size: 211606
-        // it500  - 0.0175391
-        // it1000 - 0.0172517
-
-        // step 20, 42, k2, sym, rect 3.0:
-        // train size: 4687386
-        // test size: 211606
-        // it500  - 0.0168998
-        // it1000 - 0.0160926
-
-        // step 10, 42, k1, sym, rect 3.0:
-        // train size: 3399126
-        // test size: 211606
-        // it100  - 0.0233916
-        // it200  - 0.019282
-        // it300  - 0.0178331
-        // it400  - 0.0171015
-        // it500  - 0.016661
-        // it1000 - 0.0158567
-
-        // step 10, 42, k2, sym, rect 3.0:
-        // train size: 9361442
-        // test size: 211606
-        // it100  - 0.023423
-        // it200  - 0.0193024
-        // it300  - 0.0178743
-        // it400  - 0.0171582
-        // it500  - 0.0167218
-        // it1000 - 0.0158606
-
-        // step 5, 42, k1, sym, rect 3.0:
-        // train size: 6805994
-        // test size: 211606
-        // it100  - 0.0232507
-        // it200  - 0.0191452
-        // it300  - 0.0176935
-        // it400  - 0.0169541
-        // it500  - 0.0165028
-        // it1000 - 0.0156271
-
-        // step 3, 42, k1, sym, rect 3.0:
-        // train size: 11361096
-        // test size: 211606
-        // it100  - 0.0233746
-        // it200  - 0.0192269
-        // it300  - 0.0177527
-        // it400  - 0.0169967
-        // it500  - 0.0165323
-        // it1000 - 0.015609
-
-        //*step 1, 42, k0, sym, rect 3.0:
-        // train size: 3837654
-        // test size: 211606
-        // it100  - 0.0229642
-        // it200  - 0.0189504
-        // it300  - 0.0175291
-        // it400  - 0.0168034
-        // it500  - 0.0163626
-        // it1000 - 0.0155334
-
-        // step 100, 42, k3, sym, rect 3.0:
-        // train size: 1821108
-        // test size: 211606
-        // it500  - 0.0176195
-
-        // step 100, 44, k2, sym, rect 3.0:
-        // train size: 939874
-        // test size: 211606
-        // it500  - 0.0176728
-
         c4::cmd_opts opts;
         auto sample_size = opts.add_required<int>("sample_size");
         auto face_scale = opts.add_required<float>("face_scale");
@@ -154,45 +74,80 @@ int main(int argc, char* argv[]) {
         PRINT_DEBUG(max_shift);
         PRINT_DEBUG(train_load_step);
 
+        c4::meta_data_set train_meta;
+        train_meta.load_vggface2("C:/vggface2/train/", "C:/vggface2/train/loose_landmark_train.csv", face_scale, train_load_step);
+
         const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
-        const c4::matrix_dimensions negative_sample_dims{ 64, 64 };
-        c4::dataset train_set(sample_dims, negative_sample_dims);
-        //train_set.load_vggface2("C:/vggface2/train/", "C:/vggface2/train/loose_bb_train.csv", max_shift, train_load_step);
-        train_set.load_vggface2_landmark("C:/vggface2/train/", "C:/vggface2/train/loose_landmark_train.csv", face_scale, 3.0, max_shift, train_load_step);
+
+        c4::dataset<c4::LBP> train_set(sample_dims);
+
+        train_set.load(train_meta, max_shift, 1.f, 1.5f);
 
         std::cout << "train size: " << train_set.y.size() << std::endl;
-        std::cout << "positive ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.f) / train_set.y.size() << std::endl;
 
-        c4::dataset test_set(sample_dims, negative_sample_dims);
-        //test_set.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_bb_test.csv");
-        test_set.load_vggface2_landmark("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale, 3.0, 0, 1);
+        c4::meta_data_set test_meta;
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale, 4);
+
+        c4::dataset<c4::LBP> test_set(sample_dims);
+
+        test_set.load(test_meta, 0, 1.f, 1.5f);
 
         std::cout << "test size: " << test_set.y.size() << std::endl;
-        std::cout << "positive ratio: " << std::accumulate(test_set.y.begin(), test_set.y.end(), 0.f) / test_set.y.size() << std::endl;
 
         c4::matrix_regression<> mr;
 
         mr.train(train_set.rx, train_set.y, test_set.rx, test_set.y, iterations, true);
 
+        const std::string model_filepath = "matrix_regression.dat";
+
         {
-            std::ofstream fout("matrix_regression.dat", std::ofstream::binary);
+            std::ofstream fout(model_filepath, std::ofstream::binary);
 
             c4::serialize::output_archive out(fout);
 
             out(mr);
         }
-        {
-            std::ifstream fin("matrix_regression.dat", std::ifstream::binary);
-            c4::serialize::input_archive in(fin);
 
-            c4::matrix_regression<> mr1;
-            in(mr1);
+        const auto sd = load_scaling_detector(model_filepath);
 
-            const double train_mse = c4::mean_squared_error(mr1.predict(train_set.rx), train_set.y);
-            const double test_mse = c4::mean_squared_error(mr1.predict(test_set.rx), test_set.y);
+        c4::image_dumper::getInstance().init("", true);
 
-            LOGD << "RELOAD: train_mse: " << train_mse << ", test_mse: " << test_mse;
-        }
+        test_meta.data.resize(std::min(c4::isize(test_meta.data), 300));
+
+        std::vector<c4::image_file_metadata> detections(test_meta.data.size());
+
+        c4::progress_indicator progress((uint32_t)test_meta.data.size());
+
+        c4::parallel_for (c4::range(test_meta.data), [&](int i){
+            const auto& t = test_meta.data[i];
+
+            c4::matrix<uint8_t> img;
+
+            c4::read_jpeg(t.filepath, img);
+
+            c4::image_file_metadata& ifm = detections[i];
+            ifm.filepath = t.filepath;
+
+            const auto dets = sd.detect(img, 0.995);
+
+            for (const auto& d : dets) {
+                ifm.objects.push_back({ d.rect,{} });
+                c4::draw_rect(img, d.rect, uint8_t(255), 1);
+            }
+
+            for (const auto& g : t.objects) {
+                c4::draw_rect(img, g.rect, uint8_t(0), 1);
+            }
+
+            c4::dump_image(img, "fd");
+
+            progress.did_some(1);
+        });
+
+        auto res = c4::evaluate_object_detection(test_meta.data, detections, 0.7);
+
+        PRINT_DEBUG(res.recall());
+        PRINT_DEBUG(res.precission());
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
     }

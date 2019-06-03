@@ -20,62 +20,73 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#include <c4/lbp.hpp>
 #include <c4/jpeg.hpp>
-
-#include <fstream>
-
-#include <map>
-#include <unordered_map>
-
-#include <c4/math.hpp>
-#include <c4/mstream.hpp>
-#include <c4/logger.hpp>
-#include <c4/json.hpp>
-#include <c4/geometry.hpp>
-#include <c4/scaling.hpp>
 #include <c4/drawing.hpp>
+#include <c4/serialize.hpp>
+#include <c4/image_dumper.hpp>
+#include <c4/meta_data_set.hpp>
+#include <c4/classification_metrics.hpp>
 #include <c4/object_detection.hpp>
 
+c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& filepath) {
+    std::ifstream fin(filepath, std::ifstream::binary);
+    c4::serialize::input_archive in(fin);
 
-#include <c4/image.hpp>
-#include <c4/color_plane.hpp>
-#include <c4/bmp24.hpp>
-#include <c4/serialize.hpp>
-#include <c4/lbp.hpp>
-#include <c4/dataset.hpp>
-#include <c4/math.hpp>
+    c4::matrix_regression<> mr;
+    in(mr);
+
+    c4::window_detector<c4::LBP, 256> wd(mr);
+
+    c4::scaling_detector<c4::LBP, 256> sd(wd, 0.95f);
+    return sd;
+}
 
 int main(int argc, char* argv[]) {
     try{
-        std::ifstream fin("matrix_regression.dat", std::ifstream::binary);
-        c4::serialize::input_archive in(fin);
+        const auto sd = load_scaling_detector("matrix_regression_42_30_stage1_k0_s1_it2k.dat");
 
-        __c4::matrix_regression<> mr;
-        in(mr);
-        
-        __c4::window_detector<c4::LBP, 256> wd(mr, c4::LBP());
+        c4::meta_data_set test_meta;
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 3.0, 100);
 
-        __c4::scaling_detector<c4::LBP, 256> sd(wd, 0.95f);
+        PRINT_DEBUG(test_meta.data.size());
 
-        c4::dataset test_set(wd.dimensions());
-        test_set.load_dlib("labels_ibug_300W_test.json");
+        c4::image_dumper::getInstance().init("", true);
 
-        const double test_mse = c4::mean_squared_error(mr.predict(test_set.rx), test_set.y);
-        LOGD << "test_mse: " << test_mse;
+        c4::matrix<uint8_t> img;
 
+        std::vector<c4::image_file_metadata> detections;
 
-        c4::matrix<uint8_t> img, scaled;
-        c4::read_jpeg(argv[1], img);
+        c4::progress_indicator progress(test_meta.data.size());
 
-        c4::downscale_nx(img, scaled, 8);
+        for (const auto& t : test_meta.data) {
+            c4::read_jpeg(t.filepath, img);
 
-        const auto dets = sd.detect(scaled, 0.97);
+            c4::image_file_metadata ifm;
+            ifm.filepath = t.filepath;
 
-        for (const auto& d : dets) {
-            c4::draw_rect(scaled, d.rect.x, d.rect.y, d.rect.w, d.rect.h, uint8_t(255), 1);
+            const auto dets = sd.detect(img, 0.99);
+
+            for (const auto& d : dets) {
+                ifm.objects.push_back({ d.rect, {} });
+                c4::draw_rect(img, d.rect, uint8_t(255), 1);
+            }
+
+            for (const auto& g : t.objects) {
+                c4::draw_rect(img, g.rect, uint8_t(0), 1);
+            }
+
+            detections.push_back(ifm);
+
+            c4::dump_image(img, "fd");
+
+            progress.did_some(1);
         }
 
-        c4::write_bmp24("fd.bmp", scaled);
+        auto res = c4::evaluate_object_detection(test_meta.data, detections, 0.7);
+
+        PRINT_DEBUG(res.recall());
+        PRINT_DEBUG(res.precission());
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
     }

@@ -26,9 +26,8 @@
 #include <string>
 #include <vector>
 
-#include "csv.hpp"
+#include "meta_data_set.hpp"
 #include "lbp.hpp"
-#include "json.hpp"
 #include "jpeg.hpp"
 #include "string.hpp"
 #include "range.hpp"
@@ -37,105 +36,98 @@
 #include "matrix_regression.hpp"
 #include "image_dumper.hpp"
 #include "drawing.hpp"
+#include "progress_indicator.hpp"
 
 namespace c4 {
+    template<class FeatureSpaceTransform>
     struct dataset {
         const matrix_dimensions sample_size;
-        const matrix_dimensions negative_sample_crop_size;
         const bool dump_rects;
 
         matrix<std::vector<uint8_t>> rx;
         std::vector<float> y;
 
-        dataset(const matrix_dimensions& sample_size, const matrix_dimensions& negative_sample_crop_size, const bool dump_rects = false) : sample_size(sample_size), negative_sample_crop_size(negative_sample_crop_size), dump_rects(dump_rects), rx(LBP().calc_dimensions(sample_size)) {}
+        dataset(const matrix_dimensions& sample_size, const bool dump_rects = false) : sample_size(sample_size), dump_rects(dump_rects), rx(FeatureSpaceTransform::calc_dimensions(sample_size)) {}
 
-        template<class TForm>
-        static void generate_samples(const matrix_dimensions& sample_size, const matrix_dimensions& negative_sample_crop_size, const matrix<uint8_t>& img, const std::vector<rectangle<int>>& sample_rects, const std::vector<rectangle<int>>& crop_rects, std::vector<matrix<uint8_t>>& pos, std::vector<matrix<uint8_t>>& neg, const float neg_to_pos_ratio, int k, TForm tform) {
+        static void generate_samples(const matrix_dimensions& sample_size, const matrix<uint8_t>& img, const std::vector<object_on_image>& objects, std::vector<matrix<uint8_t>>& pos, std::vector<matrix<uint8_t>>& neg, const float neg_to_pos_ratio, int k) {
             int positive = 0;
 
-            for (int i : range(sample_rects)) {
+            for (int i : range(objects)) {
                 matrix<uint8_t> sample(sample_size);
 
-                const auto& sample_rect = sample_rects[i];
-                const auto& crop_rect = crop_rects[i];
+                const auto& rect = objects[i].rect;
                 for (int dx = -k; dx <= k; dx++) {
                     for (int dy = -k; dy <= k; dy++) {
-                        rectangle<int> sample_rect1(sample_rect.x + dx, sample_rect.y + dy, sample_rect.w, sample_rect.h);
-                        rectangle<int> crop_rect1(crop_rect.x + dx, crop_rect.y + dy, crop_rect.w, crop_rect.h);
+                        rectangle<int> rect1(rect.x + dx, rect.y + dy, rect.w, rect.h);
 
-                        if (crop_rect1.intersect(img.rect()) != crop_rect1)
+                        if (rect1.intersect(img.rect()) != rect1)
                             continue;
 
-                        scale_bilinear(img.submatrix(sample_rect1), sample);
-                        pos.push_back(tform(sample));
+                        scale_image_hq(img.submatrix(rect1), sample);
+                        pos.push_back(FeatureSpaceTransform::transform(sample));
                         positive++;
                     }
                 }
             }
 
-            if (img.height() <= negative_sample_crop_size.height || img.width() <= negative_sample_crop_size.width)
+            if (img.height() <= sample_size.height || img.width() <= sample_size.width)
                 return;
 
             fast_rand rnd;
-            const int need_neg = int(positive * neg_to_pos_ratio);
-            int negatives = 0;
-            for(int it = 0; negatives < need_neg && it < need_neg * 10; it++) {
+            const int need_neg = int(std::ceil(positive * neg_to_pos_ratio));
+
+            for(int negatives = 0, wasted = 0; wasted < 20 * sample_size.area() && negatives < need_neg;) {
                 rectangle<int> r;
-                r.y = rnd() % (img.height() - negative_sample_crop_size.height);
-                r.x = rnd() % (img.width() - negative_sample_crop_size.width);
-                r.h = negative_sample_crop_size.height;
-                r.w = negative_sample_crop_size.width;
+                r.y = rnd() % (img.height() - sample_size.height);
+                r.x = rnd() % (img.width() - sample_size.width);
+                r.h = sample_size.height;
+                r.w = sample_size.width;
 
                 double iou_max = 0.;
-                for (const auto& t : crop_rects) {
-                    iou_max = std::max(iou_max, intersection_over_union(r, t));
+                for (const auto& t : objects) {
+                    iou_max = std::max(iou_max, intersection_over_union(r, t.rect));
+                    wasted++;
                 }
-                if (iou_max < 0.1) {
-                    r.h = sample_size.height;
-                    r.w = sample_size.width;
-                    neg.push_back(tform(img.submatrix(r)));
+                if (iou_max < 0.3) {
+                    auto fimg = FeatureSpaceTransform::transform(img.submatrix(r));
+                    neg.push_back(fimg);
+                    wasted = 0;
                     negatives++;
                 }
             }
         }
 
-        void load(const std::vector<std::pair<std::string, std::vector<rectangle<int>>>>& sample_rects, const std::vector<std::pair<std::string, std::vector<rectangle<int>>>>& crop_rects, const int k, const float neg_to_pos_ratio) {
+        void load(const meta_data_set& mds, const int k, const float neg_to_pos_ratio, const float adjusted_neg_to_pos_ratio) {
             scoped_timer t("dataset::load");
 
             enumerable_thread_specific<std::vector<matrix<uint8_t>>> ts_xp;
             enumerable_thread_specific<std::vector<matrix<uint8_t>>> ts_xn;
 
-            parallel_for(range(sample_rects), [&](int i) {
-                const auto& sample_r = sample_rects[i];
-                const auto& crop_r = crop_rects[i];
+            progress_indicator progress((uint32_t)mds.data.size());
+
+            parallel_for(range(mds.data), [&](int i) {
+                const auto& file_meta = mds.data[i];
 
                 auto& xp = ts_xp.local();
                 auto& xn = ts_xn.local();
 
                 matrix<uint8_t> img;
-                read_jpeg(sample_r.first, img);
+                read_jpeg(file_meta.filepath, img);
 
-                generate_samples(sample_size, negative_sample_crop_size, img, sample_r.second, crop_r.second, xp, xn, (k ? 1.3f : 2) * neg_to_pos_ratio, k, LBP());
+                generate_samples(sample_size, img, file_meta.objects, xp, xn, adjusted_neg_to_pos_ratio, k);
+
+                progress.did_some(1);
             });
 
             auto counter = [](int a, const std::vector<matrix<uint8_t>>& v) { return a + isize(v); };
             
-            int num_p = std::accumulate(ts_xp.begin(), ts_xp.end(), 0, counter);
-            int num_n = std::accumulate(ts_xn.begin(), ts_xn.end(), 0, counter);
+            for (int i : range(ts_xn)) {
+                int num_p = isize(ts_xp[i]);
+                int num_n = isize(ts_xn[i]);
 
-            auto multipop = [](enumerable_thread_specific<std::vector<matrix<uint8_t>>>& ts_x, int pop_cnt) {
-                for (auto& t : ts_x) {
-                    while (!t.empty() && pop_cnt > 0) {
-                        t.pop_back();
-                        pop_cnt--;
-                    }
-
-                    t.shrink_to_fit();
-                }
-            };
-
-            multipop(ts_xp, num_p - int(num_n / neg_to_pos_ratio + 0.5f));
-            multipop(ts_xn, num_n - int(num_p * neg_to_pos_ratio + 0.5f));
+                ts_xn[i].resize(std::min(num_n, int(num_p * neg_to_pos_ratio + 0.5f)));
+                ts_xp[i].resize(std::min(num_p, int(num_n / neg_to_pos_ratio + 0.5f)));
+            }
 
             const int capacity = std::accumulate(ts_xp.begin(), ts_xp.end(), 0, counter) + std::accumulate(ts_xn.begin(), ts_xn.end(), 0, counter);
 
@@ -160,113 +152,6 @@ namespace c4 {
                 t.clear();
                 t.shrink_to_fit();
             }
-        }
-
-        void load_dlib(const std::string& labels_filepath, const int k = 0, const int sample = 1) {
-            json data_json;
-
-            std::string root = "C:/portraits-data/ibug_300W_large_face_landmark_dataset/";
-            std::ifstream train_data_fin(root + labels_filepath);
-
-            train_data_fin >> data_json;
-
-            std::vector<std::pair<std::string, std::vector<rectangle<int>>>> data;
-
-            for (int i : range(data_json["images"].size())) {
-                const auto& image_info = data_json["images"][i];
-
-                const std::string filename = image_info["filename"];
-
-                if (!ends_with(to_lower(filename), ".jpg") || i % sample)
-                    continue;
-
-                std::vector<rectangle<int>> rects;
-
-                for (const auto& box : image_info["boxes"]) {
-                    rectangle<int> r(box["left"], box["top"], box["width"], box["height"]);
-                    rects.push_back(r);
-                }
-
-                data.emplace_back(root + filename, rects);
-            }
-
-            load(data, data, k, 1.f);
-        }
-        
-        [[deprecated]]
-        void load_vggface2(const std::string& root, const std::string& labels_filepath, const int k = 0, const int sample = 1) {
-            std::vector<std::pair<std::string, std::vector<rectangle<int>>>> data;
-
-            std::ifstream fin(labels_filepath);
-
-            csv csv;
-            csv.read(fin);
-            for (int i : range(1, isize(csv.data))) {
-                if (i % sample)
-                    continue;
-
-                const auto& row = csv.data[i];
-
-                data.emplace_back(root + row[0] + ".jpg", std::vector<rectangle<int>>{ rectangle<int>(stoi(row[1]), stoi(row[2]), stoi(row[3]), stoi(row[4])) });
-            }
-
-            load(data, data, k, 1.f);
-        }
-
-        void load_vggface2_landmark(const std::string& root, const std::string& labels_filepath, const float sample_rect_scale, const float crop_rect_scale, const int k, const int sample) {
-            std::vector<std::pair<std::string, std::vector<rectangle<int>>>> sample_rects;
-            std::vector<std::pair<std::string, std::vector<rectangle<int>>>> crop_rects;
-
-            std::ifstream fin(labels_filepath);
-
-            csv csv;
-            csv.read(fin);
-            for (int i : range(1, isize(csv.data))) {
-                if (i % sample)
-                    continue;
-
-                const auto& row = csv.data[i];
-                std::vector<point<float>> v(5);
-                for (int j : range(v)) {
-                    v[j].x = string_to<float>(row[2 * j + 1]);
-                    v[j].y = string_to<float>(row[2 * j + 2]);
-                }
-
-                const point<float> center = std::accumulate(v.begin(), v.end(), point<float>()) * (1.f / v.size());
-
-                float max_d = 0.f;
-                for (auto p : v) {
-                    max_d = std::max(max_d, dist(p, center));
-                }
-
-                auto make_rect = [center, max_d](float scale) {
-                    const float half_side = max_d * scale;
-                    const int side = int(2 * half_side + 0.5f);
-                    return rectangle<int>(int(center.x - half_side + 0.5f), int(center.y - half_side + 0.5f), side, side);
-                };
-
-                const rectangle<int> sample_rect = make_rect(sample_rect_scale);
-                const rectangle<int> crop_rect = make_rect(crop_rect_scale);
-
-                if (dump_rects) {
-                    matrix<uint8_t> img;
-                    read_jpeg(root + row[0] + ".jpg", img);
-
-                    draw_rect(img, sample_rect, uint8_t(255));
-                    draw_rect(img, crop_rect, uint8_t(128));
-
-                    for (int j : range(v)) {
-                        draw_point(img, int(v[j].y), int(v[j].x), uint8_t(255), 10);
-                    }
-
-                    force_dump_image(img, "lm");
-                }
-
-                sample_rects.emplace_back(root + row[0] + ".jpg", std::vector<rectangle<int>>{ sample_rect });
-                crop_rects.emplace_back(root + row[0] + ".jpg", std::vector<rectangle<int>>{ crop_rect });
-            }
-
-            load(sample_rects, crop_rects, k, 1.f);
         }
     };
 }; // namespace c4
