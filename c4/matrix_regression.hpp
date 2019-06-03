@@ -115,12 +115,16 @@ namespace c4 {
         void train(const matrix<std::vector<uint8_t>>& rx, const std::vector<float>& y, const matrix<std::vector<uint8_t>>& test_rx, const std::vector<float>& test_y, const int itc, const bool symmetry) {
             c4::scoped_timer t("matrix_regression::train()");
 
-            weights.resize(rx.dimensions());
-            for (auto& v : weights) {
-                for (auto& t : v) {
-                    std::fill(t.begin(), t.end(), 0.f);
+            if (weights.height() == 0) {
+                weights.resize(rx.dimensions());
+                for (auto& v : weights) {
+                    for (auto& t : v) {
+                        std::fill(t.begin(), t.end(), 0.f);
+                    }
                 }
             }
+
+            ASSERT_TRUE(weights.dimensions() == rx.dimensions());
 
             matrix<std::array<double, dim>> d(weights.dimensions());
             matrix<std::array<uint32_t, dim>> n_m(weights.dimensions());
@@ -140,6 +144,12 @@ namespace c4 {
             });
             
             std::vector<double> f = predict(rx);
+            {
+                const double train_mse = mean_squared_error(f, y);
+                const double test_mse = mean_squared_error(predict(test_rx), test_y);
+
+                LOGD << "initial train_mse: " << train_mse << ", test_mse: " << test_mse;
+            }
 
             progress_indicator progress(itc);
 

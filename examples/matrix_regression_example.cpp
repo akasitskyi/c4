@@ -66,6 +66,7 @@ int main(int argc, char* argv[]) {
         auto max_shift = opts.add_required<int>("max_shift");
         auto train_load_step = opts.add_required<int>("train_load_step");
         auto iterations = opts.add_required<int>("iterations");
+        auto base = opts.add_optional<std::string>("base", "");
 
         opts.parse(argc, argv);
 
@@ -73,6 +74,8 @@ int main(int argc, char* argv[]) {
         PRINT_DEBUG(face_scale);
         PRINT_DEBUG(max_shift);
         PRINT_DEBUG(train_load_step);
+        PRINT_DEBUG(iterations);
+        PRINT_DEBUG(base);
 
         c4::meta_data_set train_meta;
         train_meta.load_vggface2("C:/vggface2/train/", "C:/vggface2/train/loose_landmark_train.csv", face_scale, train_load_step);
@@ -95,6 +98,13 @@ int main(int argc, char* argv[]) {
         std::cout << "test size: " << test_set.y.size() << std::endl;
 
         c4::matrix_regression<> mr;
+
+        if (!std::string(base).empty()) {
+            std::ifstream fin(base, std::ifstream::binary);
+            c4::serialize::input_archive in(fin);
+
+            in(mr);
+        }
 
         mr.train(train_set.rx, train_set.y, test_set.rx, test_set.y, iterations, true);
 
