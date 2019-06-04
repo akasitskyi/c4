@@ -66,7 +66,8 @@ int main(int argc, char* argv[]) {
         auto max_shift = opts.add_required<int>("max_shift");
         auto train_load_step = opts.add_required<int>("train_load_step");
         auto iterations = opts.add_required<int>("iterations");
-        auto base = opts.add_optional<std::string>("base", "");
+        auto base = opts.add_optional<std::string>("base", "-");
+        auto neg_to_pos_ratio = opts.add_optional<float>("neg_to_pos_ratio", 1.f);
 
         opts.parse(argc, argv);
 
@@ -84,8 +85,9 @@ int main(int argc, char* argv[]) {
 
         c4::dataset<c4::LBP> train_set(sample_dims);
 
-        train_set.load(train_meta, max_shift, 1.f, 1.5f);
+        train_set.load(train_meta, max_shift, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
 
+        std::cout << "pos ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.) / train_set.y.size() << std::endl;
         std::cout << "train size: " << train_set.y.size() << std::endl;
 
         c4::meta_data_set test_meta;
@@ -93,13 +95,13 @@ int main(int argc, char* argv[]) {
 
         c4::dataset<c4::LBP> test_set(sample_dims);
 
-        test_set.load(test_meta, 0, 1.f, 1.5f);
+        test_set.load(test_meta, 0, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
 
         std::cout << "test size: " << test_set.y.size() << std::endl;
 
         c4::matrix_regression<> mr;
 
-        if (!std::string(base).empty()) {
+        if (std::string(base) != "-") {
             std::ifstream fin(base, std::ifstream::binary);
             c4::serialize::input_archive in(fin);
 
@@ -122,7 +124,7 @@ int main(int argc, char* argv[]) {
 
         c4::image_dumper::getInstance().init("", true);
 
-        test_meta.data.resize(std::min(c4::isize(test_meta.data), 300));
+        test_meta.data.resize(std::min(c4::isize(test_meta.data), 1000));
 
         std::vector<c4::image_file_metadata> detections(test_meta.data.size());
 
@@ -141,8 +143,9 @@ int main(int argc, char* argv[]) {
             const auto dets = sd.detect(img, 0.995);
 
             for (const auto& d : dets) {
-                ifm.objects.push_back({ d.rect,{} });
-                c4::draw_rect(img, d.rect, uint8_t(255), 1);
+                const auto irect = c4::rectangle<int>(d.rect);
+                ifm.objects.push_back({ irect,{} });
+                c4::draw_rect(img, irect, uint8_t(255), 1);
             }
 
             for (const auto& g : t.objects) {

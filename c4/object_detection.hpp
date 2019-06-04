@@ -30,20 +30,23 @@
 
 namespace c4 {
     struct detection {
-        rectangle<int> rect;
-        double confidence;
+        rectangle<float> rect;
+        double weight;
     };
 
-    static void merge_rects(std::vector<detection>& dets, const double iou_threshold) {
+    static void merge_rects(std::vector<detection>& dets) {
         while (true) {
             bool changed = false;
             for (int i = 0; i < isize(dets); i++) {
+                auto& di = dets[i];
                 for (int j : range(i)) {
-                    if (intersection_over_union(dets[i].rect, dets[j].rect) > iou_threshold) {
-                        dets[i].rect.x = (dets[i].rect.x + dets[j].rect.x + 1) / 2;
-                        dets[i].rect.y = (dets[i].rect.y + dets[j].rect.y + 1) / 2;
-                        dets[i].rect.w = (dets[i].rect.w + dets[j].rect.w + 1) / 2;
-                        dets[i].rect.h = (dets[i].rect.h + dets[j].rect.h + 1) / 2;
+                    auto& dj = dets[j];
+                    const double merged_weight = (dj.weight + dj.weight) * intersection_over_union(di.rect, dj.rect);
+                    if (merged_weight > std::max(di.weight, dj.weight)) {
+                        di.rect.x = (di.rect.x * di.weight + dj.rect.x * dj.weight) / (di.weight + dj.weight);
+                        di.rect.y = (di.rect.y * di.weight + dj.rect.y * dj.weight) / (di.weight + dj.weight);
+                        di.rect.w = (di.rect.w * di.weight + dj.rect.w * dj.weight) / (di.weight + dj.weight);
+                        di.rect.h = (di.rect.h * di.weight + dj.rect.h * dj.weight) / (di.weight + dj.weight);
 
                         dets.erase(dets.begin() + j);
                         changed = true;
@@ -60,9 +63,10 @@ namespace c4 {
     template<class TForm, int dim = 256>
     class window_detector {
         const matrix_regression<dim> mr;
+        const int step;
     public:
 
-        window_detector(const matrix_regression<dim>& mr) : mr(mr) {}
+        window_detector(const matrix_regression<dim>& mr, const int step) : mr(mr), step(step) {}
 
         std::vector<detection> detect(const matrix_ref<uint8_t>& img, double threshold) const {
             c4::matrix<uint8_t> timg = TForm::transform(img);
@@ -71,12 +75,12 @@ namespace c4 {
 
             const matrix_dimensions obj_dims = mr.dimensions();
 
-            for (int i : range(timg.height() - obj_dims.height + 1)) {
-                for (int j : range(timg.width() - obj_dims.width + 1)) {
+            for (int i = 0; i < timg.height() - obj_dims.height + 1; i += step) {
+                for (int j = i % step; j < timg.width() - obj_dims.width + 1; j += step) {
                     rectangle<int> r(j, i, obj_dims.width, obj_dims.height);
                     double conf = mr.predict(timg.submatrix(r));
                     if (conf > threshold) {
-                        dets.push_back({ r, conf });
+                        dets.push_back({ rectangle<float>(r), 1.f });
                     }
                 }
             }
@@ -117,12 +121,12 @@ namespace c4 {
                 std::vector<detection> scale_dets = wd.detect(scaled, threshold);
 
                 for (detection& d : scale_dets) {
-                    d.rect = rectangle<int>(d.rect.scale_around_origin(1.f / scale));
+                    d.rect = d.rect.scale_around_origin(1.f / scale);
                     dets.push_back(d);
                 }
             }
 
-            merge_rects(dets, 0.7);
+            merge_rects(dets);
 
             return dets;
         }

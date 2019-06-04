@@ -36,7 +36,7 @@ c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& file
     c4::matrix_regression<> mr;
     in(mr);
 
-    c4::window_detector<c4::LBP, 256> wd(mr);
+    c4::window_detector<c4::LBP, 256> wd(mr, 2);
 
     c4::scaling_detector<c4::LBP, 256> sd(wd, 0.95f);
     return sd;
@@ -44,44 +44,49 @@ c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& file
 
 int main(int argc, char* argv[]) {
     try{
-        const auto sd = load_scaling_detector("matrix_regression_42_30_stage1_k0_s1_it2k.dat");
+        const auto sd = load_scaling_detector("matrix_regression.dat");
 
         c4::meta_data_set test_meta;
-        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 3.0, 100);
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 1.5, 4);
 
         PRINT_DEBUG(test_meta.data.size());
 
         c4::image_dumper::getInstance().init("", true);
 
-        c4::matrix<uint8_t> img;
+        test_meta.data.resize(std::min(c4::isize(test_meta.data), 1000));
 
-        std::vector<c4::image_file_metadata> detections;
+        std::vector<c4::image_file_metadata> detections(test_meta.data.size());
 
-        c4::progress_indicator progress(test_meta.data.size());
+        c4::progress_indicator progress((uint32_t)test_meta.data.size());
 
-        for (const auto& t : test_meta.data) {
+        c4::scoped_timer timer("detect time");
+
+        c4::parallel_for(c4::range(test_meta.data), [&](int i) {
+            const auto& t = test_meta.data[i];
+
+            c4::matrix<uint8_t> img;
+
             c4::read_jpeg(t.filepath, img);
 
-            c4::image_file_metadata ifm;
+            c4::image_file_metadata& ifm = detections[i];
             ifm.filepath = t.filepath;
 
-            const auto dets = sd.detect(img, 0.99);
+            const auto dets = sd.detect(img, 0.995);
 
             for (const auto& d : dets) {
-                ifm.objects.push_back({ d.rect, {} });
-                c4::draw_rect(img, d.rect, uint8_t(255), 1);
+                const auto irect = c4::rectangle<int>(d.rect);
+                ifm.objects.push_back({ irect,{} });
+                c4::draw_rect(img, irect, uint8_t(255), 1);
             }
 
             for (const auto& g : t.objects) {
                 c4::draw_rect(img, g.rect, uint8_t(0), 1);
             }
 
-            detections.push_back(ifm);
-
             c4::dump_image(img, "fd");
 
             progress.did_some(1);
-        }
+        });
 
         auto res = c4::evaluate_object_detection(test_meta.data, detections, 0.7);
 
