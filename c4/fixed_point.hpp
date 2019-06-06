@@ -35,7 +35,7 @@ namespace c4 {
         fixed_point() : base(0) {}
 
         fixed_point(float v) {
-            v = round(v * (1 << shift));
+            v = std::round(v * (1 << shift));
             base = clamp<base_t>(v);
         }
 

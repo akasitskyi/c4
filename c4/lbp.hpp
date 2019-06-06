@@ -31,6 +31,7 @@ namespace c4 {
 
             for (int i : c4::range(lbp.height())) {
                 for (int j : c4::range(lbp.width())) {
+                    // FIXME: this should not make a copy
                     const c4::matrix<uint8_t> m = img.submatrix(i, j, 3, 3);
                     const uint8_t c = m[1][1];
 
@@ -58,6 +59,12 @@ namespace c4 {
 
         static c4::matrix_dimensions reverse_dimensions(const c4::matrix_dimensions& md) {
             return { md.height + 2, md.width + 2 };
+        }
+
+        static c4::rectangle<int> reverse_rect(c4::rectangle<int> r) {
+            r.h += 2;
+            r.w += 2;
+            return r;
         }
     };
 };

@@ -134,7 +134,7 @@ namespace c4 {
 
             parallel_invoke(f...);
 
-            future.wait();
+            future.get();
         }
 
         static thread_pool& get_default_pool() {
@@ -220,7 +220,7 @@ namespace c4 {
         }
 
         for (auto& f : futures)
-            f.wait();
+            f.get();
     }
 
     template<class iterator, class T, class Reduction, class F>

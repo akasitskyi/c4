@@ -160,6 +160,18 @@ namespace c4 {
         return clamp(x, std::numeric_limits<dst_t>::lowest(), std::numeric_limits<dst_t>::max());
     }
 
+
+    template<class dst_t, class src_t>
+    inline typename std::enable_if_t<std::is_integral<dst_t>::value && std::is_floating_point<src_t>::value, dst_t> round(src_t x) {
+        return x >= 0 ? dst_t(x + 0.5f) : dst_t(x - 0.5f);
+    }
+
+    template<class dst_t, class src_t>
+    inline typename std::enable_if_t<!std::is_integral<dst_t>::value || !std::is_floating_point<src_t>::value, dst_t> round(src_t x) {
+        return dst_t(x);
+    }
+
+
     template<class T>
     inline int clz(T x) {
         constexpr int n = 8 * sizeof(T);

@@ -52,9 +52,9 @@ c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& file
     c4::matrix_regression<> mr;
     in(mr);
 
-    c4::window_detector<c4::LBP, 256> wd(mr);
+    c4::window_detector<c4::LBP, 256> wd(mr, 1);
 
-    c4::scaling_detector<c4::LBP, 256> sd(wd, 0.95f);
+    c4::scaling_detector<c4::LBP, 256> sd(wd, 0.5f, 0.95f);
     return sd;
 }
 
@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
             c4::image_file_metadata& ifm = detections[i];
             ifm.filepath = t.filepath;
 
-            const auto dets = sd.detect(img, 0.995);
+            const auto dets = sd.detect(img, 0.75);
 
             for (const auto& d : dets) {
                 const auto irect = c4::rectangle<int>(d.rect);

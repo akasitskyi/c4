@@ -31,7 +31,7 @@
 namespace c4 {
     struct detection {
         rectangle<float> rect;
-        double weight;
+        float weight;
     };
 
     static void merge_rects(std::vector<detection>& dets) {
@@ -41,12 +41,40 @@ namespace c4 {
                 auto& di = dets[i];
                 for (int j : range(i)) {
                     auto& dj = dets[j];
-                    const double merged_weight = (dj.weight + dj.weight) * intersection_over_union(di.rect, dj.rect);
-                    if (merged_weight > std::max(di.weight, dj.weight)) {
+                    const float iou = (float)intersection_over_union(di.rect, dj.rect);
+
+                    if (iou > 0.6f) {
                         di.rect.x = (di.rect.x * di.weight + dj.rect.x * dj.weight) / (di.weight + dj.weight);
                         di.rect.y = (di.rect.y * di.weight + dj.rect.y * dj.weight) / (di.weight + dj.weight);
                         di.rect.w = (di.rect.w * di.weight + dj.rect.w * dj.weight) / (di.weight + dj.weight);
                         di.rect.h = (di.rect.h * di.weight + dj.rect.h * dj.weight) / (di.weight + dj.weight);
+                        di.weight = di.weight + dj.weight;
+
+                        dets.erase(dets.begin() + j);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!changed)
+                break;
+        }
+    }
+
+    static void cleanup_rects(std::vector<detection>& dets) {
+        while (true) {
+            bool changed = false;
+            for (int i = 0; i < isize(dets); i++) {
+                auto& di = dets[i];
+                for (int j : range(i)) {
+                    auto& dj = dets[j];
+                    const float iom = di.rect.intersect(dj.rect).area() / std::min(dj.rect.area(), di.rect.area());
+
+                    if (iom > 0.75f) {
+                        if (dj.weight > di.weight) {
+                            std::swap(di, dj);
+                        }
 
                         dets.erase(dets.begin() + j);
                         changed = true;
@@ -80,7 +108,7 @@ namespace c4 {
                     rectangle<int> r(j, i, obj_dims.width, obj_dims.height);
                     double conf = mr.predict(timg.submatrix(r));
                     if (conf > threshold) {
-                        dets.push_back({ rectangle<float>(r), 1.f });
+                        dets.push_back({ rectangle<float>(TForm::reverse_rect(r)), 1.f });
                     }
                 }
             }
@@ -101,19 +129,27 @@ namespace c4 {
     template<class TForm, int dim = 256>
     class scaling_detector {
         const window_detector<TForm, dim> wd;
+        const float start_scale;
         const float scale_step;
     public:
 
-        scaling_detector(const window_detector<TForm, dim>& wd, float scale_step) : wd(wd), scale_step(scale_step) {}
+        scaling_detector(const window_detector<TForm, dim>& wd, float start_scale, float scale_step) : wd(wd), start_scale(start_scale), scale_step(scale_step) {}
 
         std::vector<detection> detect(const matrix_ref<uint8_t>& img, double threshold) const {
-            std::vector<detection> dets = wd.detect(img, threshold);
+            std::vector<detection> dets;
+
+            float scale = start_scale;
+
+            if (scale == 1.f) {
+                dets = wd.detect(img, threshold);
+                scale *= scale_step;
+            }
 
             const matrix_dimensions min_dims = wd.dimensions();
 
             matrix<uint8_t> scaled;
 
-            for (float scale = scale_step; int(img.height() * scale) >= min_dims.height && int(img.width() * scale) >= min_dims.width; scale *= scale_step) {
+            for (; int(img.height() * scale) >= min_dims.height && int(img.width() * scale) >= min_dims.width; scale *= scale_step) {
                 scaled.resize(int(img.height() * scale), int(img.width() * scale));
 
                 scale_image_hq(img, scaled);
@@ -127,6 +163,7 @@ namespace c4 {
             }
 
             merge_rects(dets);
+            cleanup_rects(dets);
 
             return dets;
         }
