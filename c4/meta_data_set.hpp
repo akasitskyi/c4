@@ -84,9 +84,6 @@ namespace c4 {
             csv csv;
             csv.read(fin);
             for (int i : range(1, isize(csv.data))) {
-                if (i % sample)
-                    continue;
-
                 const auto& row = csv.data[i];
 
                 object_on_image o;
@@ -119,7 +116,19 @@ namespace c4 {
                 data_set[filepath].push_back(o);
             }
 
+            int n = isize(data);
             data.insert(data.end(), std::make_move_iterator(data_set.begin()), std::make_move_iterator(data_set.end()));
+
+            if (sample == 1)
+                return;
+            
+            for (int i : range(n, isize(data))) {
+                if (i % sample == 0) {
+                    data[n++] = std::move(data[i]);
+                }
+            }
+
+            data.resize(n);
         }
     };
 }; // namespace c4

@@ -35,31 +35,55 @@ namespace c4 {
     };
 
     static void merge_rects(std::vector<detection>& dets) {
-        while (true) {
-            bool changed = false;
-            for (int i = 0; i < isize(dets); i++) {
-                auto& di = dets[i];
-                for (int j : range(i)) {
-                    auto& dj = dets[j];
-                    const float iou = (float)intersection_over_union(di.rect, dj.rect);
+        matrix<char> m(isize(dets), isize(dets));
 
-                    if (iou > 0.6f) {
-                        di.rect.x = (di.rect.x * di.weight + dj.rect.x * dj.weight) / (di.weight + dj.weight);
-                        di.rect.y = (di.rect.y * di.weight + dj.rect.y * dj.weight) / (di.weight + dj.weight);
-                        di.rect.w = (di.rect.w * di.weight + dj.rect.w * dj.weight) / (di.weight + dj.weight);
-                        di.rect.h = (di.rect.h * di.weight + dj.rect.h * dj.weight) / (di.weight + dj.weight);
-                        di.weight = di.weight + dj.weight;
+        for (int i : range(dets)) {
+            for (int j : range(dets)) {
+                m[i][j] = (intersection_over_union(dets[i].rect, dets[i].rect) > 0.9f);
+            }
+        }
 
-                        dets.erase(dets.begin() + j);
-                        changed = true;
-                        break;
-                    }
+        for (int k : range(dets)) {
+            for (int i : range(dets)) {
+                for (int j : range(dets)) {
+                    m[i][j] |= m[i][k] & m[k][j];
                 }
             }
-
-            if (!changed)
-                break;
         }
+
+        std::vector<bool> erased(isize(dets), false);
+
+        for (int i : range(dets)) {
+            if (erased[i])
+                continue;
+
+            auto& di = dets[i];
+
+            for (int j : range(i + 1, isize(dets))) {
+                if (erased[j])
+                    continue;
+
+                auto& dj = dets[j];
+
+                if (m[i][j]) {
+                    di.rect.x = (di.rect.x * di.weight + dj.rect.x * dj.weight) / (di.weight + dj.weight);
+                    di.rect.y = (di.rect.y * di.weight + dj.rect.y * dj.weight) / (di.weight + dj.weight);
+                    di.rect.w = (di.rect.w * di.weight + dj.rect.w * dj.weight) / (di.weight + dj.weight);
+                    di.rect.h = (di.rect.h * di.weight + dj.rect.h * dj.weight) / (di.weight + dj.weight);
+                    di.weight = di.weight + dj.weight;
+                    erased[j] = true;
+                }
+            }
+        }
+
+        int n = 0;
+        for (int i : range(dets)) {
+            if (!erased[i]) {
+                dets[n++] = dets[i];
+            }
+        }
+
+        dets.resize(n);
     }
 
     static void cleanup_rects(std::vector<detection>& dets) {
@@ -99,15 +123,16 @@ namespace c4 {
         std::vector<detection> detect(const matrix_ref<uint8_t>& img, double threshold) const {
             c4::matrix<uint8_t> timg = TForm::transform(img);
 
+            auto m = mr.predict_multi(timg);
+
             std::vector<detection> dets;
 
             const matrix_dimensions obj_dims = mr.dimensions();
 
-            for (int i = 0; i < timg.height() - obj_dims.height + 1; i += step) {
-                for (int j = i % step; j < timg.width() - obj_dims.width + 1; j += step) {
-                    rectangle<int> r(j, i, obj_dims.width, obj_dims.height);
-                    double conf = mr.predict(timg.submatrix(r));
-                    if (conf > threshold) {
+            for (int i : range(m.height())) {
+                for (int j : range(m.width())) {
+                    if (m[i][j] > threshold) {
+                        rectangle<int> r(j, i, obj_dims.width, obj_dims.height);
                         dets.push_back({ rectangle<float>(TForm::reverse_rect(r)), 1.f });
                     }
                 }

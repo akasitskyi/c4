@@ -122,9 +122,9 @@ int main(int argc, char* argv[]) {
 
         const auto sd = load_scaling_detector(model_filepath);
 
-        c4::image_dumper::getInstance().init("", true);
+        c4::image_dumper::getInstance().init("", false);
 
-        test_meta.data.resize(std::min(c4::isize(test_meta.data), 1000));
+        test_meta.data.resize(std::min(c4::isize(test_meta.data), 10000));
 
         std::vector<c4::image_file_metadata> detections(test_meta.data.size());
 

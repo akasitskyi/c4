@@ -53,11 +53,11 @@ int main(int argc, char* argv[]) {
 
         PRINT_DEBUG(test_meta.data.size());
 
-        test_meta.data.resize(std::min(c4::isize(test_meta.data), 1000));
+        test_meta.data.resize(std::min(c4::isize(test_meta.data), 100));
         {
-            c4::image_dumper::getInstance().init("c4", true);
+            c4::image_dumper::getInstance().init("c4", false);
 
-            const auto sd = load_scaling_detector("matrix_regression_28_1.5_1000it_neg10_step3.dat");
+            const auto sd = load_scaling_detector("matrix_regression_28_1.5_1000it_neg10_step3_div8.dat");
 
             std::vector<c4::image_file_metadata> detections(test_meta.data.size());
 
@@ -65,14 +65,14 @@ int main(int argc, char* argv[]) {
 
             c4::scoped_timer timer("c4 detect time");
 
-            c4::parallel_for(c4::range(test_meta.data), [&](int i) {
-                const auto& t = test_meta.data[i];
+            c4::parallel_for(c4::range(test_meta.data), [&](int k) {
+                const auto& t = test_meta.data[k];
 
                 c4::matrix<uint8_t> img;
 
                 c4::read_jpeg(t.filepath, img);
 
-                c4::image_file_metadata& ifm = detections[i];
+                c4::image_file_metadata& ifm = detections[k];
                 ifm.filepath = t.filepath;
 
                 const auto dets = sd.detect(img, 0.75);
@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
         }
 
         if(0){
-            c4::image_dumper::getInstance().init("dlib", true);
+            c4::image_dumper::getInstance().init("dlib", false);
 
             dlib::frontal_face_detector dlib_fd = dlib::get_frontal_face_detector();
 

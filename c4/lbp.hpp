@@ -29,22 +29,26 @@ namespace c4 {
         static c4::matrix<uint8_t> transform(const c4::matrix<uint8_t>& img) {
             c4::matrix<uint8_t> lbp(calc_dimensions(img.dimensions()));
 
+            constexpr int h = 0xf8;
+
             for (int i : c4::range(lbp.height())) {
+                const uint8_t* m0 = &img[i + 0][0];
+                const uint8_t* m1 = &img[i + 1][0];
+                const uint8_t* m2 = &img[i + 2][0];
+
                 for (int j : c4::range(lbp.width())) {
-                    // FIXME: this should not make a copy
-                    const c4::matrix<uint8_t> m = img.submatrix(i, j, 3, 3);
-                    const uint8_t c = m[1][1];
+                    const int c = m1[j + 1] & h;
 
                     int v = 0;
 
-                    v = (v << 1) | (m[0][0] > c);
-                    v = (v << 1) | (m[0][1] > c);
-                    v = (v << 1) | (m[0][2] > c);
-                    v = (v << 1) | (m[1][0] > c);
-                    v = (v << 1) | (m[1][2] > c);
-                    v = (v << 1) | (m[2][0] > c);
-                    v = (v << 1) | (m[2][1] > c);
-                    v = (v << 1) | (m[2][2] > c);
+                    v = (v << 1) | ((m0[j + 0] & h) > c);
+                    v = (v << 1) | ((m0[j + 1] & h) > c);
+                    v = (v << 1) | ((m0[j + 2] & h) > c);
+                    v = (v << 1) | ((m1[j + 0] & h) > c);
+                    v = (v << 1) | ((m1[j + 2] & h) > c);
+                    v = (v << 1) | ((m2[j + 0] & h) > c);
+                    v = (v << 1) | ((m2[j + 1] & h) > c);
+                    v = (v << 1) | ((m2[j + 2] & h) > c);
 
                     lbp[i][j] = uint8_t(v);
                 }

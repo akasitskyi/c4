@@ -38,14 +38,37 @@ namespace c4 {
             return weights.dimensions();
         }
 
-        double predict(const matrix_ref<uint8_t>& img) const {
+        float predict(const matrix_ref<uint8_t>& img) const {
             ASSERT_TRUE(img.dimensions() == weights.dimensions());
             
-            double sum = 0;
+            float sum = 0.f;
 
             for (int i : range(img.height())) {
                 for (int j : range(img.width())) {
                     sum += weights[i][j][img[i][j]];
+                }
+            }
+
+            return sum;
+        }
+
+        matrix<float> predict_multi(const matrix_ref<uint8_t>& img) const {
+            ASSERT_TRUE(img.height() >= weights.height() && img.width() >= weights.width());
+
+            matrix<float> sum(img.height() - weights.height() + 1, img.width() - weights.width() + 1);
+
+            const int n = sum.width();
+
+            for (int di : range(weights.height())) {
+                for (int dj : range(weights.width())) {
+                    const auto& w = weights[di][dj];
+                    for (int i : range(sum.height())) {
+                        float* psum = &sum[i][0];
+                        const uint8_t* pimg = &img[i + di][dj];
+                        for (int j = 0; j < n; j++) {
+                            psum[j] += w[pimg[j]];
+                        }
+                    }
                 }
             }
 
