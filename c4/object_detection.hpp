@@ -208,7 +208,7 @@ namespace c4 {
 
         c4::window_detector<c4::LBP, 256> wd(mr, 1);
 
-        c4::scaling_detector<c4::LBP, 256> sd(wd, 0.5f, 0.93f);
+        c4::scaling_detector<c4::LBP, 256> sd(wd, 0.5f, 0.9f);
 
         return sd;
     }

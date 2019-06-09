@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
             c4::image_file_metadata& ifm = detections[i];
             ifm.filepath = t.filepath;
 
-            const auto dets = sd.detect(img, 0.75);
+            const auto dets = sd.detect(img, 0.63);
 
             for (const auto& d : dets) {
                 const auto irect = c4::rectangle<int>(d.rect);
