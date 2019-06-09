@@ -45,19 +45,6 @@
 #include <c4/dataset.hpp>
 #include <c4/cmd_opts.hpp>
 
-c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& filepath) {
-    std::ifstream fin(filepath, std::ifstream::binary);
-    c4::serialize::input_archive in(fin);
-
-    c4::matrix_regression<> mr;
-    in(mr);
-
-    c4::window_detector<c4::LBP, 256> wd(mr, 1);
-
-    c4::scaling_detector<c4::LBP, 256> sd(wd, 0.5f, 0.95f);
-    return sd;
-}
-
 int main(int argc, char* argv[]) {
     try{
         c4::cmd_opts opts;
@@ -84,19 +71,15 @@ int main(int argc, char* argv[]) {
         const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
 
         c4::dataset<c4::LBP> train_set(sample_dims);
-
         train_set.load(train_meta, max_shift, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
-
         std::cout << "pos ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.) / train_set.y.size() << std::endl;
         std::cout << "train size: " << train_set.y.size() << std::endl;
 
         c4::meta_data_set test_meta;
-        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale, 4);
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale, 32);
 
         c4::dataset<c4::LBP> test_set(sample_dims);
-
         test_set.load(test_meta, 0, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
-
         std::cout << "test size: " << test_set.y.size() << std::endl;
 
         c4::matrix_regression<> mr;
@@ -120,11 +103,9 @@ int main(int argc, char* argv[]) {
             out(mr);
         }
 
-        const auto sd = load_scaling_detector(model_filepath);
+        const auto sd = c4::load_scaling_detector(model_filepath);
 
         c4::image_dumper::getInstance().init("", false);
-
-        test_meta.data.resize(std::min(c4::isize(test_meta.data), 10000));
 
         std::vector<c4::image_file_metadata> detections(test_meta.data.size());
 

@@ -180,7 +180,7 @@ namespace c4 {
                 parallel_for(range(weights.height()), [&](int i) {
                     for (int j : range(weights.width())) {
                         std::vector<double> sf(dim, 0.);
-                        auto& rx_ij = rx[i][j];
+                        const auto& rx_ij = rx[i][j];
 
                         for (int k : range(rx_ij)) {
                             sf[rx_ij[k]] += f[k];

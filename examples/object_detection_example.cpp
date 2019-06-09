@@ -28,36 +28,34 @@
 #include <c4/meta_data_set.hpp>
 #include <c4/classification_metrics.hpp>
 #include <c4/object_detection.hpp>
+#include <c4/dataset.hpp>
 
 #include <dlib/image_processing/frontal_face_detector.h>
 
 
-c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& filepath) {
-    std::ifstream fin(filepath, std::ifstream::binary);
-    c4::serialize::input_archive in(fin);
-
-    c4::matrix_regression<> mr;
-    in(mr);
-
-    c4::window_detector<c4::LBP, 256> wd(mr, 1);
-
-    c4::scaling_detector<c4::LBP, 256> sd(wd, 0.5f, 0.95f);
-
-    return sd;
-}
-
 int main(int argc, char* argv[]) {
     try{
         c4::meta_data_set test_meta;
-        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 1.5, 4);
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 1.5, 32);
 
         PRINT_DEBUG(test_meta.data.size());
 
-        test_meta.data.resize(std::min(c4::isize(test_meta.data), 100));
         {
             c4::image_dumper::getInstance().init("c4", false);
 
-            const auto sd = load_scaling_detector("matrix_regression_28_1.5_1000it_neg10_step3_div8.dat");
+            const auto sd = c4::load_scaling_detector("matrix_regression_28_1.5_1000it_neg10_step3_div8_nns.dat");
+
+            if(0){
+                const int sample_size = 28;
+                const float neg_to_pos_ratio = 10.f;
+                const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
+                c4::dataset<c4::LBP> test_set(sample_dims);
+                test_set.load(test_meta, 0, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
+                std::cout << "test size: " << test_set.y.size() << std::endl;
+
+                const double test_mse = c4::mean_squared_error(sd.wd.mr.predict(test_set.rx), test_set.y);
+                PRINT_DEBUG(test_mse);
+            }
 
             std::vector<c4::image_file_metadata> detections(test_meta.data.size());
 
@@ -75,7 +73,7 @@ int main(int argc, char* argv[]) {
                 c4::image_file_metadata& ifm = detections[k];
                 ifm.filepath = t.filepath;
 
-                const auto dets = sd.detect(img, 0.75);
+                const auto dets = sd.detect(img, 0.65);
 
                 for (const auto& d : dets) {
                     const auto irect = c4::rectangle<int>(d.rect);
@@ -101,7 +99,7 @@ int main(int argc, char* argv[]) {
         if(0){
             c4::image_dumper::getInstance().init("dlib", false);
 
-            dlib::frontal_face_detector dlib_fd = dlib::get_frontal_face_detector();
+            c4::enumerable_thread_specific<dlib::frontal_face_detector> dlib_fd_ts(dlib::get_frontal_face_detector());
 
             std::vector<c4::image_file_metadata> detections(test_meta.data.size());
 
@@ -109,8 +107,9 @@ int main(int argc, char* argv[]) {
 
             c4::scoped_timer timer("dlib detect time");
 
-            for (int k : c4::range(test_meta.data)) {
+            c4::parallel_for(c4::range(test_meta.data), [&](int k) {
                 const auto& t = test_meta.data[k];
+                auto& dlib_fd = dlib_fd_ts.local();
 
                 c4::matrix<uint8_t> img;
 
@@ -139,7 +138,7 @@ int main(int argc, char* argv[]) {
                 c4::dump_image(img, "fd");
 
                 progress.did_some(1);
-            }
+            });
 
             auto res = c4::evaluate_object_detection(test_meta.data, detections, 0.5);
 

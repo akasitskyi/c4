@@ -22,11 +22,13 @@
 
 #pragma once
 
-#include <c4/matrix.hpp>
-#include <c4/exception.hpp>
-#include <c4/parallel.hpp>
-#include <c4/matrix_regression.hpp>
-#include <c4/scaling.hpp>
+#include "matrix.hpp"
+#include "exception.hpp"
+#include "parallel.hpp"
+#include "matrix_regression.hpp"
+#include "scaling.hpp"
+#include "lbp.hpp"
+#include "serialize.hpp"
 
 namespace c4 {
     struct detection {
@@ -113,10 +115,9 @@ namespace c4 {
     }
 
     template<class TForm, int dim = 256>
-    class window_detector {
+    struct window_detector {
         const matrix_regression<dim> mr;
         const int step;
-    public:
 
         window_detector(const matrix_regression<dim>& mr, const int step) : mr(mr), step(step) {}
 
@@ -133,7 +134,7 @@ namespace c4 {
                 for (int j : range(m.width())) {
                     if (m[i][j] > threshold) {
                         rectangle<int> r(j, i, obj_dims.width, obj_dims.height);
-                        dets.push_back({ rectangle<float>(TForm::reverse_rect(r)), 1.f });
+                        dets.push_back({ rectangle<float>(TForm::reverse_rect(r)), m[i][j] });
                     }
                 }
             }
@@ -152,11 +153,10 @@ namespace c4 {
     };
 
     template<class TForm, int dim = 256>
-    class scaling_detector {
+    struct scaling_detector {
         const window_detector<TForm, dim> wd;
         const float start_scale;
         const float scale_step;
-    public:
 
         scaling_detector(const window_detector<TForm, dim>& wd, float start_scale, float scale_step) : wd(wd), start_scale(start_scale), scale_step(scale_step) {}
 
@@ -198,4 +198,18 @@ namespace c4 {
             ar(wd, scale_step);
         }
     };
+
+    static c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& filepath) {
+        std::ifstream fin(filepath, std::ifstream::binary);
+        c4::serialize::input_archive in(fin);
+
+        c4::matrix_regression<> mr;
+        in(mr);
+
+        c4::window_detector<c4::LBP, 256> wd(mr, 1);
+
+        c4::scaling_detector<c4::LBP, 256> sd(wd, 0.5f, 0.93f);
+
+        return sd;
+    }
 };

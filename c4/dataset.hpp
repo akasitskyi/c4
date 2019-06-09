@@ -52,9 +52,9 @@ namespace c4 {
         static void generate_samples(const matrix_dimensions& sample_size, const matrix<uint8_t>& img, const std::vector<object_on_image>& objects, std::vector<matrix<uint8_t>>& pos, std::vector<matrix<uint8_t>>& neg, const float neg_to_pos_ratio, int k) {
             int positive = 0;
 
-            for (int i : range(objects)) {
-                matrix<uint8_t> sample(sample_size);
+            matrix<uint8_t> sample(sample_size);
 
+            for (int i : range(objects)) {
                 const auto& rect = objects[i].rect;
                 for (int dx = -k; dx <= k; dx++) {
                     for (int dy = -k; dy <= k; dy++) {
@@ -70,18 +70,25 @@ namespace c4 {
                 }
             }
 
-            if (img.height() <= sample_size.height || img.width() <= sample_size.width)
+            if (img.height() - 1 <= sample_size.height || img.width() - 1 <= sample_size.width)
                 return;
 
             fast_rand rnd;
+            fast_rand_float_uniform rnd_float(1.f, std::min((img.height() - 1.f) / sample_size.height, (img.width() - 1.f) / sample_size.width));
+
             const int need_neg = int(std::ceil(positive * neg_to_pos_ratio));
 
             for(int negatives = 0, wasted = 0; wasted < 20 * sample_size.area() && negatives < need_neg;) {
                 rectangle<int> r;
-                r.y = rnd() % (img.height() - sample_size.height);
-                r.x = rnd() % (img.width() - sample_size.width);
-                r.h = sample_size.height;
-                r.w = sample_size.width;
+                const float scale = rnd_float();
+
+                r.h = int(sample_size.height * scale);
+                r.w = int(sample_size.width * scale);
+
+                ASSERT_TRUE(r.h < img.height() && r.w < img.width());
+
+                r.y = rnd() % (img.height() - r.h);
+                r.x = rnd() % (img.width() - r.w);
 
                 double iou_max = 0.;
                 for (const auto& t : objects) {
@@ -89,8 +96,8 @@ namespace c4 {
                     wasted++;
                 }
                 if (iou_max < 0.3) {
-                    auto fimg = FeatureSpaceTransform::transform(img.submatrix(r));
-                    neg.push_back(fimg);
+                    scale_image_hq(img.submatrix(r), sample);
+                    neg.push_back(FeatureSpaceTransform::transform(sample));
                     wasted = 0;
                     negatives++;
                 }
