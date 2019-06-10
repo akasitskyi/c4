@@ -29,6 +29,7 @@
 #include <c4/classification_metrics.hpp>
 #include <c4/object_detection.hpp>
 #include <c4/dataset.hpp>
+#include <c4/simple_cv.hpp>
 
 #include <dlib/image_processing/frontal_face_detector.h>
 
@@ -45,19 +46,7 @@ int main(int argc, char* argv[]) {
         {
             //const auto sd = c4::load_scaling_detector("matrix_regression_28_2.2_500it_neg10_step30.dat", 0.5f);
             //const auto sd = c4::load_scaling_detector("matrix_regression_28_2.2_1000it_neg10_step3.dat", 0.5f);
-            const auto sd = c4::load_scaling_detector("matrix_regression_24_2.0_1000it_neg10_step1.dat", 0.4f);
-
-            if(0){
-                const int sample_size = 28;
-                const float neg_to_pos_ratio = 10.f;
-                const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
-                c4::dataset<c4::LBP> test_set(sample_dims);
-                test_set.load(test_meta, 0, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
-                std::cout << "test size: " << test_set.y.size() << std::endl;
-
-                const double test_mse = c4::mean_squared_error(sd.wd.mr.predict(test_set.rx), test_set.y);
-                PRINT_DEBUG(test_mse);
-            }
+            const auto sd = c4::load_scaling_lbp_detector("matrix_regression_24_2.0_1000it_neg10_step1.dat", 0.4f, 0.41f);
 
             c4::progress_indicator progress((uint32_t)test_meta.data.size());
 
@@ -73,7 +62,7 @@ int main(int argc, char* argv[]) {
                 c4::image_file_metadata& ifm = detections_c4[k];
                 ifm.filepath = t.filepath;
 
-                const auto dets = sd.detect(img, 0.64);
+                const auto dets = sd.detect(img);
 
                 for (const auto& d : dets) {
                     const auto irect = c4::rectangle<int>(d.rect);

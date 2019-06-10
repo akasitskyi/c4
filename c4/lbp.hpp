@@ -25,11 +25,10 @@
 #include <c4/matrix.hpp>
 
 namespace c4 {
-    struct LBP {
+    template<int mask = 0xf8>
+    struct lbp {
         static c4::matrix<uint8_t> transform(const c4::matrix<uint8_t>& img) {
             c4::matrix<uint8_t> lbp(calc_dimensions(img.dimensions()));
-
-            constexpr int h = 0xf8;
 
             for (int i : c4::range(lbp.height())) {
                 const uint8_t* m0 = &img[i + 0][0];
@@ -37,18 +36,18 @@ namespace c4 {
                 const uint8_t* m2 = &img[i + 2][0];
 
                 for (int j : c4::range(lbp.width())) {
-                    const int c = m1[j + 1] & h;
+                    const int c = m1[j + 1] & mask;
 
                     int v = 0;
 
-                    v = (v << 1) | ((m0[j + 0] & h) > c);
-                    v = (v << 1) | ((m0[j + 1] & h) > c);
-                    v = (v << 1) | ((m0[j + 2] & h) > c);
-                    v = (v << 1) | ((m1[j + 0] & h) > c);
-                    v = (v << 1) | ((m1[j + 2] & h) > c);
-                    v = (v << 1) | ((m2[j + 0] & h) > c);
-                    v = (v << 1) | ((m2[j + 1] & h) > c);
-                    v = (v << 1) | ((m2[j + 2] & h) > c);
+                    v = (v << 1) | ((m0[j + 0] & mask) > c);
+                    v = (v << 1) | ((m0[j + 1] & mask) > c);
+                    v = (v << 1) | ((m0[j + 2] & mask) > c);
+                    v = (v << 1) | ((m1[j + 0] & mask) > c);
+                    v = (v << 1) | ((m1[j + 2] & mask) > c);
+                    v = (v << 1) | ((m2[j + 0] & mask) > c);
+                    v = (v << 1) | ((m2[j + 1] & mask) > c);
+                    v = (v << 1) | ((m2[j + 2] & mask) > c);
 
                     lbp[i][j] = uint8_t(v);
                 }

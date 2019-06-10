@@ -28,7 +28,7 @@
 #include <c4/progress_indicator.hpp>
 
 namespace c4 {
-    template<int dim = 256>
+    template<int dim>
     class matrix_regression {
         matrix<std::array<float, dim>> weights;
     public:
@@ -112,27 +112,6 @@ namespace c4 {
             std::vector<double> f(rx[0][0].size());
             predict(rx, f);
             return f;
-        }
-
-        static void push_back_repack(const std::vector<matrix<uint8_t>>& x, matrix<std::vector<uint8_t>>& rx) {
-            if (x.empty())
-                return;
-
-            ASSERT_TRUE(x[0].dimensions() == rx.dimensions());
-
-            for (int i : range(rx.height())) {
-                for (int j : range(rx.width())) {
-                    rx[i][j].reserve(rx[i][j].size() + x.size());
-                }
-            }
-
-            parallel_for(range(x[0].height()), [&](int i) {
-                for (const auto& m : x) {
-                    for (int j : range(m.width())) {
-                        rx[i][j].push_back(m[i][j]);
-                    }
-                }
-            });
         }
 
         void train(const matrix<std::vector<uint8_t>>& rx, const std::vector<float>& y, const matrix<std::vector<uint8_t>>& test_rx, const std::vector<float>& test_y, const int itc, const bool symmetry) {

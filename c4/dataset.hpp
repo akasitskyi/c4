@@ -27,7 +27,6 @@
 #include <vector>
 
 #include "meta_data_set.hpp"
-#include "lbp.hpp"
 #include "jpeg.hpp"
 #include "string.hpp"
 #include "range.hpp"
@@ -104,6 +103,27 @@ namespace c4 {
             }
         }
 
+        static void push_back_repack(const std::vector<matrix<uint8_t>>& x, matrix<std::vector<uint8_t>>& rx) {
+            if (x.empty())
+                return;
+
+            ASSERT_TRUE(x[0].dimensions() == rx.dimensions());
+
+            for (int i : range(rx.height())) {
+                for (int j : range(rx.width())) {
+                    rx[i][j].reserve(rx[i][j].size() + x.size());
+                }
+            }
+
+            parallel_for(range(x[0].height()), [&](int i) {
+                for (const auto& m : x) {
+                    for (int j : range(m.width())) {
+                        rx[i][j].push_back(m[i][j]);
+                    }
+                }
+            });
+        }
+
         void load(const meta_data_set& mds, const int k, const float neg_to_pos_ratio, const float adjusted_neg_to_pos_ratio) {
             scoped_timer t("dataset::load");
 
@@ -147,14 +167,14 @@ namespace c4 {
             }
 
             for (auto& t : ts_xp) {
-                matrix_regression<>::push_back_repack(t, rx);
+                push_back_repack(t, rx);
                 y.resize(y.size() + t.size(), 1.f);
                 t.clear();
                 t.shrink_to_fit();
             }
 
             for (auto& t : ts_xn) {
-                matrix_regression<>::push_back_repack(t, rx);
+                push_back_repack(t, rx);
                 y.resize(y.size() + t.size(), 0.f);
                 t.clear();
                 t.shrink_to_fit();

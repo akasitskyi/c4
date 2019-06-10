@@ -45,6 +45,8 @@
 #include <c4/dataset.hpp>
 #include <c4/cmd_opts.hpp>
 
+#include <c4/simple_cv.hpp>
+
 int main(int argc, char* argv[]) {
     try{
         c4::cmd_opts opts;
@@ -70,7 +72,7 @@ int main(int argc, char* argv[]) {
 
         const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
 
-        c4::dataset<c4::LBP> train_set(sample_dims);
+        c4::lbp_dataset train_set(sample_dims);
         train_set.load(train_meta, max_shift, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
         std::cout << "pos ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.) / train_set.y.size() << std::endl;
         std::cout << "train size: " << train_set.y.size() << std::endl;
@@ -78,11 +80,11 @@ int main(int argc, char* argv[]) {
         c4::meta_data_set test_meta;
         test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale, 32);
 
-        c4::dataset<c4::LBP> test_set(sample_dims);
+        c4::lbp_dataset test_set(sample_dims);
         test_set.load(test_meta, 0, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
         std::cout << "test size: " << test_set.y.size() << std::endl;
 
-        c4::matrix_regression<> mr;
+        c4::byte_matrix_regression mr;
 
         if (std::string(base) != "-") {
             std::ifstream fin(base, std::ifstream::binary);
@@ -103,7 +105,7 @@ int main(int argc, char* argv[]) {
             out(mr);
         }
 
-        const auto sd = c4::load_scaling_detector(model_filepath, 0.5f);
+        const auto sd = c4::load_scaling_lbp_detector(model_filepath, 0.4f, 0.41f);
 
         c4::image_dumper::getInstance().init("", false);
 
@@ -121,7 +123,7 @@ int main(int argc, char* argv[]) {
             c4::image_file_metadata& ifm = detections[i];
             ifm.filepath = t.filepath;
 
-            const auto dets = sd.detect(img, 0.63);
+            const auto dets = sd.detect(img);
 
             for (const auto& d : dets) {
                 const auto irect = c4::rectangle<int>(d.rect);

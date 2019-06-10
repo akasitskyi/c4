@@ -24,16 +24,14 @@
 
 #include "matrix.hpp"
 #include "exception.hpp"
-#include "parallel.hpp"
 #include "matrix_regression.hpp"
 #include "scaling.hpp"
-#include "lbp.hpp"
 #include "serialize.hpp"
 
 namespace c4 {
     struct detection {
         rectangle<float> rect;
-        float weight;
+        float conf;
     };
 
     static void merge_rects(std::vector<detection>& dets) {
@@ -68,11 +66,11 @@ namespace c4 {
                 auto& dj = dets[j];
 
                 if (m[i][j]) {
-                    di.rect.x = (di.rect.x * di.weight + dj.rect.x * dj.weight) / (di.weight + dj.weight);
-                    di.rect.y = (di.rect.y * di.weight + dj.rect.y * dj.weight) / (di.weight + dj.weight);
-                    di.rect.w = (di.rect.w * di.weight + dj.rect.w * dj.weight) / (di.weight + dj.weight);
-                    di.rect.h = (di.rect.h * di.weight + dj.rect.h * dj.weight) / (di.weight + dj.weight);
-                    di.weight = di.weight + dj.weight;
+                    di.rect.x = (di.rect.x * di.conf + dj.rect.x * dj.conf) / (di.conf + dj.conf);
+                    di.rect.y = (di.rect.y * di.conf + dj.rect.y * dj.conf) / (di.conf + dj.conf);
+                    di.rect.w = (di.rect.w * di.conf + dj.rect.w * dj.conf) / (di.conf + dj.conf);
+                    di.rect.h = (di.rect.h * di.conf + dj.rect.h * dj.conf) / (di.conf + dj.conf);
+                    di.conf = di.conf + dj.conf;
                     erased[j] = true;
                 }
             }
@@ -98,7 +96,7 @@ namespace c4 {
                     const float iom = di.rect.intersect(dj.rect).area() / std::min(dj.rect.area(), di.rect.area());
 
                     if (iom > 0.75f) {
-                        if (dj.weight > di.weight) {
+                        if (dj.conf > di.conf) {
                             std::swap(di, dj);
                         }
 
@@ -114,14 +112,14 @@ namespace c4 {
         }
     }
 
-    template<class TForm, int dim = 256>
+    template<class TForm, int dim>
     struct window_detector {
         const matrix_regression<dim> mr;
-        const int step;
+        const float threshold;
 
-        window_detector(const matrix_regression<dim>& mr, const int step) : mr(mr), step(step) {}
+        window_detector(const matrix_regression<dim>& mr, float threshold) : mr(mr), threshold(threshold) {}
 
-        std::vector<detection> detect(const matrix_ref<uint8_t>& img, double threshold) const {
+        std::vector<detection> detect(const matrix_ref<uint8_t>& img) const {
             c4::matrix<uint8_t> timg = TForm::transform(img);
 
             auto m = mr.predict_multi(timg);
@@ -132,9 +130,11 @@ namespace c4 {
 
             for (int i : range(m.height())) {
                 for (int j : range(m.width())) {
-                    if (m[i][j] > threshold) {
+                    // why squared? because we trained on MSE!
+                    const float conf = sqr(m[i][j]);
+                    if (conf > threshold) {
                         rectangle<int> r(j, i, obj_dims.width, obj_dims.height);
-                        dets.push_back({ rectangle<float>(TForm::reverse_rect(r)), m[i][j] });
+                        dets.push_back({ rectangle<float>(TForm::reverse_rect(r)), conf });
                     }
                 }
             }
@@ -148,11 +148,11 @@ namespace c4 {
 
         template <typename Archive>
         void serialize(Archive& ar) {
-            ar(mr);
+            ar(mr, threshold);
         }
     };
 
-    template<class TForm, int dim = 256>
+    template<class TForm, int dim>
     struct scaling_detector {
         const window_detector<TForm, dim> wd;
         const float start_scale;
@@ -160,13 +160,13 @@ namespace c4 {
 
         scaling_detector(const window_detector<TForm, dim>& wd, float start_scale, float scale_step) : wd(wd), start_scale(start_scale), scale_step(scale_step) {}
 
-        std::vector<detection> detect(const matrix_ref<uint8_t>& img, double threshold) const {
+        std::vector<detection> detect(const matrix_ref<uint8_t>& img) const {
             std::vector<detection> dets;
 
             float scale = start_scale;
 
             if (scale == 1.f) {
-                dets = wd.detect(img, threshold);
+                dets = wd.detect(img);
                 scale *= scale_step;
             }
 
@@ -179,7 +179,7 @@ namespace c4 {
 
                 scale_image_hq(img, scaled);
 
-                std::vector<detection> scale_dets = wd.detect(scaled, threshold);
+                std::vector<detection> scale_dets = wd.detect(scaled);
 
                 for (detection& d : scale_dets) {
                     d.rect = d.rect.scale_around_origin(1.f / scale);
@@ -195,21 +195,7 @@ namespace c4 {
 
         template <typename Archive>
         void serialize(Archive& ar) {
-            ar(wd, scale_step);
+            ar(wd, start_scale, scale_step);
         }
     };
-
-    static c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& filepath, float min_scale) {
-        std::ifstream fin(filepath, std::ifstream::binary);
-        c4::serialize::input_archive in(fin);
-
-        c4::matrix_regression<> mr;
-        in(mr);
-
-        c4::window_detector<c4::LBP, 256> wd(mr, 1);
-
-        c4::scaling_detector<c4::LBP, 256> sd(wd, min_scale, 0.9f);
-
-        return sd;
-    }
 };
