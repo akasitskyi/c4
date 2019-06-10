@@ -199,7 +199,7 @@ namespace c4 {
         }
     };
 
-    static c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& filepath) {
+    static c4::scaling_detector<c4::LBP, 256> load_scaling_detector(const std::string& filepath, float min_scale) {
         std::ifstream fin(filepath, std::ifstream::binary);
         c4::serialize::input_archive in(fin);
 
@@ -208,7 +208,7 @@ namespace c4 {
 
         c4::window_detector<c4::LBP, 256> wd(mr, 1);
 
-        c4::scaling_detector<c4::LBP, 256> sd(wd, 0.5f, 0.9f);
+        c4::scaling_detector<c4::LBP, 256> sd(wd, min_scale, 0.9f);
 
         return sd;
     }

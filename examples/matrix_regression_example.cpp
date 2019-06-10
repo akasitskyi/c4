@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
             out(mr);
         }
 
-        const auto sd = c4::load_scaling_detector(model_filepath);
+        const auto sd = c4::load_scaling_detector(model_filepath, 0.5f);
 
         c4::image_dumper::getInstance().init("", false);
 

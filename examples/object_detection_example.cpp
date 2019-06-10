@@ -36,14 +36,16 @@
 int main(int argc, char* argv[]) {
     try{
         c4::meta_data_set test_meta;
-        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 2.2, 32);
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 2.0, 32);
 
         PRINT_DEBUG(test_meta.data.size());
 
         std::vector<c4::image_file_metadata> detections_c4(test_meta.data.size());
 
         {
-            const auto sd = c4::load_scaling_detector("matrix_regression_28_2.2_1000it_neg10_step3.dat");
+            //const auto sd = c4::load_scaling_detector("matrix_regression_28_2.2_500it_neg10_step30.dat", 0.5f);
+            //const auto sd = c4::load_scaling_detector("matrix_regression_28_2.2_1000it_neg10_step3.dat", 0.5f);
+            const auto sd = c4::load_scaling_detector("matrix_regression_24_2.0_1000it_neg10_step1.dat", 0.4f);
 
             if(0){
                 const int sample_size = 28;
@@ -71,7 +73,7 @@ int main(int argc, char* argv[]) {
                 c4::image_file_metadata& ifm = detections_c4[k];
                 ifm.filepath = t.filepath;
 
-                const auto dets = sd.detect(img, 0.63);
+                const auto dets = sd.detect(img, 0.64);
 
                 for (const auto& d : dets) {
                     const auto irect = c4::rectangle<int>(d.rect);
@@ -81,7 +83,7 @@ int main(int argc, char* argv[]) {
                 progress.did_some(1);
             });
 
-            auto res = c4::evaluate_object_detection(test_meta.data, detections_c4, 0.5);
+            auto res = c4::evaluate_object_detection(test_meta.data, detections_c4, 0.7);
 
             PRINT_DEBUG(res.recall());
             PRINT_DEBUG(res.precission());
@@ -89,7 +91,7 @@ int main(int argc, char* argv[]) {
 
         std::vector<c4::image_file_metadata> detections_dlib(test_meta.data.size());
 
-        {
+        if (0) {
             c4::enumerable_thread_specific<dlib::frontal_face_detector> dlib_fd_ts(dlib::get_frontal_face_detector());
 
             c4::progress_indicator progress((uint32_t)test_meta.data.size());
@@ -128,26 +130,28 @@ int main(int argc, char* argv[]) {
             PRINT_DEBUG(res.precission());
         }
         
-        c4::image_dumper::getInstance().init("c4", true);
+        if (0) {
+            c4::image_dumper::getInstance().init("c4", true);
 
-        for (int k : c4::range(test_meta.data)) {
-            c4::rgb_image img;
+            for (int k : c4::range(test_meta.data)) {
+                c4::rgb_image img;
 
-            c4::read_jpeg(test_meta.data[k].filepath, img);
+                c4::read_jpeg(test_meta.data[k].filepath, img);
 
-            for (const auto& g : test_meta.data[k].objects) {
-                c4::draw_rect(img, g.rect, c4::pixel<uint8_t>::white(), 1);
+                for (const auto& g : test_meta.data[k].objects) {
+                    c4::draw_rect(img, g.rect, c4::pixel<uint8_t>::white(), 1);
+                }
+
+                for (const auto& g : detections_dlib[k].objects) {
+                    c4::draw_rect(img, g.rect, c4::pixel<uint8_t>::green(), 1);
+                }
+
+                for (const auto& g : detections_c4[k].objects) {
+                    c4::draw_rect(img, g.rect, c4::pixel<uint8_t>::blue(), 1);
+                }
+
+                c4::dump_image(img, "fd");
             }
-
-            for (const auto& g : detections_dlib[k].objects) {
-                c4::draw_rect(img, g.rect, c4::pixel<uint8_t>::green(), 1);
-            }
-
-            for (const auto& g : detections_c4[k].objects) {
-                c4::draw_rect(img, g.rect, c4::pixel<uint8_t>::blue(), 1);
-            }
-
-            c4::dump_image(img, "fd");
         }
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
