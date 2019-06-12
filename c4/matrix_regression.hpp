@@ -30,9 +30,11 @@
 namespace c4 {
     template<int dim>
     class matrix_regression {
+        bool symmetry;
         matrix<std::array<float, dim>> weights;
     public:
-        matrix_regression() {}
+
+        matrix_regression(bool symmetry = false) : symmetry(symmetry) {}
 
         matrix_dimensions dimensions() const {
             return weights.dimensions();
@@ -114,7 +116,7 @@ namespace c4 {
             return f;
         }
 
-        void train(const matrix<std::vector<uint8_t>>& rx, const std::vector<float>& y, const matrix<std::vector<uint8_t>>& test_rx, const std::vector<float>& test_y, const int itc, const bool symmetry) {
+        void train(const matrix<std::vector<uint8_t>>& rx, const std::vector<float>& y, const matrix<std::vector<uint8_t>>& test_rx, const std::vector<float>& test_y, const int itc) {
             c4::scoped_timer t("matrix_regression::train()");
 
             if (weights.height() == 0) {
@@ -200,8 +202,44 @@ namespace c4 {
         }
 
         template <typename Archive>
-        void serialize(Archive& ar) {
-            ar(weights);
+        void load(Archive& ar) {
+            ar(symmetry);
+            {
+                int h, w, d;
+                ar(h);
+                ar(w);
+                ar(d);
+                weights.resize(h, w);
+                ASSERT_EQUAL(d, dim);
+            }
+
+            for (auto& row : weights) {
+                const int n = symmetry ? (isize(row) + 1) / 2 : isize(row);
+
+                for (int j : range(n)) {
+                    ar(row[j]);
+                }
+
+                if (symmetry) {
+                    std::reverse_copy(row.begin(), row.begin() + isize(row) / 2, row.begin() + n);
+                }
+            }
+        }
+
+        template <typename Archive>
+        void save(Archive& ar) const {
+            ar(symmetry);
+            ar(weights.height());
+            ar(weights.width());
+            ar(dim);
+
+            for (const auto& row : weights) {
+                const int n = symmetry ? (isize(row) + 1) / 2 : isize(row);
+                
+                for (int j : range(n)) {
+                    ar(row[j]);
+                }
+            }
         }
     };
 };

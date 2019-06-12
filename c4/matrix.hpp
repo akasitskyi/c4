@@ -388,9 +388,9 @@ namespace c4 {
         }
 
         template <typename Archive>
-        void save(Archive& archive) {
+        void save(Archive& archive) const {
             archive(height_, width_, stride_);
-            archive(serialize::as_binary(v.data(), (serialize::size_type)v.size()));
+            archive(v);
         }
 
         template <typename Archive>
@@ -398,7 +398,7 @@ namespace c4 {
             int height, width, stride;
             archive(height, width, stride);
             resize(height, width, stride);
-            archive(serialize::as_binary(v.data(), (serialize::size_type)v.size()));
+            archive(v);
         }
     };
 

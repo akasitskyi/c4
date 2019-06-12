@@ -34,16 +34,13 @@ namespace c4 {
     typedef window_detector<lbp<>, 256> window_lbp_detector;
     typedef scaling_detector<lbp<>, 256> scaling_lbp_detector;
 
-    static scaling_lbp_detector load_scaling_lbp_detector(const std::string& filepath, float min_scale, float threhsold) {
+    static scaling_lbp_detector load_scaling_lbp_detector(const std::string& filepath) {
         std::ifstream fin(filepath, std::ifstream::binary);
         serialize::input_archive in(fin);
 
-        byte_matrix_regression mr;
-        in(mr);
+        scaling_lbp_detector sd;
 
-        window_lbp_detector wd(mr, threhsold);
-
-        scaling_lbp_detector sd(wd, min_scale, 0.9f);
+        in(sd);
 
         return sd;
     }

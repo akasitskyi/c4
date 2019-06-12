@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
         test_set.load(test_meta, 0, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
         std::cout << "test size: " << test_set.y.size() << std::endl;
 
-        c4::byte_matrix_regression mr;
+        c4::byte_matrix_regression mr(true);
 
         if (std::string(base) != "-") {
             std::ifstream fin(base, std::ifstream::binary);
@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
             in(mr);
         }
 
-        mr.train(train_set.rx, train_set.y, test_set.rx, test_set.y, iterations, true);
+        mr.train(train_set.rx, train_set.y, test_set.rx, test_set.y, iterations);
 
         const std::string model_filepath = "matrix_regression.dat";
 
@@ -105,7 +105,15 @@ int main(int argc, char* argv[]) {
             out(mr);
         }
 
-        const auto sd = c4::load_scaling_lbp_detector(model_filepath, 0.4f, 0.41f);
+        const c4::window_lbp_detector wd(mr, 0.41f);
+        const c4::scaling_lbp_detector sd(wd, 0.4f, 0.9f);
+
+        {
+            std::ofstream fout("face_detector.dat", std::ofstream::binary);
+            c4::serialize::output_archive out(fout);
+
+            out(sd);
+        }
 
         c4::image_dumper::getInstance().init("", false);
 

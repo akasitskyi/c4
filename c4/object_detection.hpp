@@ -114,9 +114,10 @@ namespace c4 {
 
     template<class TForm, int dim>
     struct window_detector {
-        const matrix_regression<dim> mr;
-        const float threshold;
+        matrix_regression<dim> mr;
+        float threshold;
 
+        window_detector() = default;
         window_detector(const matrix_regression<dim>& mr, float threshold) : mr(mr), threshold(threshold) {}
 
         std::vector<detection> detect(const matrix_ref<uint8_t>& img) const {
@@ -150,14 +151,20 @@ namespace c4 {
         void serialize(Archive& ar) {
             ar(mr, threshold);
         }
+
+        template <typename Archive>
+        void serialize(Archive& ar) const {
+            ar(mr, threshold);
+        }
     };
 
     template<class TForm, int dim>
     struct scaling_detector {
-        const window_detector<TForm, dim> wd;
-        const float start_scale;
-        const float scale_step;
+        window_detector<TForm, dim> wd;
+        float start_scale;
+        float scale_step;
 
+        scaling_detector() = default;
         scaling_detector(const window_detector<TForm, dim>& wd, float start_scale, float scale_step) : wd(wd), start_scale(start_scale), scale_step(scale_step) {}
 
         std::vector<detection> detect(const matrix_ref<uint8_t>& img) const {
@@ -195,6 +202,11 @@ namespace c4 {
 
         template <typename Archive>
         void serialize(Archive& ar) {
+            ar(wd, start_scale, scale_step);
+        }
+
+        template <typename Archive>
+        void serialize(Archive& ar) const {
             ar(wd, start_scale, scale_step);
         }
     };

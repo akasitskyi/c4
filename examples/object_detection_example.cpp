@@ -20,14 +20,12 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#include <c4/lbp.hpp>
 #include <c4/jpeg.hpp>
 #include <c4/drawing.hpp>
 #include <c4/serialize.hpp>
 #include <c4/image_dumper.hpp>
 #include <c4/meta_data_set.hpp>
 #include <c4/classification_metrics.hpp>
-#include <c4/object_detection.hpp>
 #include <c4/dataset.hpp>
 #include <c4/simple_cv.hpp>
 
@@ -44,9 +42,7 @@ int main(int argc, char* argv[]) {
         std::vector<c4::image_file_metadata> detections_c4(test_meta.data.size());
 
         {
-            //const auto sd = c4::load_scaling_detector("matrix_regression_28_2.2_500it_neg10_step30.dat", 0.5f);
-            //const auto sd = c4::load_scaling_detector("matrix_regression_28_2.2_1000it_neg10_step3.dat", 0.5f);
-            const auto sd = c4::load_scaling_lbp_detector("matrix_regression_24_2.0_1000it_neg10_step1.dat", 0.4f, 0.41f);
+            auto sd = c4::load_scaling_lbp_detector("face_detector.dat");
 
             c4::progress_indicator progress((uint32_t)test_meta.data.size());
 
