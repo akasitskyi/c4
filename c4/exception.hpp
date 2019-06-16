@@ -26,6 +26,7 @@
 #include <ostream>
 
 #include "string.hpp"
+#include "logger.hpp"
 
 namespace c4 {
 

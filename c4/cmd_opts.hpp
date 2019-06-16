@@ -130,7 +130,7 @@ namespace c4 {
             return add_flag_internal("--" + name);
         }
 
-        void parse(const int argc, char** argv) {
+        void parse(const int argc, const char** argv) {
             for (int i = 0; i < argc;) {
                 const std::string arg = argv[i++];
 
@@ -166,7 +166,7 @@ namespace c4 {
             }
         }
 
-        std::vector<std::string> get_free_args() const {
+        const std::vector<std::string>& get_free_args() const {
             return free_args;
         }
     };
