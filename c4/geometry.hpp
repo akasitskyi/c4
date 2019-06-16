@@ -134,6 +134,66 @@ namespace c4 {
         return sign((b - a) ^ (p - a)) != sign((c - a) ^ (p - a)) && sign((b - c) ^ (p - c)) != sign((a - c) ^ (p - c));
     }
 
+    class affine_trasform {
+        double M[2][2];
+        point<double> v;
+    public:
+        affine_trasform() {
+            M[0][0] = 1;
+            M[0][1] = 0;
+            M[1][0] = 0;
+            M[1][1] = 1;
+        }
+
+        inline point<double> operator()(const point<double>& p) const {
+            double x = M[0][0] * p.x + M[0][1] * p.y + v.x;
+            double y = M[1][0] * p.x + M[1][1] * p.y + v.y;
+
+            return point<double>(x, y);
+        }
+
+        static affine_trasform move_trasform(const point<double>& p) {
+            affine_trasform r;
+            r.v = p;
+
+            return r;
+        }
+
+        static affine_trasform scale_trasform(double scale_x, double scale_y) {
+            affine_trasform r;
+            r.M[0][0] = scale_x;
+            r.M[1][1] = scale_y;
+
+            return r;
+        }
+
+        static affine_trasform rotate_trasform(double alpha) {
+            affine_trasform r;
+
+            const double cs = std::cos(alpha);
+            const double sn = std::sin(alpha);
+
+            r.M[0][0] = cs;
+            r.M[0][1] = sn;
+            r.M[1][0] = -sn;
+            r.M[1][1] = cs;
+        }
+
+        affine_trasform combine(const affine_trasform& o) const {
+            const auto& N = o.M;
+            affine_trasform r;
+            r.M[0][0] = M[0][0] * N[0][0] + M[0][1] * N[1][0];
+            r.M[0][1] = M[0][0] * N[0][1] + M[0][1] * N[1][1];
+            r.M[1][0] = M[1][0] * N[0][0] + M[1][1] * N[1][0];
+            r.M[1][1] = M[1][0] * N[0][1] + M[1][1] * N[1][1];
+
+            r.v.x = M[0][0] * o.v.x + M[0][1] * o.v.y + v.x;
+            r.v.y = M[1][0] * o.v.x + M[1][1] * o.v.y + v.y;
+
+            return r;
+        }
+    };
+
     template<typename T>
     struct rectangle {
         T x, y, w, h;
