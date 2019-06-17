@@ -148,12 +148,12 @@ namespace c4 {
         }
 
         template <typename Archive>
-        void serialize(Archive& ar) {
+        void load(Archive& ar) {
             ar(mr, threshold);
         }
 
         template <typename Archive>
-        void serialize(Archive& ar) const {
+        void save(Archive& ar) const {
             ar(mr, threshold);
         }
     };
@@ -201,12 +201,12 @@ namespace c4 {
         }
 
         template <typename Archive>
-        void serialize(Archive& ar) {
+        void load(Archive& ar) {
             ar(wd, start_scale, scale_step);
         }
 
         template <typename Archive>
-        void serialize(Archive& ar) const {
+        void save(Archive& ar) const {
             ar(wd, start_scale, scale_step);
         }
     };

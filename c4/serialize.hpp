@@ -266,33 +266,14 @@ namespace c4 {
             void operator()() {}
         private:
             template <typename Item,
-                typename = decltype(std::declval<Item&>().serialize(std::declval<output_archive&>()))
-            >
-            void save_item(Item&& item) {
-                item.serialize(*this);
-            }
-
-            template <typename Item,
-                typename = decltype(std::declval<Item&>().save(std::declval<output_archive&>())),
-                typename = void
+                typename = decltype(std::declval<Item&>().save(std::declval<output_archive&>()))
             >
             void save_item(Item&& item) {
                 item.save(*this);
             }
 
             template <typename Item,
-                typename = decltype(serialize(std::declval<output_archive&>(), std::declval<Item&>())),
-                typename = void,
-                typename = void
-            >
-            void save_item(Item&& item) {
-                serialize(*this, item);
-            }
-
-            template <typename Item,
                 typename = decltype(save(std::declval<output_archive&>(), std::declval<Item&>())),
-                typename = void,
-                typename = void,
                 typename = void
             >
             void save_item(Item&& item) {
@@ -326,33 +307,14 @@ namespace c4 {
             void operator()() {}
         private:
             template <typename Item,
-                typename = decltype(std::declval<Item&>().serialize(std::declval<input_archive&>()))
-            >
-            void load_item(Item&& item) {
-                item.serialize(*this);
-            }
-
-            template <typename Item,
-                typename = decltype(std::declval<Item&>().load(std::declval<input_archive&>())),
-                typename = void
+                typename = decltype(std::declval<Item&>().load(std::declval<input_archive&>()))
             >
             void load_item(Item&& item) {
                 item.load(*this);
             }
 
             template <typename Item,
-                typename = decltype(serialize(std::declval<input_archive&>(), std::declval<Item&>())),
-                typename = void,
-                typename = void
-            >
-            void load_item(Item&& item) {
-                serialize(*this, item);
-            }
-
-            template <typename Item,
                 typename = decltype(load(std::declval<input_archive&>(), std::declval<Item&>())),
-                typename = void,
-                typename = void,
                 typename = void
             >
             void load_item(Item&& item) {

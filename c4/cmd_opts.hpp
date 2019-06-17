@@ -166,6 +166,10 @@ namespace c4 {
             }
         }
 
+        void parse(const int argc, char** argv) {
+            parse(argc, const_cast<const char**>(argv));
+        }
+        
         const std::vector<std::string>& get_free_args() const {
             return free_args;
         }
