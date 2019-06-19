@@ -25,13 +25,16 @@
 #include "math.hpp"
 
 namespace c4 {
-    template<class T>
+    template<typename T>
     struct point{
         T x;
         T y;
 
         point() : x(0), y(0) {}
         point(T x, T y) : x(x),y(y) {}
+        
+        template<typename T1>
+        point(const point<T1>& p) : x((T)p.x), y((T)p.y) {}
     
         auto polar_angle() const {
             return atan2(y, x);
@@ -67,6 +70,11 @@ namespace c4 {
     template<class T>
     inline point<T> operator+(const point<T>& a, const point<T>& b) {
         return { a.x + b.x, a.y + b.y };
+    }
+
+    template<class T>
+    inline point<T> operator-(const point<T>& a) {
+        return { -a.x, -a.y };
     }
 
     template<class T>
@@ -150,6 +158,25 @@ namespace c4 {
             double y = M[1][0] * p.x + M[1][1] * p.y + v.y;
 
             return point<double>(x, y);
+        }
+
+        inline point<float> operator()(const point<float>& p) const {
+            return point<float>(operator()(point<double>(p)));
+        }
+
+        inline affine_trasform inverse() const {
+            affine_trasform r;
+            const auto d = M[0][0] * M[1][1] - M[0][1] * M[1][0];
+            const auto id = 1 / d;
+
+            r.M[0][0] = M[1][1] * id;
+            r.M[0][1] = -M[0][1] * id;
+            r.M[1][0] = -M[1][0] * id;
+            r.M[1][1] = M[0][0] * id;
+
+            r.v = -r(v);
+
+            return r;
         }
 
         static affine_trasform move_trasform(const point<double>& p) {
