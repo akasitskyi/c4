@@ -299,4 +299,9 @@ namespace c4 {
 
         return si / (sa + sb - si);
     }
+
+    struct object_on_image {
+        rectangle<int> rect;
+        std::vector<point<float>> landmarks;
+    };
 };

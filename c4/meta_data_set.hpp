@@ -33,11 +33,6 @@
 #include "geometry.hpp"
 
 namespace c4 {
-    struct object_on_image {
-        rectangle<int> rect;
-        std::vector<point<float>> landmarks;
-    };
-
     struct image_file_metadata {
         std::string filepath;
         std::vector<object_on_image> objects;
