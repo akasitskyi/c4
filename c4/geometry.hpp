@@ -299,6 +299,11 @@ namespace c4 {
 
             return r;
         }
+
+        template<typename T1>
+        bool contains(const point<T1>& p) const {
+            return x <= p.x && p.x < x + w && y <= p.y && p.y < y + h;
+        }
     };
 
     template<typename T>
