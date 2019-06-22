@@ -63,8 +63,17 @@ namespace c4 {
                 std::vector<object_on_image> objects;
 
                 for (const auto& box : image_info["boxes"]) {
-                    rectangle<int> r(box["left"], box["top"], box["width"], box["height"]);
-                    objects.push_back({ r, {} });
+                    object_on_image o;
+                    o.rect.x = box["left"];
+                    o.rect.y = box["top"];
+                    o.rect.w = box["width"];
+                    o.rect.h = box["height"];
+
+                    for (const auto& l : box["landmarks"]) {
+                        o.landmarks.emplace_back(float(l["x"]), float(l["y"]));
+                    }
+
+                    objects.push_back(o);
                 }
 
                 data.emplace_back(root + filename, objects);
