@@ -59,6 +59,16 @@ namespace c4 {
         }
 
         inline bool inside_triangle(const point& a, const point& b, const point& c) const ;
+
+        template <typename Archive>
+        void save(Archive& archive) const {
+            archive(x, y);
+        }
+
+        template <typename Archive>
+        void load(Archive& archive) {
+            archive(x, y);
+        }
     };
 
     template<class T>
