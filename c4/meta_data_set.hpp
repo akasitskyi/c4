@@ -45,7 +45,21 @@ namespace c4 {
     struct meta_data_set {
         std::vector<image_file_metadata> data;
 
-        void load_dlib(const std::string& root, const std::string& labels_filepath, const int sample) {
+        static c4::rectangle<int> make_rect_by_landmarks(const std::vector<point<float>>& landmarks, const float scale) {
+            const point<float> center = std::accumulate(landmarks.begin(), landmarks.end(), point<float>()) * (1.f / landmarks.size());
+
+            float max_d = 0.f;
+            for (auto p : landmarks) {
+                max_d = std::max(max_d, dist(p, center));
+            }
+
+            const float half_side = max_d * scale;
+            const int side = int(2 * half_side + 0.5f);
+
+            return rectangle<int>(int(center.x - half_side + 0.5f), int(center.y - half_side + 0.5f), side, side);
+        }
+
+        void load_dlib(const std::string& root, const std::string& labels_filepath, const float rect_scale, const int sample) {
             json data_json;
 
             std::ifstream train_data_fin(root + labels_filepath);
@@ -72,6 +86,16 @@ namespace c4 {
                     for (const auto& l : box["landmarks"]) {
                         o.landmarks.emplace_back(float(l["x"]), float(l["y"]));
                     }
+
+                    //std::vector<point<float>> main_landmarks;
+                    //main_landmarks.push_back(o.landmarks[30]); // nose
+                    //main_landmarks.push_back((o.landmarks[36] + o.landmarks[39]) * 0.5f); // left eye
+                    //main_landmarks.push_back((o.landmarks[42] + o.landmarks[45]) * 0.5f); // right eye
+                    //main_landmarks.push_back((o.landmarks[48]) * 0.5f); // left mouth corner
+                    //main_landmarks.push_back((o.landmarks[54]) * 0.5f); // right mouth corner
+
+
+                    //o.rect = make_rect_by_landmarks(o.landmarks, rect_scale);
 
                     objects.push_back(o);
                 }
@@ -102,20 +126,7 @@ namespace c4 {
                     o.landmarks[j].y = string_to<float>(row[2 * j + 2]);
                 }
 
-                const point<float> center = std::accumulate(o.landmarks.begin(), o.landmarks.end(), point<float>()) * (1.f / o.landmarks.size());
-
-                float max_d = 0.f;
-                for (auto p : o.landmarks) {
-                    max_d = std::max(max_d, dist(p, center));
-                }
-
-                auto make_rect = [center, max_d](float scale) {
-                    const float half_side = max_d * scale;
-                    const int side = int(2 * half_side + 0.5f);
-                    return rectangle<int>(int(center.x - half_side + 0.5f), int(center.y - half_side + 0.5f), side, side);
-                };
-
-                o.rect = make_rect(rect_scale);
+                o.rect = make_rect_by_landmarks(o.landmarks, rect_scale);
 
                 data_set[filepath].push_back(o);
             }
