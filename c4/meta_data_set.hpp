@@ -78,24 +78,24 @@ namespace c4 {
 
                 for (const auto& box : image_info["boxes"]) {
                     object_on_image o;
-                    o.rect.x = box["left"];
-                    o.rect.y = box["top"];
-                    o.rect.w = box["width"];
-                    o.rect.h = box["height"];
-
                     for (const auto& l : box["landmarks"]) {
                         o.landmarks.emplace_back(float(l["x"]), float(l["y"]));
                     }
 
-                    //std::vector<point<float>> main_landmarks;
-                    //main_landmarks.push_back(o.landmarks[30]); // nose
-                    //main_landmarks.push_back((o.landmarks[36] + o.landmarks[39]) * 0.5f); // left eye
-                    //main_landmarks.push_back((o.landmarks[42] + o.landmarks[45]) * 0.5f); // right eye
-                    //main_landmarks.push_back((o.landmarks[48]) * 0.5f); // left mouth corner
-                    //main_landmarks.push_back((o.landmarks[54]) * 0.5f); // right mouth corner
+                    //o.rect.x = box["left"];
+                    //o.rect.y = box["top"];
+                    //o.rect.w = box["width"];
+                    //o.rect.h = box["height"];
+
+                    std::vector<point<float>> main_landmarks;
+                    main_landmarks.push_back(o.landmarks[30]); // nose
+                    main_landmarks.push_back((o.landmarks[36] + o.landmarks[39]) * 0.5f); // left eye
+                    main_landmarks.push_back((o.landmarks[42] + o.landmarks[45]) * 0.5f); // right eye
+                    main_landmarks.push_back(o.landmarks[48]); // left mouth corner
+                    main_landmarks.push_back(o.landmarks[54]); // right mouth corner
 
 
-                    //o.rect = make_rect_by_landmarks(o.landmarks, rect_scale);
+                    o.rect = make_rect_by_landmarks(main_landmarks, rect_scale);
 
                     objects.push_back(o);
                 }
@@ -144,6 +144,23 @@ namespace c4 {
             }
 
             data.resize(n);
+        }
+
+        void add_noise_to_rects(float alpha) {
+            ASSERT_TRUE(alpha > 0.f);
+
+            fast_rand_float_uniform rnd(-alpha, alpha);
+
+            for (auto& r : data) {
+                for (auto& o : r.objects) {
+                    const int dx = int(rnd() * o.rect.w);
+                    const int dy = int(rnd() * o.rect.h);
+                    const float ds = rnd();
+                    o.rect.x += dx;
+                    o.rect.y += dy;
+                    o.rect = rectangle<int>(o.rect.scale_around_center(1.f + ds));
+                }
+            }
         }
     };
 }; // namespace c4

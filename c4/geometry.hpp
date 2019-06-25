@@ -128,8 +128,8 @@ namespace c4 {
         return a;
     }
 
-    template<class T1, class T2>
-    inline point<T1>& operator*=(point<T1>& a, const T2& b) {
+    template<class T1>
+    inline point<T1>& operator*=(point<T1>& a, const T1& b) {
         a.x *= b;
         a.y *= b;
 
@@ -152,9 +152,10 @@ namespace c4 {
         return sign((b - a) ^ (p - a)) != sign((c - a) ^ (p - a)) && sign((b - c) ^ (p - c)) != sign((a - c) ^ (p - c));
     }
 
+    template<typename Float>
     class affine_trasform {
-        double M[2][2];
-        point<double> v;
+        Float M[2][2];
+        point<Float> v;
     public:
         affine_trasform() {
             M[0][0] = 1;
@@ -163,15 +164,11 @@ namespace c4 {
             M[1][1] = 1;
         }
 
-        inline point<double> operator()(const point<double>& p) const {
-            double x = M[0][0] * p.x + M[0][1] * p.y + v.x;
-            double y = M[1][0] * p.x + M[1][1] * p.y + v.y;
+        inline point<Float> operator()(const point<Float>& p) const {
+            Float x = M[0][0] * p.x + M[0][1] * p.y + v.x;
+            Float y = M[1][0] * p.x + M[1][1] * p.y + v.y;
 
-            return point<double>(x, y);
-        }
-
-        inline point<float> operator()(const point<float>& p) const {
-            return point<float>(operator()(point<double>(p)));
+            return point<Float>(x, y);
         }
 
         inline affine_trasform inverse() const {
@@ -189,14 +186,14 @@ namespace c4 {
             return r;
         }
 
-        static affine_trasform move_trasform(const point<double>& p) {
+        static affine_trasform move_trasform(const point<Float>& p) {
             affine_trasform r;
             r.v = p;
 
             return r;
         }
 
-        static affine_trasform scale_trasform(double scale_x, double scale_y) {
+        static affine_trasform scale_trasform(Float scale_x, Float scale_y) {
             affine_trasform r;
             r.M[0][0] = scale_x;
             r.M[1][1] = scale_y;
@@ -204,11 +201,11 @@ namespace c4 {
             return r;
         }
 
-        static affine_trasform rotate_trasform(double alpha) {
+        static affine_trasform rotate_trasform(Float alpha) {
             affine_trasform r;
 
-            const double cs = std::cos(alpha);
-            const double sn = std::sin(alpha);
+            const Float cs = std::cos(alpha);
+            const Float sn = std::sin(alpha);
 
             r.M[0][0] = cs;
             r.M[0][1] = sn;
@@ -301,7 +298,7 @@ namespace c4 {
         }
 
         template<typename T1>
-        bool contains(const point<T1>& p) const {
+        inline bool contains(const point<T1>& p) const {
             return x <= p.x && p.x < x + w && y <= p.y && p.y < y + h;
         }
     };
