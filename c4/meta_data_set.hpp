@@ -59,7 +59,7 @@ namespace c4 {
             return rectangle<int>(int(center.x - half_side + 0.5f), int(center.y - half_side + 0.5f), side, side);
         }
 
-        void load_dlib(const std::string& root, const std::string& labels_filepath, const float rect_scale, const int sample) {
+        void load_dlib(const std::string& root, const std::string& labels_filepath, const float rect_scale, const int sample, bool rects_from_landmarks) {
             json data_json;
 
             std::ifstream train_data_fin(root + labels_filepath);
@@ -82,20 +82,21 @@ namespace c4 {
                         o.landmarks.emplace_back(float(l["x"]), float(l["y"]));
                     }
 
-                    //o.rect.x = box["left"];
-                    //o.rect.y = box["top"];
-                    //o.rect.w = box["width"];
-                    //o.rect.h = box["height"];
+                    o.rect.x = box["left"];
+                    o.rect.y = box["top"];
+                    o.rect.w = box["width"];
+                    o.rect.h = box["height"];
 
-                    std::vector<point<float>> main_landmarks;
-                    main_landmarks.push_back(o.landmarks[30]); // nose
-                    main_landmarks.push_back((o.landmarks[36] + o.landmarks[39]) * 0.5f); // left eye
-                    main_landmarks.push_back((o.landmarks[42] + o.landmarks[45]) * 0.5f); // right eye
-                    main_landmarks.push_back(o.landmarks[48]); // left mouth corner
-                    main_landmarks.push_back(o.landmarks[54]); // right mouth corner
+                    if (rects_from_landmarks) {
+                        std::vector<point<float>> main_landmarks;
+                        main_landmarks.push_back(o.landmarks[30]); // nose
+                        main_landmarks.push_back((o.landmarks[36] + o.landmarks[39]) * 0.5f); // left eye
+                        main_landmarks.push_back((o.landmarks[42] + o.landmarks[45]) * 0.5f); // right eye
+                        main_landmarks.push_back(o.landmarks[48]); // left mouth corner
+                        main_landmarks.push_back(o.landmarks[54]); // right mouth corner
 
-
-                    o.rect = make_rect_by_landmarks(main_landmarks, rect_scale);
+                        o.rect = make_rect_by_landmarks(main_landmarks, rect_scale);
+                    }
 
                     objects.push_back(o);
                 }

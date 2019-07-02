@@ -289,6 +289,10 @@ namespace c4 {
             return operator[](i)[j];
         }
 
+        const T& clamp_get(const point<float>& p) const {
+            return clamp_get(int(p.y + 0.5f), int(p.x + 0.5f));
+        }
+
         matrix_ref<T> submatrix(const rectangle<int>& r) {
             assert(is_inside(r));
             return matrix_ref<T>(r.h, r.w, stride_, ptr_ + r.y * stride_ + r.x);
