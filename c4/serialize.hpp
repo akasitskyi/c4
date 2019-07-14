@@ -334,4 +334,18 @@ namespace c4 {
         };
 
     } // namespace serialize
+
+    template<class T>
+    static void save(const T& t, const std::string& filename) {
+        std::ofstream fout(filename, std::ios::binary);
+        c4::serialize::output_archive ar(fout);
+        ar(t);
+    }
+
+    template<class T>
+    static void load(const std::string& filename, T& t) {
+        std::ifstream fin(filename, std::ios::binary);
+        c4::serialize::input_archive ar(fin);
+        ar(t);
+    }
 } // namespace c4
