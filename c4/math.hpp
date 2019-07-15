@@ -202,19 +202,28 @@ namespace c4 {
         return s / a.size();
     }
 
-    // https://en.wikipedia.org/wiki/Linear_congruential_generator
+    // https://en.wikipedia.org/wiki/Xorshift
     class fast_rand {
-        inline uint32_t f(uint32_t seed) const {
-            return 214013u * seed + 2531011u;
-        }
-
-        int seed;
+        uint32_t a, b, c, d;
+        uint32_t counter;
     public:
-        fast_rand(uint32_t seed = 0) : seed(seed) {}
+        fast_rand(uint32_t seed = 0) : a(seed), b(a * 5 + 3), c(b * 5 + 3), d(c * 5 + 3), counter(0) {}
 
         inline uint32_t operator()() {
-            seed = f(seed);
-            return seed;
+            const uint32_t s = a;
+
+            d = c;
+            c = b;
+            b = s;
+            a = d;
+            
+            a ^= a >> 2;
+            a ^= a << 1;
+            a ^= s ^ (s << 4);
+
+            counter += 362437u;
+
+            return a + counter;
         }
 
         inline uint32_t min() const {
