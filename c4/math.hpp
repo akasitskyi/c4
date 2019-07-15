@@ -211,11 +211,10 @@ namespace c4 {
 
         inline uint32_t operator()() {
             const uint32_t s = a;
-
+            a = d;
             d = c;
             c = b;
             b = s;
-            a = d;
             
             a ^= a >> 2;
             a ^= a << 1;
