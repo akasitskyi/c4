@@ -23,12 +23,39 @@
 #pragma once
 
 #include "matrix.hpp"
+#include "simd.hpp"
+
+// TODO: this can be way better
 
 namespace c4 {
     template<typename T>
     void operator+=(std::vector<T>& a, const std::vector<T>& b) {
         ASSERT_EQUAL(isize(a), isize(b));
         for (int i : range(a)) {
+            a[i] += b[i];
+        }
+    }
+
+    template<>
+    void operator+=<point<float>>(std::vector<point<float>>& a, const std::vector<point<float>>& b) {
+        ASSERT_EQUAL(isize(a), isize(b));
+
+        int i = 0;
+        int n = isize(a);
+
+        float* pa = (float*)a.data();
+        const float* pb = (const float*)b.data();
+
+        for (; i + 2 <= n; i += 2) {
+            simd::float32x4 ai = simd::load(pa + 2 * i);
+            simd::float32x4 bi = simd::load(pb + 2 * i);
+
+            ai = ai + bi;
+
+            simd::store(pa + 2 * i, ai);
+        }
+
+        for (; i < n; i++) {
             a[i] += b[i];
         }
     }
@@ -46,6 +73,30 @@ namespace c4 {
     void operator-=(std::vector<T>& a, const std::vector<T>& b) {
         ASSERT_EQUAL(isize(a), isize(b));
         for (int i : range(a)) {
+            a[i] -= b[i];
+        }
+    }
+
+    template<>
+    void operator-=<point<float>>(std::vector<point<float>>& a, const std::vector<point<float>>& b) {
+        ASSERT_EQUAL(isize(a), isize(b));
+        
+        int i = 0;
+        int n = isize(a);
+
+        float* pa = (float*)a.data();
+        const float* pb = (const float*)b.data();
+
+        for (; i + 2 <= n; i += 2) {
+            simd::float32x4 ai = simd::load(pa + 2 * i);
+            simd::float32x4 bi = simd::load(pb + 2 * i);
+
+            ai = ai - bi;
+
+            simd::store(pa + 2 * i, ai);
+        }
+
+        for (; i < n; i++) {
             a[i] -= b[i];
         }
     }
