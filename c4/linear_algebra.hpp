@@ -28,9 +28,65 @@
 // TODO: this can be way better
 
 namespace c4 {
+    inline void increment(float* pa, const float* pb, const int n) {
+        int i = 0;
+        for (; i + 4 <= n; i += 4) {
+            simd::float32x4 a = simd::load(pa + i);
+            simd::float32x4 b = simd::load(pb + i);
+
+            a = a + b;
+
+            simd::store(pa + i, a);
+        }
+
+        for (; i < n; i++) {
+            pa[i] += pb[i];
+        }
+    }
+
+    inline void decrement(float* pa, const float* pb, const int n) {
+        int i = 0;
+        for (; i + 4 <= n; i += 4) {
+            simd::float32x4 a = simd::load(pa + i);
+            simd::float32x4 b = simd::load(pb + i);
+
+            a = a - b;
+
+            simd::store(pa + i, a);
+        }
+
+        for (; i < n; i++) {
+            pa[i] -= pb[i];
+        }
+    }
+
+    inline float dot_product(const float* pa, const float* pb, const int n) {
+        simd::float32x4 s = simd::set_zero<simd::float32x4>();
+
+        int i = 0;
+        for (; i + 4 <= n; i += 4) {
+            simd::float32x4 a = simd::load(pa + i);
+            simd::float32x4 b = simd::load(pb + i);
+
+            s = s + a * b;
+        }
+
+        float sv[4];
+        simd::store(sv, s);
+        
+        float r = std::accumulate(sv, sv + 4, 0.f);
+
+        for (; i < n; i++) {
+            r += pa[i] * pb[i];
+        }
+
+        return r;
+    }
+
     template<typename T>
     void operator+=(std::vector<T>& a, const std::vector<T>& b) {
-        ASSERT_EQUAL(isize(a), isize(b));
+        assert(isize(a) == isize(b));
+
         for (int i : range(a)) {
             a[i] += b[i];
         }
@@ -38,26 +94,9 @@ namespace c4 {
 
     template<>
     void operator+=<point<float>>(std::vector<point<float>>& a, const std::vector<point<float>>& b) {
-        ASSERT_EQUAL(isize(a), isize(b));
+        assert(isize(a) == isize(b));
 
-        int i = 0;
-        int n = isize(a);
-
-        float* pa = (float*)a.data();
-        const float* pb = (const float*)b.data();
-
-        for (; i + 2 <= n; i += 2) {
-            simd::float32x4 ai = simd::load(pa + 2 * i);
-            simd::float32x4 bi = simd::load(pb + 2 * i);
-
-            ai = ai + bi;
-
-            simd::store(pa + 2 * i, ai);
-        }
-
-        for (; i < n; i++) {
-            a[i] += b[i];
-        }
+        increment((float*)a.data(), (const float*)b.data(), 2 * isize(a));
     }
 
     template<typename T>
@@ -71,7 +110,8 @@ namespace c4 {
 
     template<typename T>
     void operator-=(std::vector<T>& a, const std::vector<T>& b) {
-        ASSERT_EQUAL(isize(a), isize(b));
+        assert(isize(a) == isize(b));
+
         for (int i : range(a)) {
             a[i] -= b[i];
         }
@@ -79,26 +119,9 @@ namespace c4 {
 
     template<>
     void operator-=<point<float>>(std::vector<point<float>>& a, const std::vector<point<float>>& b) {
-        ASSERT_EQUAL(isize(a), isize(b));
-        
-        int i = 0;
-        int n = isize(a);
+        assert(isize(a) == isize(b));
 
-        float* pa = (float*)a.data();
-        const float* pb = (const float*)b.data();
-
-        for (; i + 2 <= n; i += 2) {
-            simd::float32x4 ai = simd::load(pa + 2 * i);
-            simd::float32x4 bi = simd::load(pb + 2 * i);
-
-            ai = ai - bi;
-
-            simd::store(pa + 2 * i, ai);
-        }
-
-        for (; i < n; i++) {
-            a[i] -= b[i];
-        }
+        decrement((float*)a.data(), (const float*)b.data(), 2 * isize(a));
     }
 
     template<typename T>
@@ -110,17 +133,10 @@ namespace c4 {
         return r;
     }
 
-    template<typename T>
-    double operator*(const std::vector<T>& a, const std::vector<T>& b) {
-        ASSERT_EQUAL(isize(a), isize(b));
+    float dot_product(const std::vector<point<float>>& a, const std::vector<point<float>>& b) {
+        assert(isize(a) == isize(b));
 
-        double r = 0.;
-
-        for (int i : range(a)) {
-            r += a[i] * b[i];
-        }
-
-        return r;
+        return dot_product((const float*)a.data(), (const float*)b.data(), 2 * isize(a));
     }
 
     template<typename T>
