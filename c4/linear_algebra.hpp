@@ -25,7 +25,7 @@
 #include "matrix.hpp"
 #include "simd.hpp"
 
-// TODO: this can be way better
+// TODO: this can be designed and implemented way better
 
 namespace c4 {
     inline void increment(float* pa, const float* pb, const int n) {
@@ -83,20 +83,24 @@ namespace c4 {
         return r;
     }
 
-    template<typename T>
-    void operator+=(std::vector<T>& a, const std::vector<T>& b) {
+    template<typename T1, typename T2>
+    std::vector<T1>& operator+=(std::vector<T1>& a, const std::vector<T2>& b) {
         assert(isize(a) == isize(b));
 
         for (int i : range(a)) {
             a[i] += b[i];
         }
+
+        return a;
     }
 
     template<>
-    void operator+=<point<float>>(std::vector<point<float>>& a, const std::vector<point<float>>& b) {
+    std::vector<point<float>>& operator+=<point<float>>(std::vector<point<float>>& a, const std::vector<point<float>>& b) {
         assert(isize(a) == isize(b));
 
         increment((float*)a.data(), (const float*)b.data(), 2 * isize(a));
+
+        return a;
     }
 
     template<typename T>
