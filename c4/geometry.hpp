@@ -211,6 +211,8 @@ namespace c4 {
             r.M[0][1] = sn;
             r.M[1][0] = -sn;
             r.M[1][1] = cs;
+
+            return r;
         }
 
         affine_trasform combine(const affine_trasform& o) const {
