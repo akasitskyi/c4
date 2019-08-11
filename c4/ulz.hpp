@@ -64,6 +64,23 @@ namespace detail {
         }
         return x;
     }
+
+    inline void store_uncompressed(const uint8_t* in, uint8_t*& op, int p, int anchor, int token) {
+        const int run = p - anchor;
+        if (run >= 7) {
+            *op++ = (7 << 5) + token;
+            encode(op, run - 7);
+        } else
+            *op++ = (run << 5) + token;
+
+        memcpy(op, in + anchor, run);
+        op += run;
+    }
+
+    inline void stream_copy64(uint8_t* dst, const uint8_t* src, int n) {
+        for (int i = 0; i < n; i += 8)
+            *(uint64_t*)(dst + i) = *(const uint64_t*)(src + i);
+    }
 };
 
 class ULZ {
@@ -84,8 +101,10 @@ public:
         return (detail::load32(p) * 0x9E3779B9) >> (32 - HASH_BITS);
     }
 
-    int HashTable[HASH_SIZE];
-    int Prev[WINDOW_SIZE];
+    std::vector<int> HashTable;
+    std::vector<int> Prev;
+
+    ULZ() : HashTable(HASH_SIZE), Prev(WINDOW_SIZE) {}
 
     // LZ77
 
@@ -129,15 +148,7 @@ public:
                 const int token = ((dist >> 12) & 16) + std::min(len, 15);
 
                 if (anchor != p) {
-                    const int run = p - anchor;
-                    if (run >= 7) {
-                        *op++ = (7 << 5) + token;
-                        encode(op, run - 7);
-                    } else
-                        *op++ = (run << 5) + token;
-
-                    memcpy(op, &in[anchor], run);
-                    op += run;
+                    store_uncompressed(in, op, p, anchor, token);
                 } else
                     *op++ = token;
 
@@ -152,22 +163,14 @@ public:
                 HashTable[Hash32(&in[p])] = p++;
                 HashTable[Hash32(&in[p])] = p++;
                 HashTable[Hash32(&in[p])] = p++;
+
                 p = anchor;
             } else
                 ++p;
         }
 
         if (anchor != p) {
-            const int run = p - anchor;
-            if (run >= 7)
-            {
-                *op++ = 7 << 5;
-                encode(op, run - 7);
-            } else
-                *op++ = run << 5;
-
-            memcpy(op, &in[anchor], run);
-            op += run;
+            store_uncompressed(in, op, p, anchor, 0);
         }
 
         return op - out;
@@ -262,15 +265,7 @@ public:
                 const int token = ((dist >> 12) & 16) + std::min(len, 15);
 
                 if (anchor != p) {
-                    const int run = p - anchor;
-                    if (run >= 7) {
-                        *op++ = (7 << 5) + token;
-                        encode(op, run - 7);
-                    } else
-                        *op++ = (run << 5) + token;
-
-                    memcpy(op, &in[anchor], run);
-                    op += run;
+                    store_uncompressed(in, op, p, anchor, token);
                 } else
                     *op++ = token;
 
@@ -294,15 +289,7 @@ public:
         }
 
         if (anchor != p) {
-            const int run = p - anchor;
-            if (run >= 7) {
-                *op++ = 7 << 5;
-                encode(op, run - 7);
-            } else
-                *op++ = run << 5;
-
-            memcpy(op, &in[anchor], run);
-            op += run;
+            store_uncompressed(in, op, p, anchor, 0);
         }
 
         return op - out;
@@ -346,14 +333,10 @@ public:
                 return -1;
 
             if (dist >= 8) {
-                memcpy(op, cp, len);
+                stream_copy64(op, cp, len);
                 op += len;
             } else {
-                *op++ = *cp++;
-                *op++ = *cp++;
-                *op++ = *cp++;
-                *op++ = *cp++;
-                while (len-- != 4)
+                while (len--)
                     *op++ = *cp++;
             }
         }
@@ -368,15 +351,14 @@ constexpr int BLOCK_SIZE = 1 << 24;
 
 
 void compress(FILE* in, FILE* out, int level) {
-    ULZ* ulz = new ULZ;
+    ULZ ulz;
 
     std::vector<uint8_t> in_buf(BLOCK_SIZE + ULZ::EXCESS);
     std::vector<uint8_t> out_buf(BLOCK_SIZE + ULZ::EXCESS);
 
     int raw_len;
-    while ((raw_len = fread(in_buf.data(), 1, BLOCK_SIZE, in)) > 0)
-    {
-        const int comp_len = ulz->Compress(in_buf.data(), raw_len, out_buf.data(), level);
+    while ((raw_len = fread(in_buf.data(), 1, BLOCK_SIZE, in)) > 0) {
+        const int comp_len = ulz.Compress(in_buf.data(), raw_len, out_buf.data(), level);
 
         fwrite(&comp_len, 1, sizeof(comp_len), out);
         fwrite(out_buf.data(), 1, comp_len, out);
@@ -385,14 +367,9 @@ void compress(FILE* in, FILE* out, int level) {
 
         std::cerr << _ftelli64(out) * 100 / _ftelli64(in) << "%" << std::endl;
     }
-
-    delete ulz;
 }
 
-int decompress(FILE* in, FILE* out)
-{
-    ULZ* ulz = new ULZ;
-
+int decompress(FILE* in, FILE* out) {
     std::vector<uint8_t> in_buf(BLOCK_SIZE + ULZ::EXCESS);
     std::vector<uint8_t> out_buf(BLOCK_SIZE + ULZ::EXCESS);
 
@@ -402,7 +379,7 @@ int decompress(FILE* in, FILE* out)
         if (comp_len<2 || comp_len>(BLOCK_SIZE + ULZ::EXCESS) || fread(in_buf.data(), 1, comp_len, in) != comp_len)
             return -1;
 
-        const int out_len = ulz->Decompress(in_buf.data(), comp_len, out_buf.data(), BLOCK_SIZE);
+        const int out_len = ULZ::Decompress(in_buf.data(), comp_len, out_buf.data(), BLOCK_SIZE);
         if (out_len < 0)
             return -1;
 
@@ -413,8 +390,5 @@ int decompress(FILE* in, FILE* out)
         fprintf(stderr, "%lld -> %lld\r", _ftelli64(in), _ftelli64(out));
     }
 
-    delete ulz;
-
     return 0;
 }
-
