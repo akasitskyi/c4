@@ -42,21 +42,12 @@ int main(int argc, char* argv[]) {
             exit(1);
         }
 
-        clock_t start = clock();
-
-        FILE* in = fopen(argv[2], "rb");
-        if (!in)
-        {
-            perror(argv[2]);
-            exit(1);
-        }
+        c4::scoped_timer t("ulz");
 
         char out_name[FILENAME_MAX];
-        if (argc < 4)
-        {
+        if (argc < 4) {
             strcpy(out_name, argv[2]);
-            if (*argv[1] == 'd')
-            {
+            if (*argv[1] == 'd') {
                 const int p = strlen(out_name) - 4;
                 if (p > 0 && strcmp(&out_name[p], ".ulz") == 0)
                     out_name[p] = '\0';
@@ -67,47 +58,22 @@ int main(int argc, char* argv[]) {
         } else
             strcpy(out_name, argv[3]);
 
-        FILE* out = fopen(out_name, "wb");
-        if (!out) {
-            perror(out_name);
-            exit(1);
-        }
-
         if (*argv[1] == 'c') {
             int level = (argv[1][1] != '\0') ? atoi(&argv[1][1]) : 1;
 
             ASSERT_TRUE(level >= 1 && level <= 9);
 
-            printf("Compressing %s:\n", argv[2]);
-
-            const int magic = ULZ_MAGIC;
-            fwrite(&magic, 1, sizeof(magic), out);
-
-            compress(in, out, level);
+            compress(argv[2], out_name, level);
         } else if (*argv[1] == 'd') {
-            int magic;
-            fread(&magic, 1, sizeof(magic), in);
-            ASSERT_EQUAL(magic, ULZ_MAGIC);
-
-            printf("Decompressing %s:\n", argv[2]);
-
-            if (decompress(in, out) != 0)
+            if (decompress(argv[2], out_name) != 0)
             {
                 fprintf(stderr, "%s: Corrupt input\n", argv[2]);
                 exit(1);
             }
-        } else
-        {
+        } else {
             fprintf(stderr, "Unknown command: %s\n", argv[1]);
             exit(1);
         }
-
-        printf("%lld -> %lld in %1.3f sec\n", _ftelli64(in), _ftelli64(out),
-            double(clock() - start) / CLOCKS_PER_SEC);
-
-        fclose(in);
-        fclose(out);
-
     }
     catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;

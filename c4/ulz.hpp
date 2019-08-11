@@ -28,6 +28,8 @@
 
 #include <cstdio>
 #include <vector>
+#include <string>
+#include <cassert>
 #include <algorithm>
 
 #include "exception.hpp"
@@ -81,21 +83,30 @@ namespace detail {
         for (int i = 0; i < n; i += 8)
             *(uint64_t*)(dst + i) = *(const uint64_t*)(src + i);
     }
+
+    inline bool memequal32(const uint8_t* a, const uint8_t* b, int n) {
+        assert(n >= 4);
+
+        for (int i = 0; i + 4 < n; i += 4)
+            if(*(const uint32_t*)(a + i) != *(const uint32_t*)(b + i))
+                return false;
+
+        return *(const uint32_t*)(a + (n-4)) == *(const uint32_t*)(b + (n - 4));
+    }
 };
 
 class ULZ {
 public:
-    static const int EXCESS = 16;
+    static constexpr int EXCESS = 16;
 
-    static const int WINDOW_BITS = 17; // Hard-coded
-    static const int WINDOW_SIZE = 1 << WINDOW_BITS;
-    static const int WINDOW_MASK = WINDOW_SIZE - 1;
+    static constexpr int WINDOW_BITS = 17;
+    static constexpr int WINDOW_SIZE = 1 << WINDOW_BITS;
+    static constexpr int WINDOW_MASK = WINDOW_SIZE - 1;
 
-    static const int MIN_MATCH = 4;
+    static constexpr int MIN_MATCH = 4;
 
-    static const int HASH_BITS = 19;
-    static const int HASH_SIZE = 1 << HASH_BITS;
-    static const int NIL = -1;
+    static constexpr int HASH_BITS = 19;
+    static constexpr int HASH_SIZE = 1 << HASH_BITS;
 
     inline uint32_t Hash32(void* p) {
         return (detail::load32(p) * 0x9E3779B9) >> (32 - HASH_BITS);
@@ -111,8 +122,7 @@ public:
     int CompressFast(uint8_t* in, int in_len, uint8_t* out) {
         using namespace detail;
 
-        for (int i = 0; i < HASH_SIZE; ++i)
-            HashTable[i] = NIL;
+        std::fill(HashTable.begin(), HashTable.end(), -1);
 
         uint8_t* op = out;
         int anchor = 0;
@@ -124,7 +134,7 @@ public:
 
             const int max_match = in_len - p;
             if (max_match >= MIN_MATCH) {
-                const int limit = std::max(p - WINDOW_SIZE, NIL);
+                const int limit = std::max(p - WINDOW_SIZE, -1);
 
                 const uint32_t h = Hash32(&in[p]);
                 int s = HashTable[h];
@@ -182,12 +192,9 @@ public:
 
         using namespace detail;
 
-        if (level < 1 || level>9)
-            return -1;
         const int max_chain = (level < 9) ? 1 << level : 1 << 13;
 
-        for (int i = 0; i < HASH_SIZE; ++i)
-            HashTable[i] = NIL;
+        std::fill(HashTable.begin(), HashTable.end(), -1);
 
         uint8_t* op = out;
         int anchor = 0;
@@ -195,26 +202,23 @@ public:
         int p = 0;
         while (p < in_len)
         {
-            int best_len = 0;
+            int best_len = 3;
             int dist = 0;
 
             const int max_match = in_len - p;
             if (max_match >= MIN_MATCH)
             {
-                const int limit = std::max(p - WINDOW_SIZE, NIL);
+                const int limit = std::max(p - WINDOW_SIZE, -1);
                 int chain_len = max_chain;
 
                 int s = HashTable[Hash32(&in[p])];
-                while (s > limit)
-                {
-                    if (in[s + best_len] == in[p + best_len] && load32(&in[s]) == load32(&in[p]))
-                    {
+                while (s > limit) {
+                    if (load32(&in[s + best_len - 3]) == load32(&in[p + best_len - 3]) && load32(&in[s]) == load32(&in[p])) {
                         int len = MIN_MATCH;
                         while (len < max_match && in[s + len] == in[p + len])
                             ++len;
 
-                        if (len > best_len)
-                        {
+                        if (len > best_len) {
                             best_len = len;
                             dist = p - s;
 
@@ -237,20 +241,16 @@ public:
                 const int x = p + 1;
                 const int target_len = best_len + 1;
 
-                const int limit = std::max(x - WINDOW_SIZE, NIL);
+                const int limit = std::max(x - WINDOW_SIZE, -1);
                 int chain_len = max_chain;
+
+                const uint32_t suffix = load32(&in[x + best_len - 3]);
 
                 int s = HashTable[Hash32(&in[x])];
                 while (s > limit) {
-                    if (in[s + best_len] == in[x + best_len] && load32(&in[s]) == load32(&in[x])) {
-                        int len = MIN_MATCH;
-                        while (len < target_len && in[s + len] == in[x + len])
-                            ++len;
-
-                        if (len == target_len) {
-                            best_len = 0;
-                            break;
-                        }
+                    if (load32(&in[s + best_len - 3]) == suffix && memequal32(in + s, in + x, best_len &~3)) {
+                        best_len = 0;
+                        break;
                     }
 
                     if (--chain_len == 0)
@@ -350,11 +350,16 @@ constexpr int ULZ_MAGIC = 0x215A4C55; // "ULZ!"
 constexpr int BLOCK_SIZE = 1 << 24;
 
 
-void compress(FILE* in, FILE* out, int level) {
+void compress(std::string input_filepath, std::string output_filepath, int level) {
+    FILE* in = fopen(input_filepath.c_str(), "rb");
+    FILE* out = fopen(output_filepath.c_str(), "wb");
+
     ULZ ulz;
 
     std::vector<uint8_t> in_buf(BLOCK_SIZE + ULZ::EXCESS);
     std::vector<uint8_t> out_buf(BLOCK_SIZE + ULZ::EXCESS);
+
+    fwrite(&ULZ_MAGIC, 1, sizeof(ULZ_MAGIC), out);
 
     int raw_len;
     while ((raw_len = fread(in_buf.data(), 1, BLOCK_SIZE, in)) > 0) {
@@ -367,16 +372,26 @@ void compress(FILE* in, FILE* out, int level) {
 
         std::cerr << _ftelli64(out) * 100 / _ftelli64(in) << "%" << std::endl;
     }
+
+    fclose(in);
+    fclose(out);
 }
 
-int decompress(FILE* in, FILE* out) {
+int decompress(std::string input_filepath, std::string output_filepath) {
+    FILE* in = fopen(input_filepath.c_str(), "rb");
+    FILE* out = fopen(output_filepath.c_str(), "wb");
+
     std::vector<uint8_t> in_buf(BLOCK_SIZE + ULZ::EXCESS);
     std::vector<uint8_t> out_buf(BLOCK_SIZE + ULZ::EXCESS);
+
+    int magic;
+    fread(&magic, 1, sizeof(magic), in);
+    ASSERT_EQUAL(magic, ULZ_MAGIC);
 
     int comp_len;
     while (fread(&comp_len, 1, sizeof(comp_len), in) > 0)
     {
-        if (comp_len<2 || comp_len>(BLOCK_SIZE + ULZ::EXCESS) || fread(in_buf.data(), 1, comp_len, in) != comp_len)
+        if (comp_len < 2 || comp_len > (BLOCK_SIZE + ULZ::EXCESS) || fread(in_buf.data(), 1, comp_len, in) != comp_len)
             return -1;
 
         const int out_len = ULZ::Decompress(in_buf.data(), comp_len, out_buf.data(), BLOCK_SIZE);
@@ -387,8 +402,11 @@ int decompress(FILE* in, FILE* out) {
             THROW_EXCEPTION("Fwrite() failed");
         }
 
-        fprintf(stderr, "%lld -> %lld\r", _ftelli64(in), _ftelli64(out));
+        fprintf(stderr, "%lld -> %lld\n", _ftelli64(in), _ftelli64(out));
     }
+
+    fclose(in);
+    fclose(out);
 
     return 0;
 }
