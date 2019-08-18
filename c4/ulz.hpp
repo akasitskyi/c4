@@ -38,9 +38,9 @@
 #include <iterator>
 
 #include "exception.hpp"
+#include "file_utils.hpp"
 
 namespace c4 {
-
     namespace detail {
         inline uint16_t load16(const void* p) {
             return *reinterpret_cast<const uint16_t*>(p);
@@ -102,10 +102,7 @@ namespace c4 {
         }
     };
 
-    class ULZ {
-    public:
-        static constexpr int EXCESS = 16;
-
+    class ultra_lz {
         static constexpr int WINDOW_BITS = 17;
         static constexpr int WINDOW_SIZE = 1 << WINDOW_BITS;
         static constexpr int WINDOW_MASK = WINDOW_SIZE - 1;
@@ -119,17 +116,19 @@ namespace c4 {
             return (detail::load32(p) * 0x9E3779B9) >> (32 - HASH_BITS);
         }
 
-        std::vector<int> HashTable;
-        std::vector<int> Prev;
+        std::vector<int> hash_table;
+        std::vector<int> prev;
 
-        ULZ() : HashTable(HASH_SIZE), Prev(WINDOW_SIZE) {}
+    public:
+        static constexpr int EXCESS = 16;
 
-        // LZ77
 
-        int CompressFast(const uint8_t* in, int in_len, uint8_t* out) {
+        ultra_lz() : hash_table(HASH_SIZE), prev(WINDOW_SIZE) {}
+
+        int compress_fast(const uint8_t* in, int in_len, uint8_t* out) {
             using namespace detail;
 
-            std::fill(HashTable.begin(), HashTable.end(), -1);
+            std::fill(hash_table.begin(), hash_table.end(), -1);
 
             uint8_t* op = out;
             int anchor = 0;
@@ -144,8 +143,8 @@ namespace c4 {
                     const int limit = std::max(p - WINDOW_SIZE, -1);
 
                     const uint32_t h = Hash32(&in[p]);
-                    int s = HashTable[h];
-                    HashTable[h] = p;
+                    int s = hash_table[h];
+                    hash_table[h] = p;
 
                     if (s > limit && load32(&in[s]) == load32(&in[p])) {
                         int len = MIN_MATCH;
@@ -177,9 +176,9 @@ namespace c4 {
 
                     anchor = p + best_len;
                     ++p;
-                    HashTable[Hash32(&in[p])] = p++;
-                    HashTable[Hash32(&in[p])] = p++;
-                    HashTable[Hash32(&in[p])] = p++;
+                    hash_table[Hash32(&in[p])] = p++;
+                    hash_table[Hash32(&in[p])] = p++;
+                    hash_table[Hash32(&in[p])] = p++;
 
                     p = anchor;
                 } else
@@ -190,18 +189,18 @@ namespace c4 {
                 store_uncompressed(in, op, p, anchor, 0);
             }
 
-            return op - out;
+            return int(op - out);
         }
 
-        int Compress(const uint8_t* in, int in_len, uint8_t* out, int level) {
+        int compress(const uint8_t* in, int in_len, uint8_t* out, int level) {
             if (level == 1)
-                return CompressFast(in, in_len, out);
+                return compress_fast(in, in_len, out);
 
             using namespace detail;
 
             const int max_chain = (level < 9) ? 1 << level : 1 << 13;
 
-            std::fill(HashTable.begin(), HashTable.end(), -1);
+            std::fill(hash_table.begin(), hash_table.end(), -1);
 
             uint8_t* op = out;
             int anchor = 0;
@@ -213,15 +212,15 @@ namespace c4 {
                 int dist = 0;
 
                 const int max_match = in_len - p;
-                if (max_match >= MIN_MATCH)
-                {
+                if (max_match >= MIN_MATCH) {
                     const int limit = std::max(p - WINDOW_SIZE, -1);
                     int chain_len = max_chain;
 
-                    int s = HashTable[Hash32(&in[p])];
+                    int s = hash_table[Hash32(&in[p])];
                     while (s > limit) {
                         if (load32(&in[s + best_len - 3]) == load32(&in[p + best_len - 3]) && load32(&in[s]) == load32(&in[p])) {
                             int len = MIN_MATCH;
+
                             while (len < max_match && in[s + len] == in[p + len])
                                 ++len;
 
@@ -237,7 +236,7 @@ namespace c4 {
                         if (--chain_len == 0)
                             break;
 
-                        s = Prev[s&WINDOW_MASK];
+                        s = prev[s&WINDOW_MASK];
                     }
                 }
 
@@ -253,7 +252,7 @@ namespace c4 {
 
                     const uint32_t suffix = load32(&in[x + best_len - 3]);
 
-                    int s = HashTable[Hash32(&in[x])];
+                    int s = hash_table[Hash32(&in[x])];
                     while (s > limit) {
                         if (load32(&in[s + best_len - 3]) == suffix && memequal32(in + s, in + x, best_len &~3)) {
                             best_len = 0;
@@ -263,7 +262,7 @@ namespace c4 {
                         if (--chain_len == 0)
                             break;
 
-                        s = Prev[s&WINDOW_MASK];
+                        s = prev[s&WINDOW_MASK];
                     }
                 }
 
@@ -284,14 +283,14 @@ namespace c4 {
 
                     while (best_len-- != 0) {
                         const uint32_t h = Hash32(&in[p]);
-                        Prev[p&WINDOW_MASK] = HashTable[h];
-                        HashTable[h] = p++;
+                        prev[p&WINDOW_MASK] = hash_table[h];
+                        hash_table[h] = p++;
                     }
                     anchor = p;
                 } else {
                     const uint32_t h = Hash32(&in[p]);
-                    Prev[p&WINDOW_MASK] = HashTable[h];
-                    HashTable[h] = p++;
+                    prev[p&WINDOW_MASK] = hash_table[h];
+                    hash_table[h] = p++;
                 }
             }
 
@@ -299,10 +298,10 @@ namespace c4 {
                 store_uncompressed(in, op, p, anchor, 0);
             }
 
-            return op - out;
+            return int(op - out);
         }
 
-        static int Decompress(const uint8_t* in, int in_len, uint8_t* out, int out_len) {
+        static int decompress(const uint8_t* in, int in_len, uint8_t* out, int out_len) {
             using namespace detail;
 
             uint8_t* op = out;
@@ -348,21 +347,21 @@ namespace c4 {
                 }
             }
 
-            return (ip == ip_end) ? op - out : -1;
+            return (ip == ip_end) ? int(op - out) : -1;
         }
     };
 
-    constexpr int ULZ_MAGIC = 0x215A4C55; // "ULZ!"
-
-    constexpr int BLOCK_SIZE = 1 << 24;
-
     namespace detail {
+        constexpr int ULZ_MAGIC = 0x215A4C55; // "ULZ!"
+
+        constexpr int BLOCK_SIZE = 1 << 24;
+
         class iulzbuf : public std::streambuf {
             std::istream* in;
             std::vector<char> in_buf;
             std::vector<char> out_buf;
         protected:
-            iulzbuf(std::istream* in) : in(in), in_buf(BLOCK_SIZE + ULZ::EXCESS), out_buf(BLOCK_SIZE + ULZ::EXCESS) {
+            iulzbuf(std::istream* in) : in(in), in_buf(BLOCK_SIZE + ultra_lz::EXCESS), out_buf(BLOCK_SIZE + ultra_lz::EXCESS) {
                 uint32_t magic;
                 in->read((char*)&magic, sizeof(magic));
                 assert(magic == ULZ_MAGIC);
@@ -387,7 +386,7 @@ namespace c4 {
                 in->read(in_buf.data(), comp_len);
                 assert(in->gcount() == comp_len);
 
-                const int out_len = ULZ::Decompress((const uint8_t*)in_buf.data(), comp_len, (uint8_t*)out_buf.data(), BLOCK_SIZE);
+                const int out_len = ultra_lz::decompress((const uint8_t*)in_buf.data(), comp_len, (uint8_t*)out_buf.data(), BLOCK_SIZE);
 
                 setg(out_buf.data(), out_buf.data(), out_buf.data() + out_len);
 
@@ -400,18 +399,18 @@ namespace c4 {
             const int level;
             std::vector<char> in_buf;
             std::vector<char> out_buf;
-            ULZ ulz;
+            ultra_lz ulz;
         protected:
-            oulzbuf(std::ostream* out, int level) : out(out), level(level), in_buf(BLOCK_SIZE + ULZ::EXCESS), out_buf(BLOCK_SIZE + ULZ::EXCESS) {
+            oulzbuf(std::ostream* out, int level) : out(out), level(level), in_buf(BLOCK_SIZE + ultra_lz::EXCESS), out_buf(BLOCK_SIZE + ultra_lz::EXCESS) {
                 out->write((const char*)&ULZ_MAGIC, sizeof(ULZ_MAGIC));
 
                 setp(in_buf.data(), in_buf.data(), in_buf.data() + BLOCK_SIZE);
             }
 
             void compress_buffer() {
-                size_t num_bytes = std::distance(pbase(), pptr());
+                int num_bytes = (int)std::distance(pbase(), pptr());
 
-                const int comp_len = ulz.Compress((uint8_t*)in_buf.data(), num_bytes, (uint8_t*)out_buf.data(), level);
+                const int comp_len = ulz.compress((uint8_t*)in_buf.data(), num_bytes, (uint8_t*)out_buf.data(), level);
 
                 out->write((const char*)&comp_len, sizeof(comp_len));
                 out->write(out_buf.data(), comp_len);
@@ -457,33 +456,24 @@ namespace c4 {
         {}
     };
 
+    void compress_file(std::string input_filepath, std::string output_filepath, int level) {
+        file_ptr in(input_filepath.c_str(), "rb");
+        file_ptr out(output_filepath.c_str(), "wb");
 
+        ultra_lz ulz;
 
-    void compress(std::string input_filepath, std::string output_filepath, int level) {
-        FILE* in = fopen(input_filepath.c_str(), "rb");
-        FILE* out = fopen(output_filepath.c_str(), "wb");
+        std::vector<uint8_t> in_buf(detail::BLOCK_SIZE + ultra_lz::EXCESS);
+        std::vector<uint8_t> out_buf(detail::BLOCK_SIZE + ultra_lz::EXCESS);
 
-        ULZ ulz;
-
-        std::vector<uint8_t> in_buf(BLOCK_SIZE + ULZ::EXCESS);
-        std::vector<uint8_t> out_buf(BLOCK_SIZE + ULZ::EXCESS);
-
-        fwrite(&ULZ_MAGIC, 1, sizeof(ULZ_MAGIC), out);
+        fwrite(&detail::ULZ_MAGIC, 1, sizeof(detail::ULZ_MAGIC), out);
 
         int raw_len;
-        while ((raw_len = fread(in_buf.data(), 1, BLOCK_SIZE, in)) > 0) {
-            const int comp_len = ulz.Compress(in_buf.data(), raw_len, out_buf.data(), level);
+        while ((raw_len = (int)fread(in_buf.data(), 1, detail::BLOCK_SIZE, in)) > 0) {
+            const int comp_len = ulz.compress(in_buf.data(), raw_len, out_buf.data(), level);
 
             fwrite(&comp_len, 1, sizeof(comp_len), out);
             fwrite(out_buf.data(), 1, comp_len, out);
-
-            fprintf(stderr, "%lld -> %lld\n", _ftelli64(in), _ftelli64(out));
-
-            std::cerr << _ftelli64(out) * 100 / _ftelli64(in) << "%" << std::endl;
         }
-
-        fclose(in);
-        fclose(out);
     }
 
     void copy_stream(std::istream& in, std::ostream& out) {
@@ -499,41 +489,32 @@ namespace c4 {
         std::ifstream fin(input_filepath, std::ifstream::binary);
         std::ofstream fout(output_filepath, std::ofstream::binary);
 
-        oulzstream ulz_out(&fout, 1);
+        oulzstream ulz_out(&fout, level);
 
         copy_stream(fin, ulz_out);
     }
 
-    int decompress(std::string input_filepath, std::string output_filepath) {
-        FILE* in = fopen(input_filepath.c_str(), "rb");
-        FILE* out = fopen(output_filepath.c_str(), "wb");
+    int decompress_file(std::string input_filepath, std::string output_filepath) {
+        file_ptr in(input_filepath.c_str(), "rb");
+        file_ptr out(output_filepath.c_str(), "wb");
 
-        std::vector<uint8_t> in_buf(BLOCK_SIZE + ULZ::EXCESS);
-        std::vector<uint8_t> out_buf(BLOCK_SIZE + ULZ::EXCESS);
+        std::vector<uint8_t> in_buf(detail::BLOCK_SIZE + ultra_lz::EXCESS);
+        std::vector<uint8_t> out_buf(detail::BLOCK_SIZE + ultra_lz::EXCESS);
 
         int magic;
         fread(&magic, 1, sizeof(magic), in);
-        ASSERT_EQUAL(magic, ULZ_MAGIC);
+        ASSERT_EQUAL(magic, detail::ULZ_MAGIC);
 
         int comp_len;
-        while (fread(&comp_len, 1, sizeof(comp_len), in) > 0)
-        {
-            if (comp_len < 2 || comp_len >(BLOCK_SIZE + ULZ::EXCESS) || fread(in_buf.data(), 1, comp_len, in) != comp_len)
+        while (fread(&comp_len, 1, sizeof(comp_len), in) > 0) {
+            if (comp_len < 2 || comp_len >(detail::BLOCK_SIZE + ultra_lz::EXCESS) || fread(in_buf.data(), 1, comp_len, in) != comp_len)
                 return -1;
 
-            const int out_len = ULZ::Decompress(in_buf.data(), comp_len, out_buf.data(), BLOCK_SIZE);
-            if (out_len < 0)
-                return -1;
+            const int out_len = ultra_lz::decompress(in_buf.data(), comp_len, out_buf.data(), detail::BLOCK_SIZE);
+            ASSERT_TRUE(out_len > 0);
 
-            if (fwrite(out_buf.data(), 1, out_len, out) != out_len) {
-                THROW_EXCEPTION("Fwrite() failed");
-            }
-
-            fprintf(stderr, "%lld -> %lld\n", _ftelli64(in), _ftelli64(out));
+            fwrite(out_buf.data(), 1, out_len, out);
         }
-
-        fclose(in);
-        fclose(out);
 
         return 0;
     }

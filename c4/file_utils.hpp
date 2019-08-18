@@ -20,37 +20,53 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-#include <c4/ulz.hpp>
+#pragma once
 
 #include <cstdio>
-#include <cstring>
+#include <fstream>
+#include <string>
 
-int main(int argc, char* argv[]) {
-    try {
-        if (argc < 3) {
-            std::cerr << "Usage: ulz_example <c[1-9]|d> infile outfile" << std::endl;
-            return 1;
+namespace c4 {
+    class file_ptr {
+        FILE* f;
+    public:
+        file_ptr(const char * filename, const char * mode) {
+#ifdef _MSC_VER
+            fopen_s(&f, filename, mode);
+#else
+            f = std::fopen(filename, mode);
+#endif
         }
 
-        c4::scoped_timer t("ulz");
-
-        if (*argv[1] == 'c') {
-            const int level = isdigit(argv[1][1]) ? argv[1][1] - '0' : 1;
-
-            ASSERT_TRUE(level >= 1 && level <= 9);
-
-            c4::compress_file(argv[2], argv[3], level);
-
-            std::cerr << c4::filesize(argv[3]) * 100 / c4::filesize(argv[2]) << "%" << std::endl;
-        } else if (*argv[1] == 'd') {
-            c4::decompress_file(argv[2], argv[3]);
-        } else {
-            fprintf(stderr, "Unknown command: %s\n", argv[1]);
-            exit(1);
+        operator FILE*() {
+            return f;
         }
+
+        int close() {
+            if (f) {
+                int ret = std::fclose(f);
+                f = NULL;
+                return ret;
+            } else {
+                return EOF;
+            }
+        }
+
+        ~file_ptr() {
+            if (f) {
+                close();
+            }
+        }
+    };
+
+    std::ifstream::pos_type filesize(const std::string& filename) {
+        std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
+        return in.tellg();
     }
-    catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-    }
-    return 0;
-}
+};
+
+int fclose(c4::file_ptr& fp) = delete;
+
+namespace std {
+    int fclose(c4::file_ptr& fp) = delete;
+};
