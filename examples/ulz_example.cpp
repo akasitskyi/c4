@@ -63,13 +63,9 @@ int main(int argc, char* argv[]) {
 
             ASSERT_TRUE(level >= 1 && level <= 9);
 
-            compress(argv[2], out_name, level);
+            c4::compress_stream(argv[2], out_name, level);
         } else if (*argv[1] == 'd') {
-            if (decompress(argv[2], out_name) != 0)
-            {
-                fprintf(stderr, "%s: Corrupt input\n", argv[2]);
-                exit(1);
-            }
+            c4::decompress_stream(argv[2], out_name);
         } else {
             fprintf(stderr, "Unknown command: %s\n", argv[1]);
             exit(1);
