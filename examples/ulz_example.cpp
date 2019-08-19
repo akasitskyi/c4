@@ -27,7 +27,7 @@
 
 int main(int argc, char* argv[]) {
     try {
-        if (argc < 3) {
+        if (argc < 4) {
             std::cerr << "Usage: ulz_example <c[1-9]|d> infile outfile" << std::endl;
             return 1;
         }
