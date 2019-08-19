@@ -28,6 +28,8 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "ulz.hpp"
+
 namespace c4 {
     namespace serialize {
         using size_type = std::uint32_t;
@@ -343,9 +345,25 @@ namespace c4 {
     }
 
     template<class T>
+    static void save_compressed(const T& t, const std::string& filename) {
+        std::ofstream fout(filename, std::ios::binary);
+        oulzstream ulz_out(&fout, 9);
+        c4::serialize::output_archive ar(ulz_out);
+        ar(t);
+    }
+
+    template<class T>
     static void load(const std::string& filename, T& t) {
         std::ifstream fin(filename, std::ios::binary);
         c4::serialize::input_archive ar(fin);
+        ar(t);
+    }
+
+    template<class T>
+    static void load_compressed(const std::string& filename, T& t) {
+        std::ifstream fin(filename, std::ios::binary);
+        iulzstream ulz_in(&fin);
+        c4::serialize::input_archive ar(ulz_in);
         ar(t);
     }
 } // namespace c4
