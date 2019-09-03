@@ -220,11 +220,11 @@ namespace c4 {
             assert(fits_within<int>(n));
         }
 
-        iterator begin() {
+        iterator begin() const {
             return iterator(begin_);
         }
 
-        iterator end() {
+        iterator end() const {
             return iterator(end_);
         }
 
