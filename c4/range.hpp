@@ -123,10 +123,9 @@ namespace c4 {
     };
 
     class range {
+    public:
         int begin_;
         int end_;
-
-    public:
 
         class iterator {
             int i;
