@@ -102,17 +102,6 @@ dst_t saturate(src_t x) {
     return (dst_t)x;
 }
 
-
-class Exception : public std::runtime_error {
-public:
-    Exception(std::string msg, std::string filename, int line) : runtime_error(msg + " at " + filename + ":" + std::to_string(line)) {}
-};
-
-#define THROW_EXCEPTION(MSG) throw Exception(MSG, __FILE__, __LINE__)
-
-#define ASSERT_TRUE(C) if( C ) {} else THROW_EXCEPTION("Runtime assertion failed: " #C)
-#define ASSERT_EQUAL(A, B) if( (A) == (B) ) {} else THROW_EXCEPTION("Runtime assertion failed: " #A " == " #B ", " + to_string(A) + " != " + to_string(B))
-
 // ====================================================== TESTS =================================================================
 
 template<class T>

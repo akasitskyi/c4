@@ -152,27 +152,30 @@ namespace c4 {
 
             matrix_ref<T>& m;
             int i;
+            int j;
 
-            iterator(matrix_ref<T>& m, int i) : m(m), i(i) {}
+            iterator(matrix_ref<T>& m, int i, int j) : m(m), i(i), j(j) {}
 
         public:
             iterator& operator++() {
-                ++i;
+                if (++i == m.width_) {
+                    ++j;
+                    i = 0;
+                }
                 return *this;
             }
 
             iterator operator++(int) {
                 iterator r = *this;
-                i++;
-                return r;
+                return ++r;
             }
 
-            vector_ref<T> operator*() {
-                return m[i];
+            T& operator*() {
+                return m[i][j];
             }
 
             bool operator==(iterator other) const {
-                return i == other.i;
+                return i == other.i && j == other.j;
             }
             
             bool operator!=(iterator other) const {
@@ -181,11 +184,11 @@ namespace c4 {
         };
 
         iterator begin() {
-            return iterator{ *this, 0 };
+            return iterator{ *this, 0, 0 };
         }
 
         iterator end() {
-            return iterator{ *this, height_ };
+            return iterator{ *this, height_, width_ };
         }
 
         class const_iterator {
@@ -193,27 +196,30 @@ namespace c4 {
 
             const matrix_ref<T>& m;
             int i;
+            int j;
 
-            const_iterator(const matrix_ref<T>& m, int i) : m(m), i(i) {}
+            const_iterator(const matrix_ref<T>& m, int i, int j) : m(m), i(i), j(j) {}
 
         public:
             const_iterator & operator++() {
-                ++i;
+                if (++i == m.width_) {
+                    ++j;
+                    i = 0;
+                }
                 return *this;
             }
 
             const_iterator operator++(int) {
                 iterator r = *this;
-                i++;
-                return r;
+                return ++r;
             }
 
-            const vector_ref<T> operator*() {
-                return m[i];
+            const T& operator*() {
+                return m[i][j];
             }
 
             bool operator==(const_iterator other) const {
-                return i == other.i;
+                return i == other.i && j == other.j;
             }
 
             bool operator!=(const_iterator other) const {
@@ -222,11 +228,11 @@ namespace c4 {
         };
 
         const_iterator begin() const {
-            return const_iterator{ *this, 0 };
+            return const_iterator{ *this, 0, 0 };
         }
 
         const_iterator end() const {
-            return const_iterator(*this, height_);
+            return const_iterator(*this, height_, width_);
         }
 
         matrix_dimensions dimensions() const {
@@ -393,8 +399,8 @@ namespace c4 {
 
         template <typename Archive>
         void save(Archive& archive) const {
-            archive(height_, width_, stride_);
-            archive(v);
+            archive(this->height_, this->width_, this->stride_);
+            archive(this->v);
         }
 
         template <typename Archive>
@@ -402,7 +408,7 @@ namespace c4 {
             int height, width, stride;
             archive(height, width, stride);
             resize(height, width, stride);
-            archive(v);
+            archive(this->v);
         }
     };
 

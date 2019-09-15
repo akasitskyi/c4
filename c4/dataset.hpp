@@ -30,6 +30,7 @@
 #include "jpeg.hpp"
 #include "string.hpp"
 #include "range.hpp"
+#include "scaling.hpp"
 #include "parallel.hpp"
 #include "logger.hpp"
 #include "matrix_regression.hpp"
@@ -160,10 +161,8 @@ namespace c4 {
 
             y.reserve(capacity);
 
-            for (auto& row : rx) {
-                for (auto& v : row) {
-                    v.reserve(capacity);
-                }
+            for (auto& v : rx) {
+                v.reserve(capacity);
             }
 
             for (auto& t : ts_xp) {

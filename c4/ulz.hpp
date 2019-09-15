@@ -29,6 +29,7 @@
 #include <cstdio>
 #include <vector>
 #include <string>
+#include <cstring>
 #include <cassert>
 #include <algorithm>
 #include <istream>
@@ -404,7 +405,7 @@ namespace c4 {
             oulzbuf(std::ostream* out, int level) : out(out), level(level), in_buf(BLOCK_SIZE + ultra_lz::EXCESS), out_buf(BLOCK_SIZE + ultra_lz::EXCESS) {
                 out->write((const char*)&ULZ_MAGIC, sizeof(ULZ_MAGIC));
 
-                setp(in_buf.data(), in_buf.data(), in_buf.data() + BLOCK_SIZE);
+                setp(in_buf.data(), in_buf.data() + BLOCK_SIZE);
             }
 
             void compress_buffer() {
@@ -415,7 +416,7 @@ namespace c4 {
                 out->write((const char*)&comp_len, sizeof(comp_len));
                 out->write(out_buf.data(), comp_len);
 
-                setp(in_buf.data(), in_buf.data(), in_buf.data() + BLOCK_SIZE);
+                setp(in_buf.data(), in_buf.data() + BLOCK_SIZE);
             }
 
             virtual std::streambuf::int_type overflow(std::streambuf::int_type ch) override {

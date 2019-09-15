@@ -30,9 +30,10 @@
 //    - no 12-bit-per-channel JPEG
 //    - no JPEGs with arithmetic coding
 
+#include <vector>
 #include <istream>
 #include <fstream>
-#include <vector>
+#include <cstring>
 
 #include "byte_stream.hpp"
 #include "mstream.hpp"

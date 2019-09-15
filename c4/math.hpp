@@ -190,12 +190,12 @@ namespace c4 {
     double mean_squared_error(const std::vector<T1>& a, const std::vector<T2>& b) {
         ASSERT_EQUAL(a.size(), b.size());
 
-        if (isize(a) == 0)
+        if (a.empty())
             return 0.;
 
         double s = 0.;
 
-        for (int i : c4::range(a)) {
+        for (size_t i = 0; i < a.size(); i++) {
             s += sqr(a[i] - b[i]);
         }
 

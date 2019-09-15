@@ -121,10 +121,8 @@ namespace c4 {
 
             if (weights.height() == 0) {
                 weights.resize(rx.dimensions());
-                for (auto& v : weights) {
-                    for (auto& t : v) {
-                        std::fill(t.begin(), t.end(), 0.f);
-                    }
+                for (auto& t : weights) {
+                    std::fill(t.begin(), t.end(), 0.f);
                 }
             }
 

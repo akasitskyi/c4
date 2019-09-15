@@ -22,8 +22,9 @@
 
 #pragma once
 
-#include <stdexcept>
+#include <mutex>
 #include <ostream>
+#include <stdexcept>
 
 #include "string.hpp"
 #include "logger.hpp"

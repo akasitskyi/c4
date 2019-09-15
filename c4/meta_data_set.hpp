@@ -39,7 +39,7 @@ namespace c4 {
 
         image_file_metadata() = default;
         image_file_metadata(const std::string& filepath, const std::vector<object_on_image>& objects) : filepath(filepath), objects(objects) {}
-        image_file_metadata(std::pair<std::string, std::vector<object_on_image>>&& pair) : filepath(pair.first), objects(pair.second) {}
+        image_file_metadata(const std::string&& filepath, const std::vector<object_on_image>&& objects) : filepath(filepath), objects(objects) {}
     };
 
     struct meta_data_set {
@@ -133,7 +133,9 @@ namespace c4 {
             }
 
             int n = isize(data);
-            data.insert(data.end(), std::make_move_iterator(data_set.begin()), std::make_move_iterator(data_set.end()));
+            for(auto& it : data_set){
+                data.emplace_back(std::move(it.first), std::move(it.second));
+            }
 
             if (sample == 1)
                 return;

@@ -29,8 +29,6 @@
 #include <c4/dataset.hpp>
 #include <c4/simple_cv.hpp>
 
-#include <dlib/image_processing/frontal_face_detector.h>
-
 
 int main(int argc, char* argv[]) {
     try{
@@ -76,45 +74,6 @@ int main(int argc, char* argv[]) {
 
         std::vector<c4::image_file_metadata> detections_dlib(test_meta.data.size());
 
-        if (0) {
-            c4::enumerable_thread_specific<dlib::frontal_face_detector> dlib_fd_ts(dlib::get_frontal_face_detector());
-
-            c4::progress_indicator progress((uint32_t)test_meta.data.size());
-
-            c4::scoped_timer timer("dlib detect time");
-
-            c4::parallel_for(c4::range(test_meta.data), [&](int k) {
-                const auto& t = test_meta.data[k];
-                auto& dlib_fd = dlib_fd_ts.local();
-
-                c4::matrix<uint8_t> img;
-
-                c4::read_jpeg(t.filepath, img);
-
-                dlib::array2d<unsigned char> dimg(img.height(), img.width());
-                for (int i : c4::range(img.height())) {
-                    std::copy(img[i].begin(), img[i].end(), &dimg[i][0]);
-                }
-
-                std::vector<dlib::rectangle> dets = dlib_fd(dimg);
-
-                c4::image_file_metadata& ifm = detections_dlib[k];
-                ifm.filepath = t.filepath;
-
-                for (const auto& d : dets) {
-                    const auto irect = c4::rectangle<int>(d.left(), d.top(), d.width(), d.height());
-                    ifm.objects.push_back({ irect,{} });
-                }
-
-                progress.did_some(1);
-            });
-
-            auto res = c4::evaluate_object_detection(test_meta.data, detections_dlib, 0.4);
-
-            PRINT_DEBUG(res.recall());
-            PRINT_DEBUG(res.precission());
-        }
-        
         if (0) {
             c4::image_dumper::getInstance().init("c4", true);
 

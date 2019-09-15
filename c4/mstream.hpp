@@ -40,7 +40,7 @@ namespace c4 {
         class omembuf : public std::streambuf {
         protected:
             omembuf(char* p, size_t size) {
-                setp(p, p, p + size);
+                setp(p, p + size);
             }
         };
 
@@ -51,7 +51,7 @@ namespace c4 {
 
         protected:
             ovecbuf() : v(min_size) {
-                setp(v.data(), v.data(), v.data() + v.size());
+                setp(v.data(), v.data() + v.size());
             }
 
             virtual std::streambuf::int_type overflow(std::streambuf::int_type ch) {
@@ -62,7 +62,7 @@ namespace c4 {
 
                     v[size++] = (char)ch;
 
-                    setp(v.data(), v.data() + size, v.data() + v.size());
+                    setp(v.data() + size, v.data() + v.size());
                 }
 
                 return ch;
@@ -74,7 +74,7 @@ namespace c4 {
 
             inline void swap_vector(std::vector<char>& t) {
                 v.swap(t);
-                setp(v.data(), v.data(), v.data() + v.size());
+                setp(v.data(), v.data() + v.size());
             }
         };
     };
