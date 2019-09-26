@@ -211,15 +211,15 @@ namespace c4 {
                 ASSERT_EQUAL(d, dim);
             }
 
-            for (auto& row : weights) {
-                const int n = symmetry ? (isize(row) + 1) / 2 : isize(row);
+            for (int i : range(weights.height())) {
+                const int n = symmetry ? (weights.width() + 1) / 2 : weights.width();
 
                 for (int j : range(n)) {
-                    ar(row[j]);
+                    ar(weights[i][j]);
                 }
 
                 if (symmetry) {
-                    std::reverse_copy(row.begin(), row.begin() + isize(row) / 2, row.begin() + n);
+                    std::reverse_copy(weights[i].begin(), weights[i].begin() + weights.width() / 2, weights[i].begin() + n);
                 }
             }
         }
@@ -231,11 +231,11 @@ namespace c4 {
             ar(weights.width());
             ar(dim);
 
-            for (const auto& row : weights) {
-                const int n = symmetry ? (isize(row) + 1) / 2 : isize(row);
+            for (int i : range(weights.height())) {
+                const int n = symmetry ? (weights.width() + 1) / 2 : weights.width();
                 
                 for (int j : range(n)) {
-                    ar(row[j]);
+                    ar(weights[i][j]);
                 }
             }
         }
