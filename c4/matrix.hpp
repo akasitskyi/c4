@@ -129,6 +129,10 @@ namespace c4 {
         return a.height == b.height && a.width == b.width;
     }
 
+    inline std::ostream& operator<<(std::ostream& out, const matrix_dimensions& a) {
+        return out << "{ " << a.height << " x " << a.width << " }";
+    }
+
     template<class T>
     class matrix_ref {
     private:
