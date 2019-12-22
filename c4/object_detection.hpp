@@ -123,7 +123,7 @@ namespace c4 {
         std::vector<detection> detect(const matrix_ref<uint8_t>& img) const {
             c4::matrix<uint8_t> timg = TForm::transform(img);
 
-            auto m = mr.predict_multi(timg);
+            auto m = mr.predict_multi(timg, TForm::row_step);
 
             std::vector<detection> dets;
 
@@ -134,7 +134,7 @@ namespace c4 {
                     // why squared? because we trained on MSE!
                     const float conf = sqr(m[i][j]);
                     if (conf > threshold) {
-                        rectangle<int> r(j, i, obj_dims.width, obj_dims.height);
+                        rectangle<int> r(j, i * TForm::row_step, obj_dims.width, obj_dims.height);
                         dets.push_back({ rectangle<float>(TForm::reverse_rect(r)), conf });
                     }
                 }

@@ -29,19 +29,8 @@
 #include "object_detection.hpp"
 
 namespace c4 {
-    typedef dataset<lbp<>> lbp_dataset;
+    typedef dataset<lbpx<1>> lbp_dataset;
     typedef matrix_regression<256> byte_matrix_regression;
-    typedef window_detector<lbp<>, 256> window_lbp_detector;
-    typedef scaling_detector<lbp<>, 256> scaling_lbp_detector;
-
-    static scaling_lbp_detector load_scaling_lbp_detector(const std::string& filepath) {
-        std::ifstream fin(filepath, std::ifstream::binary);
-        serialize::input_archive in(fin);
-
-        scaling_lbp_detector sd;
-
-        in(sd);
-
-        return sd;
-    }
+    typedef window_detector<lbpx<1>, 256> window_lbp_detector;
+    typedef scaling_detector<lbpx<1>, 256> scaling_lbp_detector;
 }; // namespace c4

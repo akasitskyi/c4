@@ -33,16 +33,18 @@
 int main(int argc, char* argv[]) {
     try{
         c4::meta_data_set test_meta;
-        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 2.0, 32);
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 1.5, 32);
 
         PRINT_DEBUG(test_meta.data.size());
 
         std::vector<c4::image_file_metadata> detections_c4(test_meta.data.size());
 
+        c4::image_dumper::getInstance().init("", false);
         {
-            auto sd = c4::load_scaling_lbp_detector("face_detector.dat");
+            c4::scaling_detector<c4::lbpx<2>, 256> sd;
+            c4::load("face_detector_lbpx2.dat", sd);
 
-            c4::progress_indicator progress((uint32_t)test_meta.data.size());
+            c4::progress_indicator progress("detection", (uint32_t)test_meta.data.size());
 
             c4::scoped_timer timer("c4 detect time");
 
@@ -61,7 +63,14 @@ int main(int argc, char* argv[]) {
                 for (const auto& d : dets) {
                     const auto irect = c4::rectangle<int>(d.rect);
                     ifm.objects.push_back({ irect,{} });
+                    c4::draw_rect(img, irect, uint8_t(255), 1);
                 }
+
+                for (const auto& g : t.objects) {
+                    c4::draw_rect(img, g.rect, uint8_t(0), 1);
+                }
+
+                c4::dump_image(img, "fd");
 
                 progress.did_some(1);
             });
@@ -70,32 +79,6 @@ int main(int argc, char* argv[]) {
 
             PRINT_DEBUG(res.recall());
             PRINT_DEBUG(res.precission());
-        }
-
-        std::vector<c4::image_file_metadata> detections_dlib(test_meta.data.size());
-
-        if (0) {
-            c4::image_dumper::getInstance().init("c4", true);
-
-            for (int k : c4::range(test_meta.data)) {
-                c4::rgb_image img;
-
-                c4::read_jpeg(test_meta.data[k].filepath, img);
-
-                for (const auto& g : test_meta.data[k].objects) {
-                    c4::draw_rect(img, g.rect, c4::pixel<uint8_t>::white(), 1);
-                }
-
-                for (const auto& g : detections_dlib[k].objects) {
-                    c4::draw_rect(img, g.rect, c4::pixel<uint8_t>::green(), 1);
-                }
-
-                for (const auto& g : detections_c4[k].objects) {
-                    c4::draw_rect(img, g.rect, c4::pixel<uint8_t>::blue(), 1);
-                }
-
-                c4::dump_image(img, "fd");
-            }
         }
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;

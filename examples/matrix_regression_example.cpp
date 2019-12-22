@@ -60,19 +60,26 @@ int main(int argc, char* argv[]) {
 
         opts.parse(argc, argv);
 
+        constexpr int N = 3;
+
+        PRINT_DEBUG(N);
         PRINT_DEBUG(sample_size);
         PRINT_DEBUG(face_scale);
         PRINT_DEBUG(max_shift);
         PRINT_DEBUG(train_load_step);
         PRINT_DEBUG(iterations);
         PRINT_DEBUG(base);
+        PRINT_DEBUG(neg_to_pos_ratio);
 
         c4::meta_data_set train_meta;
         train_meta.load_vggface2("C:/vggface2/train/", "C:/vggface2/train/loose_landmark_train.csv", face_scale, train_load_step);
 
         const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
 
-        c4::lbp_dataset train_set(sample_dims);
+        typedef c4::lbpx<N> lbp;
+        c4::dataset<lbp> train_set(sample_dims);
+        c4::dataset<lbp> test_set(sample_dims);
+
         train_set.load(train_meta, max_shift, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
         std::cout << "pos ratio: " << std::accumulate(train_set.y.begin(), train_set.y.end(), 0.) / train_set.y.size() << std::endl;
         std::cout << "train size: " << train_set.y.size() << std::endl;
@@ -80,40 +87,23 @@ int main(int argc, char* argv[]) {
         c4::meta_data_set test_meta;
         test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale, 32);
 
-        c4::lbp_dataset test_set(sample_dims);
         test_set.load(test_meta, 0, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
         std::cout << "test size: " << test_set.y.size() << std::endl;
 
-        c4::byte_matrix_regression mr(true);
+        c4::byte_matrix_regression mr;
 
         if (std::string(base) != "-") {
-            std::ifstream fin(base, std::ifstream::binary);
-            c4::serialize::input_archive in(fin);
-
-            in(mr);
+            c4::load(base, mr);
         }
 
         mr.train(train_set.rx, train_set.y, test_set.rx, test_set.y, iterations);
 
-        const std::string model_filepath = "matrix_regression.dat";
+        c4::save(mr, "matrix_regression_lbpx" + std::to_string(N) + ".dat");
 
-        {
-            std::ofstream fout(model_filepath, std::ofstream::binary);
+        const c4::window_detector<lbp, 256> wd(mr, 0.41f);
+        const c4::scaling_detector<lbp, 256> sd(wd, 1.f, 0.9f);
 
-            c4::serialize::output_archive out(fout);
-
-            out(mr);
-        }
-
-        const c4::window_lbp_detector wd(mr, 0.41f);
-        const c4::scaling_lbp_detector sd(wd, 0.4f, 0.9f);
-
-        {
-            std::ofstream fout("face_detector.dat", std::ofstream::binary);
-            c4::serialize::output_archive out(fout);
-
-            out(sd);
-        }
+        c4::save(sd, "face_detector_lbpx" + std::to_string(N) + ".dat");
 
         c4::image_dumper::getInstance().init("", false);
 

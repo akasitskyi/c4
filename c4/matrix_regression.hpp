@@ -30,11 +30,10 @@
 namespace c4 {
     template<int dim>
     class matrix_regression {
-        bool symmetry;
         matrix<std::array<float, dim>> weights;
     public:
 
-        matrix_regression(bool symmetry = false) : symmetry(symmetry) {}
+        matrix_regression() {}
 
         matrix_dimensions dimensions() const {
             return weights.dimensions();
@@ -54,19 +53,19 @@ namespace c4 {
             return sum;
         }
 
-        matrix<float> predict_multi(const matrix_ref<uint8_t>& img) const {
+        matrix<float> predict_multi(const matrix_ref<uint8_t>& img, int row_step) const {
             ASSERT_TRUE(img.height() >= weights.height() && img.width() >= weights.width());
 
-            matrix<float> sum(img.height() - weights.height() + 1, img.width() - weights.width() + 1);
+            matrix<float> sum((img.height() - weights.height()) / row_step + 1, img.width() - weights.width() + 1);
 
             const int n = sum.width();
 
             for (int di : range(weights.height())) {
                 for (int dj : range(weights.width())) {
                     const auto& w = weights[di][dj];
-                    for (int i : range(sum.height())) {
+                    for (int i = 0; i < sum.height(); i++) {
                         float* psum = &sum[i][0];
-                        const uint8_t* pimg = &img[i + di][dj];
+                        const uint8_t* pimg = &img[i * row_step + di][dj];
                         for (int j = 0; j < n; j++) {
                             psum[j] += w[pimg[j]];
                         }
@@ -117,7 +116,7 @@ namespace c4 {
         }
 
         void train(const matrix<std::vector<uint8_t>>& rx, const std::vector<float>& y, const matrix<std::vector<uint8_t>>& test_rx, const std::vector<float>& test_y, const int itc) {
-            c4::scoped_timer t("matrix_regression::train()");
+            c4::scoped_timer t("matrix_regression::train");
 
             if (weights.height() == 0) {
                 weights.resize(rx.dimensions());
@@ -127,6 +126,7 @@ namespace c4 {
             }
 
             ASSERT_TRUE(weights.dimensions() == rx.dimensions());
+            ASSERT_TRUE(rx.dimensions() == test_rx.dimensions());
 
             matrix<std::array<double, dim>> d(weights.dimensions());
             matrix<std::array<uint32_t, dim>> n_m(weights.dimensions());
@@ -146,14 +146,20 @@ namespace c4 {
             });
             
             std::vector<double> f = predict(rx);
-            {
-                const double train_mse = mean_squared_error(f, y);
-                const double test_mse = mean_squared_error(predict(test_rx), test_y);
 
-                LOGD << "initial train_mse: " << train_mse << ", test_mse: " << test_mse;
-            }
+            auto print_status = [&] (std::string prefix) {
+                const double train_mse = mean_squared_error(y, f);
+                const double train_ce = cross_entropy(y, f);
+                const auto test_f = predict(test_rx);
+                const double test_mse = mean_squared_error(test_y, test_f);
+                const double test_ce = cross_entropy(test_y, test_f);
 
-            progress_indicator progress(itc);
+                LOGD << std::fixed << std::setprecision(5) << prefix << "\t| train_mse: " << train_mse << "\ttrain_ce: " << train_ce << ", \ttest_mse: " << test_mse << ", \ttest_ce: " << test_ce;
+            };
+
+            print_status("initial ");
+
+            progress_indicator progress("matrix_regression::train", itc);
 
             for (int it = 1; it <= itc; it++) {
                 parallel_for(range(weights.height()), [&](int i) {
@@ -180,7 +186,7 @@ namespace c4 {
                 for (int i : range(weights.height())) {
                     for (int j : range(weights.width())) {
                         for (int k : range(dim)) {
-                            double add = (symmetry ? (d[i][j][k] + d[i][weights.width() - j - 1][k]) / 2 : d[i][j][k]) / weights.dimensions().area();
+                            double add = d[i][j][k] / weights.dimensions().area();
                             weights[i][j][k] = float(weights[i][j][k] + add);
                         }
                     }
@@ -188,11 +194,8 @@ namespace c4 {
 
                 predict(rx, f);
 
-                if (it % 100 == 0) {
-                    const double train_mse = mean_squared_error(f, y);
-                    const double test_mse = mean_squared_error(predict(test_rx), test_y);
-
-                    LOGD << "it " << it << ", train_mse: " << train_mse << ", test_mse: " << test_mse;
+                if (it % std::max(itc / 10, 1) == 0) {
+                    print_status("it " + std::to_string(it));
                 }
 
                 progress.did_some(1);
@@ -201,7 +204,6 @@ namespace c4 {
 
         template <typename Archive>
         void load(Archive& ar) {
-            ar(symmetry);
             {
                 int h, w, d;
                 ar(h);
@@ -212,29 +214,20 @@ namespace c4 {
             }
 
             for (int i : range(weights.height())) {
-                const int n = symmetry ? (weights.width() + 1) / 2 : weights.width();
-
-                for (int j : range(n)) {
+                for (int j : range(weights.width())) {
                     ar(weights[i][j]);
-                }
-
-                if (symmetry) {
-                    std::reverse_copy(weights[i].begin(), weights[i].begin() + weights.width() / 2, weights[i].begin() + n);
                 }
             }
         }
 
         template <typename Archive>
         void save(Archive& ar) const {
-            ar(symmetry);
             ar(weights.height());
             ar(weights.width());
             ar(dim);
 
             for (int i : range(weights.height())) {
-                const int n = symmetry ? (weights.width() + 1) / 2 : weights.width();
-                
-                for (int j : range(n)) {
+                for (int j : range(weights.width())) {
                     ar(weights[i][j]);
                 }
             }

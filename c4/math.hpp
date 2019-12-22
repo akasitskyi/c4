@@ -202,6 +202,26 @@ namespace c4 {
         return s / a.size();
     }
 
+    double safe_log(double x) {
+        return log(std::max(x, 1E-15));
+    }
+
+    template<typename T1, typename T2>
+    double cross_entropy(const std::vector<T1>& y, const std::vector<T2>& py) {
+        ASSERT_EQUAL(y.size(), py.size());
+
+        if (y.empty())
+            return 0.;
+
+        double s = 0.;
+
+        for (size_t i = 0; i < y.size(); i++) {
+            s += y[i] * safe_log(py[i]) + (1-y[i]) * safe_log(1 - py[i]);
+        }
+
+        return -s / y.size();
+    }
+
     // https://en.wikipedia.org/wiki/Xorshift
     class fast_rand {
         uint32_t a, b, c, d;
