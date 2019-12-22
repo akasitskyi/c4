@@ -41,20 +41,24 @@ namespace c4 {
 
         void read(std::istream& in) {
             for (std::string s; std::getline(in, s);) {
-                if (std::count(s.begin(), s.end(), '"') % 2) {
-                    LOGE << "CSV: slipping row '" << s << "'";
+                const auto quote_cnt = std::count(s.begin(), s.end(), '"');
+
+                if (quote_cnt % 2) {
+                    LOGE << "CSV: skipping row '" << s << "'";
                     continue;
                 }
 
                 std::vector<char> quoted(s.size(), false);
 
-                bool quoted_mode = false;
+                if (quote_cnt) {
+                    bool quoted_mode = false;
 
-                for (int i = 0; i < isize(s); i++) {
-                    if (s[i] == '"')
-                        quoted_mode = !quoted_mode;
+                    for (int i = 0; i < isize(s); i++) {
+                        if (s[i] == '"')
+                            quoted_mode = !quoted_mode;
 
-                    quoted[i] = quoted_mode;
+                        quoted[i] = quoted_mode;
+                    }
                 }
 
                 std::vector<std::string> r;
@@ -73,7 +77,7 @@ namespace c4 {
                     }
                 }
 
-                data.push_back(r);
+                data.push_back(std::move(r));
             }
         }
     };

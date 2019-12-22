@@ -40,6 +40,7 @@
 #include "exception.hpp"
 #include "matrix.hpp"
 #include "math.hpp"
+#include "simd.hpp"
 
 #include <cstdint>
 
@@ -568,12 +569,11 @@ namespace c4 {
         };
 
         static void idct_block(uint8_t *out, int out_stride, short data[64]) {
-            int i, val[64], *v = val;
-            uint8_t *o;
-            short *d = data;
+            int val[64], *v = val;
+            const short *d = data;
 
             // columns
-            for (i = 0; i < 8; ++i, ++d, ++v) {
+            for (int i = 0; i < 8; ++i, ++d, ++v) {
                 // if all zeroes, shortcut -- this avoids dequantizing 0s and IDCTing
                 if (d[8] == 0 && d[16] == 0 && d[24] == 0 && d[32] == 0
                     && d[40] == 0 && d[48] == 0 && d[56] == 0) {
@@ -600,7 +600,9 @@ namespace c4 {
                 }
             }
 
-            for (i = 0, v = val, o = out; i < 8; ++i, v += 8, o += out_stride) {
+            int t[8];
+            v = val;
+            for (int i = 0; i < 8; ++i, v += 8, out += out_stride) {
                 // no fast case since the first 1D IDCT spread components out
                 STBI__IDCT_1D idct(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]);
                 // constants scaled things up by 1<<12, plus we had 1<<2 from first
@@ -615,14 +617,25 @@ namespace c4 {
                 idct.x3 += 65536 + (128 << 17);
                 // tried computing the shifts into temps, or'ing the temps to see
                 // if any were out of range, but that was slower
-                o[0] = c4::clamp<uint8_t>((idct.x0 + idct.t3) >> 17);
-                o[7] = c4::clamp<uint8_t>((idct.x0 - idct.t3) >> 17);
-                o[1] = c4::clamp<uint8_t>((idct.x1 + idct.t2) >> 17);
-                o[6] = c4::clamp<uint8_t>((idct.x1 - idct.t2) >> 17);
-                o[2] = c4::clamp<uint8_t>((idct.x2 + idct.t1) >> 17);
-                o[5] = c4::clamp<uint8_t>((idct.x2 - idct.t1) >> 17);
-                o[3] = c4::clamp<uint8_t>((idct.x3 + idct.t0) >> 17);
-                o[4] = c4::clamp<uint8_t>((idct.x3 - idct.t0) >> 17);
+                t[0] = idct.x0 + idct.t3;
+                t[7] = idct.x0 - idct.t3;
+                t[1] = idct.x1 + idct.t2;
+                t[6] = idct.x1 - idct.t2;
+                t[2] = idct.x2 + idct.t1;
+                t[5] = idct.x2 - idct.t1;
+                t[3] = idct.x3 + idct.t0;
+                t[4] = idct.x3 - idct.t0;
+#ifdef __C4_SIMD__
+                simd::int32x4x2 t32 = simd::load_tuple<2>(t);
+                t32 = simd::shift_right<17>(t32);
+                simd::int16x8 t16 = simd::narrow_saturate(t32);
+                simd::half<simd::uint8x16> t8 = simd::narrow_unsigned_saturate(t16);
+                simd::store(out, t8);
+#else
+                for (int k = 0; k < 8; k++) {
+                    out[k] = c4::clamp<uint8_t>(t[k] >> 17);
+                }
+#endif
             }
         }
 

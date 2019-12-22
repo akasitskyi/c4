@@ -158,9 +158,9 @@ namespace c4 {
 
         public:
             iterator& operator++() {
-                if (++i == m.width_) {
-                    ++j;
-                    i = 0;
+                if (++j == m.width_) {
+                    ++i;
+                    j = 0;
                 }
                 return *this;
             }
@@ -188,7 +188,7 @@ namespace c4 {
         }
 
         iterator end() {
-            return iterator{ *this, height_, width_ };
+            return iterator{ *this, height_, 0 };
         }
 
         class const_iterator {

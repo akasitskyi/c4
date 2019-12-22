@@ -45,10 +45,14 @@ namespace c4 {
 
         const uint32_t work_total;
         std::atomic<uint32_t> work_done;
+
+        const std::string label;
+
         std::mutex mu;
 
     public:
-        progress_indicator(uint32_t work_total) : last_ts(0), work_total(work_total), work_done(0){}
+        progress_indicator(uint32_t work_total) : last_ts(0), work_total(work_total), work_done(0), label("") {}
+        progress_indicator(std::string label, uint32_t work_total) : last_ts(0), work_total(work_total), work_done(0), label(label) {}
 
         void did_some(uint32_t amount) {
             work_done += amount;
@@ -64,7 +68,7 @@ namespace c4 {
         void print() {
             std::lock_guard<std::mutex> lock(mu);
 
-            std::cout << work_done * 100 / work_total << "% done\r";
+            std::cout << label << " " << work_done * 100 / work_total << "% done\r";
         }
     };
 

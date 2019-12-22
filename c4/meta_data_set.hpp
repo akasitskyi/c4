@@ -108,7 +108,7 @@ namespace c4 {
         void load_vggface2(const std::string& root, const std::string& labels_filepath, const float rect_scale, const int sample) {
             std::ifstream fin(labels_filepath);
 
-            std::map<std::string, std::vector<object_on_image>> data_set;
+            std::unordered_map<std::string, std::vector<object_on_image>> data_set;
 
             csv csv;
             csv.read(fin);
@@ -123,8 +123,8 @@ namespace c4 {
                 const std::string filepath = root + row[0] + ".jpg";
 
                 for (int j : range(o.landmarks)) {
-                    o.landmarks[j].x = string_to<float>(row[2 * j + 1]);
-                    o.landmarks[j].y = string_to<float>(row[2 * j + 2]);
+                    o.landmarks[j].x = std::stof(row[2 * j + 1]);
+                    o.landmarks[j].y = std::stof(row[2 * j + 2]);
                 }
 
                 o.rect = make_rect_by_landmarks(o.landmarks, rect_scale);
@@ -133,7 +133,7 @@ namespace c4 {
             }
 
             int n = isize(data);
-            for(auto& it : data_set){
+            for (auto& it : data_set) {
                 data.emplace_back(std::move(it.first), std::move(it.second));
             }
 
