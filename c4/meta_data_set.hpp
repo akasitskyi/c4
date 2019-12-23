@@ -108,6 +108,10 @@ namespace c4 {
         void load_vggface2(const std::string& root, const std::string& labels_filepath, const float rect_scale, const int sample) {
             std::ifstream fin(labels_filepath);
 
+            if (!fin) {
+                THROW_EXCEPTION("Can't read file: " + labels_filepath);
+            }
+
             std::unordered_map<std::string, std::vector<object_on_image>> data_set;
 
             csv csv;

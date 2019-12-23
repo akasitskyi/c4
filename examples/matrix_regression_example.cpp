@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
 
         opts.parse(argc, argv);
 
-        constexpr int N = 3;
+        constexpr int N = 1;
 
         PRINT_DEBUG(N);
         PRINT_DEBUG(sample_size);
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
         PRINT_DEBUG(neg_to_pos_ratio);
 
         c4::meta_data_set train_meta;
-        train_meta.load_vggface2("C:/vggface2/train/", "C:/vggface2/train/loose_landmark_train.csv", face_scale, train_load_step);
+        train_meta.load_vggface2("C:/vggface2/train/", "C:/github/vggface2_meta/bb_landmark/loose_landmark_train.csv", face_scale, train_load_step);
 
         const c4::matrix_dimensions sample_dims{ sample_size, sample_size };
 
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
         std::cout << "train size: " << train_set.y.size() << std::endl;
 
         c4::meta_data_set test_meta;
-        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", face_scale, 32);
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/github/vggface2_meta/bb_landmark/loose_landmark_test.csv", face_scale, 32);
 
         test_set.load(test_meta, 0, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
         std::cout << "test size: " << test_set.y.size() << std::endl;
@@ -98,12 +98,10 @@ int main(int argc, char* argv[]) {
 
         mr.train(train_set.rx, train_set.y, test_set.rx, test_set.y, iterations);
 
-        c4::save(mr, "matrix_regression_lbpx" + std::to_string(N) + ".dat");
-
         const c4::window_detector<lbp, 256> wd(mr, 0.41f);
         const c4::scaling_detector<lbp, 256> sd(wd, 1.f, 0.9f);
 
-        c4::save(sd, "face_detector_lbpx" + std::to_string(N) + ".dat");
+        c4::save(sd, "face_detector_" + c4::to_string(sample_size) + "_lbpx" + std::to_string(N) + ".dat");
 
         c4::image_dumper::getInstance().init("", false);
 
