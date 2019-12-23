@@ -40,11 +40,12 @@ namespace c4 {
         csv(const char delimiter = ',', const char line_separator = '\n') : delimiter(delimiter), line_separator(line_separator) {}
 
         void read(std::istream& in) {
-            for (std::string s; std::getline(in, s);) {
+            std::string s;
+            for (int row = 1; std::getline(in, s); row++) {
                 const auto quote_cnt = std::count(s.begin(), s.end(), '"');
 
                 if (quote_cnt % 2) {
-                    LOGE << "CSV: skipping row '" << s << "'";
+                    LOGE << "CSV: skipping row " << row << " '" << s << "'";
                     continue;
                 }
 

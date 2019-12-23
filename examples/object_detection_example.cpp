@@ -33,16 +33,16 @@
 int main(int argc, char* argv[]) {
     try{
         c4::meta_data_set test_meta;
-        test_meta.load_vggface2("C:/vggface2/test/", "C:/vggface2/test/loose_landmark_test.csv", 1.5, 32);
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/github/vggface2_meta/bb_landmark/loose_landmark_test.csv", 1.5, 32);
 
         PRINT_DEBUG(test_meta.data.size());
 
         std::vector<c4::image_file_metadata> detections_c4(test_meta.data.size());
 
-        c4::image_dumper::getInstance().init("", false);
+        c4::image_dumper::getInstance().init("", true);
         {
-            c4::scaling_detector<c4::lbpx<2>, 256> sd;
-            c4::load("face_detector_lbpx2.dat", sd);
+            c4::scaling_detector<c4::lbpx<3>, 256> sd;
+            c4::load("face_detector_lbpx3.dat", sd);
 
             c4::progress_indicator progress("detection", (uint32_t)test_meta.data.size());
 
@@ -70,7 +70,15 @@ int main(int argc, char* argv[]) {
                     c4::draw_rect(img, g.rect, uint8_t(0), 1);
                 }
 
-                c4::dump_image(img, "fd");
+                std::string fn = t.filepath;
+
+                std::replace(fn.begin(), fn.end(), ':', '_');
+                std::replace(fn.begin(), fn.end(), '/', '_');
+                std::replace(fn.begin(), fn.end(), '\\', '_');
+
+                if (dets.size() > t.objects.size()) {
+                    c4::dump_image(img, fn);
+                }
 
                 progress.did_some(1);
             });

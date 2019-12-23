@@ -39,7 +39,7 @@ namespace c4 {
 
         for (int i : range(dets)) {
             for (int j : range(dets)) {
-                m[i][j] = (intersection_over_union(dets[i].rect, dets[j].rect) > 0.7f);
+                m[i][j] = (intersection_over_union(dets[i].rect, dets[j].rect) > 0.6f);
             }
         }
 

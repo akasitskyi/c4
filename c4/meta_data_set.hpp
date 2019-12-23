@@ -118,7 +118,9 @@ namespace c4 {
                 object_on_image o;
                 o.landmarks.resize(5);
                 
-                ASSERT_EQUAL(row.size(), o.landmarks.size() * 2 + 1);
+                if (row.size() != o.landmarks.size() * 2 + 1) {
+                    THROW_EXCEPTION("Error at row " + to_string(i) + ". Expected " + to_string(o.landmarks.size() * 2 + 1) + " elements, have " + to_string(row.size()));
+                }
                 
                 const std::string filepath = root + row[0] + ".jpg";
 
