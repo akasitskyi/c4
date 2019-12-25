@@ -62,7 +62,7 @@ namespace c4 {
         void load_dlib(const std::string& root, const std::string& labels_filepath, const float rect_scale, const int sample, bool rects_from_landmarks) {
             json data_json;
 
-            std::ifstream train_data_fin(root + labels_filepath);
+            std::ifstream train_data_fin(labels_filepath);
 
             train_data_fin >> data_json;
 
