@@ -205,11 +205,11 @@ namespace c4 {
             return dets;
         }
 
-        int min_width() const {
+        float min_width() const {
             return wd.dimensions().width * start_scale * rect_size_scale;
         }
 
-        int min_height() const {
+        float min_height() const {
             return wd.dimensions().height * start_scale * rect_size_scale;
         }
 

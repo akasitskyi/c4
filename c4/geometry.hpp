@@ -49,13 +49,23 @@ namespace c4 {
         }
 
         template<class cfloat, class = typename std::enable_if<std::is_floating_point<cfloat>::value>::type>
-        point rotate(cfloat sn, cfloat cs) {
+        point rotate(cfloat sn, cfloat cs) const {
             return point(cs * x - sn * y, sn * x + cs * y);
         }
 
         template<class cfloat, class = typename std::enable_if<std::is_floating_point<cfloat>::value>::type>
-        point rotate(cfloat alpha) {
+        point rotate(cfloat alpha) const {
             return rotate(sin(alpha), cos(alpha));
+        }
+
+        template<class cfloat, class = typename std::enable_if<std::is_floating_point<cfloat>::value>::type>
+        point rotate_around(const point p0,  cfloat alpha) const {
+            const point p(x - p0.x, y - p0.y);
+            point r = p.rotate(alpha);
+            r.x += p0.x;
+            r.y += p0.y;
+
+            return r;
         }
 
         inline bool inside_triangle(const point& a, const point& b, const point& c) const ;
