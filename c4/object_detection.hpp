@@ -163,6 +163,7 @@ namespace c4 {
         window_detector<TForm, dim> wd;
         float start_scale;
         float scale_step;
+        float rect_size_scale = 1.f;
 
         scaling_detector() = default;
         scaling_detector(const window_detector<TForm, dim>& wd, float start_scale, float scale_step) : wd(wd), start_scale(start_scale), scale_step(scale_step) {}
@@ -197,7 +198,19 @@ namespace c4 {
             merge_rects(dets);
             cleanup_rects(dets);
 
+            for (auto& d : dets) {
+                d.rect = d.rect.scale_around_center(rect_size_scale);
+            }
+
             return dets;
+        }
+
+        int min_width() const {
+            return wd.dimensions().width * start_scale * rect_size_scale;
+        }
+
+        int min_height() const {
+            return wd.dimensions().height * start_scale * rect_size_scale;
         }
 
         template <typename Archive>
