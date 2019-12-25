@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
         std::cout << "train size: " << train_set.y.size() << std::endl;
 
         c4::meta_data_set test_meta;
-        test_meta.load_vggface2("C:/vggface2/test/", "C:/github/vggface2_meta/bb_landmark/loose_landmark_test.csv", face_scale, 32);
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/github/vggface2_meta/bb_landmark/loose_landmark_test.csv", face_scale, 16);
 
         test_set.load(test_meta, 0, neg_to_pos_ratio, neg_to_pos_ratio * 1.2f);
         std::cout << "test size: " << test_set.y.size() << std::endl;
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
             progress.did_some(1);
         });
 
-        auto res = c4::evaluate_object_detection(test_meta.data, detections, 0.7);
+        auto res = c4::evaluate_object_detection(test_meta.data, detections, 0.5);
 
         PRINT_DEBUG(res.recall());
         PRINT_DEBUG(res.precission());

@@ -95,7 +95,7 @@ namespace c4 {
                     iou_max = std::max(iou_max, intersection_over_union(r, t.rect));
                     wasted++;
                 }
-                if (iou_max < 0.3) {
+                if (iou_max < 0.5) {
                     scale_image_hq(img.submatrix(r), sample);
                     neg.push_back(FeatureSpaceTransform::transform(sample));
                     wasted = 0;

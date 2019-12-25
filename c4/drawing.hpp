@@ -82,8 +82,8 @@ namespace c4 {
         int y0 = std::max(r.y, thickness / 2);
         int x0 = std::max(r.x, thickness / 2);
 
-        int y1 = std::min(y0 + r.h - 1, img.height() - (thickness - thickness / 2));
-        int x1 = std::min(x0 + r.w - 1, img.width() - (thickness - thickness / 2));
+        int y1 = std::min(r.y + r.h - 1, img.height() - (thickness - thickness / 2));
+        int x1 = std::min(r.x + r.w - 1, img.width() - (thickness - thickness / 2));
         
         for(int d : range(-thickness / 2, thickness - thickness / 2)) {
             for(int y : range(y0, y1 + 1)) {

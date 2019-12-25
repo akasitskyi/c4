@@ -33,7 +33,9 @@
 int main(int argc, char* argv[]) {
     try{
         c4::meta_data_set test_meta;
-        test_meta.load_vggface2("C:/vggface2/test/", "C:/github/vggface2_meta/bb_landmark/loose_landmark_test.csv", 1.5, 32);
+        test_meta.load_vggface2("C:/vggface2/test/", "C:/github/vggface2_meta/bb_landmark/loose_landmark_test.csv", 1.5, 16);
+
+        const double iou_threshold = 0.5;
 
         PRINT_DEBUG(test_meta.data.size());
 
@@ -42,7 +44,7 @@ int main(int argc, char* argv[]) {
         c4::image_dumper::getInstance().init("", true);
         {
             c4::scaling_detector<c4::lbpx<3>, 256> sd;
-            c4::load("face_detector_lbpx3.dat", sd);
+            c4::load("face_detector_24_lbpx3.dat", sd);
 
             c4::progress_indicator progress("detection", (uint32_t)test_meta.data.size());
 
@@ -64,6 +66,7 @@ int main(int argc, char* argv[]) {
                     const auto irect = c4::rectangle<int>(d.rect);
                     ifm.objects.push_back({ irect,{} });
                     c4::draw_rect(img, irect, uint8_t(255), 1);
+                    c4::draw_number(img, irect.x, irect.y, int(d.conf * 10), uint8_t(255), uint8_t(0));
                 }
 
                 for (const auto& g : t.objects) {
@@ -76,14 +79,16 @@ int main(int argc, char* argv[]) {
                 std::replace(fn.begin(), fn.end(), '/', '_');
                 std::replace(fn.begin(), fn.end(), '\\', '_');
 
-                if (dets.size() > t.objects.size()) {
+                const auto eval = c4::evaluate_object_detection(t.objects, ifm.objects, iou_threshold);
+
+                if (eval.fp > 0) {
                     c4::dump_image(img, fn);
                 }
 
                 progress.did_some(1);
             });
 
-            auto res = c4::evaluate_object_detection(test_meta.data, detections_c4, 0.7);
+            auto res = c4::evaluate_object_detection(test_meta.data, detections_c4, iou_threshold);
 
             PRINT_DEBUG(res.recall());
             PRINT_DEBUG(res.precission());
