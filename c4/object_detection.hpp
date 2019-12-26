@@ -44,7 +44,7 @@ namespace c4 {
                 const float si = dets[i].rect.intersect(dets[j].rect).area();
 
                 const bool same_size = std::max(sa, sb) < 4 * std::min(sa, sb);
-                const bool overlap_enough = si > 0.6 * std::min(sa, sb);
+                const bool overlap_enough = si > 0.8 * std::min(sa, sb);
 
                 m[i][j] = same_size && overlap_enough;
             }
@@ -104,10 +104,12 @@ namespace c4 {
                 if (dj.conf >= di.conf)
                     continue;
 
-                const auto ir0 = di.rect.scale_around_center(0.7);
-                const auto jr0 = dj.rect.scale_around_center(0.7);
+                const auto ir0 = di.rect.scale_around_center(0.8);
+                const rectangle<double> ir1(di.rect.x + di.rect.w / 4, di.rect.y, di.rect.w / 2, di.rect.h);
 
-                if (ir0.contains(jr0)) {
+                const auto jr0 = dj.rect.scale_around_center(0.8);
+
+                if (ir0.contains(jr0) || ir1.contains(jr0)) {
                     dets.erase(dets.begin() + j);
                     goto restart;
                 }
