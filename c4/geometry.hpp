@@ -313,6 +313,11 @@ namespace c4 {
         inline bool contains(const point<T1>& p) const {
             return x <= p.x && p.x < x + w && y <= p.y && p.y < y + h;
         }
+
+        template<typename T1>
+        inline bool contains(const rectangle<T1>& r) const {
+            return x <= r.x && r.x + r.w <= x + w && y <= r.y && r.y + r.h <= y + h;
+        }
     };
 
     template<typename T>

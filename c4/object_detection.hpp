@@ -39,7 +39,14 @@ namespace c4 {
 
         for (int i : range(dets)) {
             for (int j : range(dets)) {
-                m[i][j] = (intersection_over_union(dets[i].rect, dets[j].rect) > 0.4f);
+                const float sa = dets[i].rect.area();
+                const float sb = dets[j].rect.area();
+                const float si = dets[i].rect.intersect(dets[j].rect).area();
+
+                const bool same_size = std::max(sa, sb) < 4 * std::min(sa, sb);
+                const bool overlap_enough = si > 0.6 * std::min(sa, sb);
+
+                m[i][j] = same_size && overlap_enough;
             }
         }
 
@@ -87,28 +94,24 @@ namespace c4 {
     }
 
     static void cleanup_rects(std::vector<detection>& dets) {
-        while (true) {
-            bool changed = false;
-            for (int i = 0; i < isize(dets); i++) {
-                auto& di = dets[i];
-                for (int j : range(i)) {
-                    auto& dj = dets[j];
-                    const float iom = di.rect.intersect(dj.rect).area() / std::min(dj.rect.area(), di.rect.area());
+        restart:
+        bool changed = false;
+        for (int i : range(dets)) {
+            const auto& di = dets[i];
+            for (int j : range(dets)) {
+                const auto& dj = dets[j];
 
-                    if (iom > 0.75f) {
-                        if (dj.conf > di.conf) {
-                            std::swap(di, dj);
-                        }
+                if (dj.conf >= di.conf)
+                    continue;
 
-                        dets.erase(dets.begin() + j);
-                        changed = true;
-                        break;
-                    }
+                const auto ir0 = di.rect.scale_around_center(0.7);
+                const auto jr0 = dj.rect.scale_around_center(0.7);
+
+                if (ir0.contains(jr0)) {
+                    dets.erase(dets.begin() + j);
+                    goto restart;
                 }
             }
-
-            if (!changed)
-                break;
         }
     }
 
@@ -168,13 +171,18 @@ namespace c4 {
         scaling_detector() = default;
         scaling_detector(const window_detector<TForm, dim>& wd, float start_scale, float scale_step) : wd(wd), start_scale(start_scale), scale_step(scale_step) {}
 
-        std::vector<detection> detect(const matrix_ref<uint8_t>& img) const {
+        std::vector<detection> detect(const matrix_ref<uint8_t>& img, std::vector<detection>& candidates) const {
             std::vector<detection> dets;
 
             float scale = start_scale;
+            
+            auto scaleWeight = [](float scale) { return 1.f / sqr(scale); };
 
             if (scale == 1.f) {
                 dets = wd.detect(img);
+                for (auto& d : dets) {
+                    d.conf *= scaleWeight(scale);
+                }
                 scale *= scale_step;
             }
 
@@ -191,10 +199,11 @@ namespace c4 {
 
                 for (detection& d : scale_dets) {
                     d.rect = d.rect.scale_around_origin(1.f / scale);
+                    d.conf *= scaleWeight(scale);
                     dets.push_back(d);
                 }
             }
-
+            candidates = dets;
             merge_rects(dets);
             cleanup_rects(dets);
 

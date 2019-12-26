@@ -60,7 +60,13 @@ int main(int argc, char* argv[]) {
                 c4::image_file_metadata& ifm = detections_c4[k];
                 ifm.filepath = t.filepath;
 
-                const auto dets = sd.detect(img);
+                std::vector<c4::detection> candidates;
+                const auto dets = sd.detect(img, candidates);
+
+                for (const auto& d : candidates) {
+                    const auto irect = c4::rectangle<int>(d.rect);
+                    c4::draw_rect(img, irect, uint8_t(128), 1);
+                }
 
                 for (const auto& d : dets) {
                     const auto irect = c4::rectangle<int>(d.rect);
