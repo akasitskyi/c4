@@ -94,15 +94,13 @@ namespace c4 {
     }
 
     static void cleanup_rects(std::vector<detection>& dets) {
-        restart:
-        bool changed = false;
-        for (int i : range(dets)) {
-            const auto& di = dets[i];
-            for (int j : range(dets)) {
-                const auto& dj = dets[j];
+        std::sort(dets.begin(), dets.end(), [](const detection& a, const detection& b) {  return a.conf > b.conf; });
 
-                if (dj.conf >= di.conf)
-                    continue;
+        // Clean up rects with simillar position
+        for (int i = 0; i < isize(dets); i++) {
+            const auto& di = dets[i];
+            for (int j = i + 1; j < isize(dets); j++) {
+                const auto& dj = dets[j];
 
                 const auto ir0 = di.rect.scale_around_center(0.8);
                 const rectangle<double> ir1(di.rect.x + di.rect.w / 4, di.rect.y, di.rect.w / 2, di.rect.h);
@@ -111,7 +109,20 @@ namespace c4 {
 
                 if (ir0.contains(jr0) || ir1.contains(jr0)) {
                     dets.erase(dets.begin() + j);
-                    goto restart;
+                    --j;
+                }
+            }
+        }
+
+        // Clean up rects with big confidence difference on the same frame
+        for (int i = 0; i < isize(dets); i++) {
+            const auto& di = dets[i];
+            for (int j = i + 1; j < isize(dets); j++) {
+                const auto& dj = dets[j];
+
+                if (di.conf > dj.conf * 10) {
+                    dets.erase(dets.begin() + j);
+                    --j;
                 }
             }
         }
@@ -214,6 +225,11 @@ namespace c4 {
             }
 
             return dets;
+        }
+
+        std::vector<detection> detect(const matrix_ref<uint8_t>& img) const {
+            std::vector<detection> candidates;
+            return detect(img, candidates);
         }
 
         float min_width() const {
