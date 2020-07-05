@@ -65,22 +65,6 @@
 #include <nmmintrin.h>
 #endif
 
-#define __C4_SIMD_SLOW__ [[deprecated("The function may be slow due to the serial implementation")]]
-
-#ifdef USE_ARM_NEON
-#define __C4_SIMD_SLOW_NEON__ __C4_SIMD_SLOW__
-#define __C4_SIMD_SLOW_SSE__
-#define __C4_SIMD_SLOW_SSE3__
-#else
-#define __C4_SIMD_SLOW_NEON__
-#define __C4_SIMD_SLOW_SSE__ __C4_SIMD_SLOW__
-#ifdef USE_SSE4_1
-#define __C4_SIMD_SLOW_SSE3__
-#else
-#define __C4_SIMD_SLOW_SSE3__ __C4_SIMD_SLOW__
-#endif
-#endif
-
 namespace c4 {
     namespace simd {
 #ifdef __C4_SIMD__
@@ -3888,7 +3872,7 @@ namespace c4 {
         }
 
         // Shifts by a packed variable
-        __C4_SIMD_SLOW_SSE__ inline int8x16 shift_left(int8x16 a, int8x16 b) {
+        inline int8x16 shift_left(int8x16 a, int8x16 b) {
 #ifdef USE_ARM_NEON
             return vshlq_s8(a.v, b.v);
 #else
@@ -3896,7 +3880,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline uint8x16 shift_left(uint8x16 a, uint8x16 b) {
+        inline uint8x16 shift_left(uint8x16 a, uint8x16 b) {
 #ifdef USE_ARM_NEON
             return vshlq_u8(a.v, vreinterpretq_s8_u8(b.v));
 #else
@@ -3904,7 +3888,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline int16x8 shift_left(int16x8 a, int16x8 b) {
+        inline int16x8 shift_left(int16x8 a, int16x8 b) {
 #ifdef USE_ARM_NEON
             return vshlq_s16(a.v, b.v);
 #else
@@ -3912,7 +3896,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline uint16x8 shift_left(uint16x8 a, uint16x8 b) {
+        inline uint16x8 shift_left(uint16x8 a, uint16x8 b) {
 #ifdef USE_ARM_NEON
             return vshlq_u16(a.v, vreinterpretq_s16_u16(b.v));
 #else
@@ -3920,7 +3904,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline int32x4 shift_left(int32x4 a, int32x4 b) {
+        inline int32x4 shift_left(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vshlq_s32(a.v, b.v);
 #else
@@ -3928,7 +3912,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE__ inline uint32x4 shift_left(uint32x4 a, uint32x4 b) {
+        inline uint32x4 shift_left(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vshlq_u32(a.v, vreinterpretq_s32_u32(b.v));
 #else
@@ -4144,7 +4128,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE3__ inline int32x4 mul_lo(int32x4 a, int32x4 b) {
+        inline int32x4 mul_lo(int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmulq_s32(a.v, b.v);
 #else
@@ -4156,7 +4140,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_lo(uint32x4 a, uint32x4 b) {
+        inline uint32x4 mul_lo(uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vmulq_u32(a.v, b.v);
 #else
@@ -4325,7 +4309,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE3__ inline int32x4 mul_acc(int32x4 s, int32x4 a, int32x4 b) {
+        inline int32x4 mul_acc(int32x4 s, int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_s32(s.v, a.v, b.v);
 #else
@@ -4333,7 +4317,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_acc(uint32x4 s, uint32x4 a, uint32x4 b) {
+        inline uint32x4 mul_acc(uint32x4 s, uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlaq_u32(s.v, a.v, b.v);
 #else
@@ -4382,7 +4366,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE3__ inline int32x4 mul_sub(int32x4 s, int32x4 a, int32x4 b) {
+        inline int32x4 mul_sub(int32x4 s, int32x4 a, int32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlsq_s32(s.v, a.v, b.v);
 #else
@@ -4390,7 +4374,7 @@ namespace c4 {
 #endif
         }
 
-        __C4_SIMD_SLOW_SSE3__ inline uint32x4 mul_sub(uint32x4 s, uint32x4 a, uint32x4 b) {
+        inline uint32x4 mul_sub(uint32x4 s, uint32x4 a, uint32x4 b) {
 #ifdef USE_ARM_NEON
             return vmlsq_u32(s.v, a.v, b.v);
 #else

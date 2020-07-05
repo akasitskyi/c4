@@ -65,4 +65,8 @@ namespace c4 {
 
         out.write((const char*)v, sizeof(T));
     }
+
+    inline void write_le(std::ostream& out, uint8_t t) {
+        out.write((const char*)&t, sizeof(t));
+    }
 };
