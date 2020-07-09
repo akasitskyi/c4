@@ -35,14 +35,14 @@ int main(int argc, char* argv[]) {
 
         const std::string inputFile = argv[1];
         const std::string outputFile = argv[2];
-        const float gain = argc < 4 ? 1. : (float)atof(argv[3]);
+        const float gain = argc < 4 ? 1.f : (float)atof(argv[3]);
 
         c4::scoped_timer t("wav");
 
         unsigned int channels;
         unsigned int sampleRate;
         uint64_t totalPCMFrameCount;
-        float* data = drwav_open_file_and_read_pcm_frames_f32(inputFile.c_str(), &channels, &sampleRate, &totalPCMFrameCount, NULL);
+        float* data = drwav_open_file_and_read_pcm_frames_f32(inputFile.c_str(), &channels, &sampleRate, &totalPCMFrameCount);
         if (data == NULL) {
             THROW_EXCEPTION("Can't read wav file: " + inputFile);
         }
@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
         format.channels = channels;
         format.sampleRate = sampleRate;
         format.bitsPerSample = 16;
-        drwav_init_file_write(&wav, outputFile.c_str(), &format, NULL);
+        drwav_init_file_write(&wav, outputFile.c_str(), &format);
 
         auto framesWritten = drwav_write_pcm_frames(&wav, totalPCMFrameCount, result.data());
         ASSERT_EQUAL(framesWritten, totalPCMFrameCount);
