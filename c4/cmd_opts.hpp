@@ -54,11 +54,9 @@ namespace c4 {
 
             std::shared_ptr<std::string> ptr;
 
-            cmd_opt() : ptr(new std::string()) {}
+            cmd_opt() {}
             
-            cmd_opt(const T& t) : cmd_opt() {
-                *ptr = to_string(t);
-            }
+            cmd_opt(const T& t) : ptr(std::make_shared<std::string>(to_string(t))) {}
 
         public:
             operator T() const {
@@ -78,6 +76,7 @@ namespace c4 {
         std::map<std::string, std::shared_ptr<bool>> flags;
 
         std::vector<std::string> free_args;
+        std::string arg0;
 
         void assert_unique(const std::string name) const {
             if (optional.count(name) || required.count(name) || flags.count(name))
@@ -131,7 +130,8 @@ namespace c4 {
         }
 
         void parse(const int argc, const char** argv) {
-            for (int i = 0; i < argc;) {
+            arg0 = argv[0];
+            for (int i = 1; i < argc;) {
                 const std::string arg = argv[i++];
 
                 auto optional_it = optional.find(arg);
@@ -172,6 +172,10 @@ namespace c4 {
         
         const std::vector<std::string>& get_free_args() const {
             return free_args;
+        }
+
+        const std::string& get_arg0() const {
+            return arg0;
         }
     };
 };
