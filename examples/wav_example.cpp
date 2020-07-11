@@ -62,12 +62,15 @@ int main(int argc, char* argv[]) {
         format.channels = channels;
         format.sampleRate = sampleRate;
         format.bitsPerSample = 16;
-        drwav_init_file_write(&wav, outputFile.c_str(), &format);
 
-        auto framesWritten = drwav_write_pcm_frames(&wav, totalPCMFrameCount, result.data());
+        std::ofstream fout(outputFile, std::fstream::binary);
+
+        drwav_init_file_write__internal_FILE(&wav, fout, &format, 0);
+
+        auto framesWritten = drwav_write_pcm_frames(&wav, fout, totalPCMFrameCount, result.data());
         ASSERT_EQUAL(framesWritten, totalPCMFrameCount);
 
-        drwav_uninit(&wav);
+        drwav_uninit(&wav, fout);
 
         free(data);
     }
