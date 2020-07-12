@@ -47,13 +47,13 @@ int main(int argc, char* argv[]) {
             THROW_EXCEPTION("Can't read wav file: " + inputFile);
         }
 
-        std::vector<int16_t> result(totalPCMFrameCount * 2);
+        std::vector<int16_t> result(totalPCMFrameCount * channels);
 
         for (int i : c4::range(result.size())) {
             data[i] *= gain;
         }
 
-        drwav_f32_to_s16(result.data(), data, totalPCMFrameCount * 2);
+        drwav_f32_to_s16(result.data(), data, result.size());
 
         drwav wav;
         drwav_data_format format;
