@@ -459,18 +459,6 @@ namespace detail {
         return is ? bytesToRead : 0;
     }
 
-    extern uint16_t wav_fmt_get_format(const wav_fmt* pFMT) {
-        if (pFMT == NULL) {
-            return 0;
-        }
-
-        if (pFMT->formatTag != WAVE_FORMAT_EXTENSIBLE) {
-            return pFMT->formatTag;
-        } else {
-            return wav_bytes_to_u16(pFMT->subFormat);    /* Only the first two bytes are required. */
-        }
-    }
-
     static uint32_t wav_riff_chunk_size_riff(uint64_t dataChunkSize) {
         uint32_t dataSubchunkPaddingSize = wav_chunk_padding_size_riff(dataChunkSize);
 
@@ -619,10 +607,6 @@ inline void wav_mulaw_to_s16(int16_t* pOut, const uint8_t* pIn, size_t sampleCou
 }
 
 inline void wav_u8_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         float x = pIn[i];
         x = x * 0.00784313725490196078f;    /* 0..255 to 0..2 */
@@ -633,20 +617,12 @@ inline void wav_u8_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
 }
 
 inline void wav_s16_to_f32(float* pOut, const int16_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = pIn[i] * 0.000030517578125f;
     }
 }
 
 inline void wav_s24_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         double x = (double)(((int32_t)(((uint32_t)(pIn[i * 3 + 0]) << 8) | ((uint32_t)(pIn[i * 3 + 1]) << 16) | ((uint32_t)(pIn[i * 3 + 2])) << 24)) >> 8);
         *pOut++ = (float)(x * 0.00000011920928955078125);
@@ -654,70 +630,42 @@ inline void wav_s24_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) 
 }
 
 inline void wav_s32_to_f32(float* pOut, const int32_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = (float)(pIn[i] / 2147483648.0);
     }
 }
 
 inline void wav_f64_to_f32(float* pOut, const double* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = (float)pIn[i];
     }
 }
 
 inline void wav_alaw_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = detail::wav_alaw_to_s16(pIn[i]) / 32768.0f;
     }
 }
 
 inline void wav_mulaw_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = detail::wav_mulaw_to_s16(pIn[i]) / 32768.0f;
     }
 }
 
 inline void wav_u8_to_s32(int32_t* pOut, const uint8_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = ((int)pIn[i] - 128) << 24;
     }
 }
 
 inline void wav_s16_to_s32(int32_t* pOut, const int16_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = pIn[i] << 16;
     }
 }
 
 inline void wav_s24_to_s32(int32_t* pOut, const uint8_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         unsigned int s0 = pIn[i * 3 + 0];
         unsigned int s1 = pIn[i * 3 + 1];
@@ -729,40 +677,24 @@ inline void wav_s24_to_s32(int32_t* pOut, const uint8_t* pIn, size_t sampleCount
 }
 
 inline void wav_f32_to_s32(int32_t* pOut, const float* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = (int32_t)(2147483648.0 * pIn[i]);
     }
 }
 
 inline void wav_f64_to_s32(int32_t* pOut, const double* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = (int32_t)(2147483648.0 * pIn[i]);
     }
 }
 
 inline void wav_alaw_to_s32(int32_t* pOut, const uint8_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = ((int32_t)detail::wav_alaw_to_s16(pIn[i])) << 16;
     }
 }
 
 inline void wav_mulaw_to_s32(int32_t* pOut, const uint8_t* pIn, size_t sampleCount) {
-    if (pOut == NULL || pIn == NULL) {
-        return;
-    }
-
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = ((int32_t)detail::wav_mulaw_to_s16(pIn[i])) << 16;
     }
@@ -1029,9 +961,7 @@ public:
     uint64_t wav_read_pcm_frames_be(uint64_t framesToRead, void* pBufferOut) {
         uint64_t framesRead = wav_read_pcm_frames_le(framesToRead, pBufferOut);
 
-        if (pBufferOut != NULL) {
-            detail::wav_bswap_samples(pBufferOut, framesRead * channels, get_bytes_per_pcm_frame() / channels, translatedFormatTag);
-        }
+        detail::wav_bswap_samples(pBufferOut, framesRead * channels, get_bytes_per_pcm_frame() / channels, translatedFormatTag);
 
         return framesRead;
     }
@@ -1587,10 +1517,6 @@ public:
             return 0;
         }
 
-        if (pBufferOut == NULL) {
-            return wav_read_pcm_frames(framesToRead, NULL);
-        }
-
         switch (translatedFormatTag) {
         case WAVE_FORMAT_PCM:
             return wav_read_pcm_frames_s32__pcm(framesToRead, pBufferOut);
@@ -1613,7 +1539,7 @@ public:
         using namespace detail;
 
         uint64_t framesRead = wav_read_pcm_frames_s32(framesToRead, pBufferOut);
-        if (pBufferOut != NULL && wav_is_little_endian() == false) {
+        if (wav_is_little_endian() == false) {
             wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
         }
 
@@ -1624,7 +1550,7 @@ public:
         using namespace detail;
 
         uint64_t framesRead = wav_read_pcm_frames_s32(framesToRead, pBufferOut);
-        if (pBufferOut != NULL && wav_is_little_endian() == true) {
+        if (wav_is_little_endian() == true) {
             wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
         }
 
