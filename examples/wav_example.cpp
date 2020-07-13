@@ -55,7 +55,9 @@ int main(int argc, char* argv[]) {
 
         drwav_f32_to_s16(result.data(), data, result.size());
 
-        drwav wav;
+        std::ofstream fout(outputFile, std::fstream::binary);
+
+        wav_writer wav(fout);
         drwav_data_format format;
         format.container = drwav_container_riff;
         format.format = DR_WAVE_FORMAT_PCM;
@@ -63,14 +65,12 @@ int main(int argc, char* argv[]) {
         format.sampleRate = sampleRate;
         format.bitsPerSample = 16;
 
-        std::ofstream fout(outputFile, std::fstream::binary);
+        drwav_init_file_write__internal_FILE(wav, &format);
 
-        drwav_init_file_write__internal_FILE(&wav, fout, &format, 0);
-
-        auto framesWritten = drwav_write_pcm_frames(&wav, fout, totalPCMFrameCount, result.data());
+        auto framesWritten = drwav_write_pcm_frames(wav, totalPCMFrameCount, result.data());
         ASSERT_EQUAL(framesWritten, totalPCMFrameCount);
 
-        drwav_uninit(&wav, fout);
+        drwav_uninit(wav);
 
         free(data);
     }

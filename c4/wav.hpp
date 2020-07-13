@@ -138,40 +138,43 @@ struct drwav_smpl_loop {
     drwav_smpl_loop loops[1];
 };
 
-struct drwav {
-    /* Whether or not the WAV file is formatted as a standard RIFF file or W64. */
-    drwav_container container = drwav_container_riff;
+ struct wav_base {
+     /* Whether or not the WAV file is formatted as a standard RIFF file or W64. */
+     drwav_container container = drwav_container_riff;
 
-    /* Structure containing format information exactly as specified by the wav file. */
-    drwav_fmt fmt = {};
+     /* Structure containing format information exactly as specified by the wav file. */
+     drwav_fmt fmt = {};
 
-    /* The sample rate. Will be set to something like 44100. */
-    uint32_t sampleRate = 0;
+     /* The sample rate. Will be set to something like 44100. */
+     uint32_t sampleRate = 0;
 
-    /* The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc. */
-    uint16_t channels = 0;
+     /* The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc. */
+     uint16_t channels = 0;
 
-    /* The bits per sample. Will be set to something like 16, 24, etc. */
-    uint16_t bitsPerSample = 0;
+     /* The bits per sample. Will be set to something like 16, 24, etc. */
+     uint16_t bitsPerSample = 0;
 
-    /* Equal to fmt.formatTag, or the value specified by fmt.subFormat if fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE). */
-    uint16_t translatedFormatTag = 0;
+     /* Equal to fmt.formatTag, or the value specified by fmt.subFormat if fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE). */
+     uint16_t translatedFormatTag = 0;
 
-    /* The total number of PCM frames making up the audio data. */
-    uint64_t totalPCMFrameCount = 0;
+     /* The total number of PCM frames making up the audio data. */
+     uint64_t totalPCMFrameCount = 0;
 
-    /* The size in bytes of the data chunk. */
-    uint64_t dataChunkDataSize = 0;
-    
-    /* The position in the stream of the first byte of the data chunk. This is used for seeking. */
-    uint64_t dataChunkDataPos = 0;
+     /* The size in bytes of the data chunk. */
+     uint64_t dataChunkDataSize = 0;
 
-    /* The number of bytes remaining in the data chunk. */
-    uint64_t bytesRemaining = 0;
+     /* The position in the stream of the first byte of the data chunk. This is used for seeking. */
+     uint64_t dataChunkDataPos = 0;
 
-    /* smpl chunk. */
-    drwav_smpl smpl = {};
+     /* The number of bytes remaining in the data chunk. */
+     uint64_t bytesRemaining = 0;
 
+     /* smpl chunk. */
+     drwav_smpl smpl = {};
+ };
+ 
+ struct wav_reader : public wav_base {
+    std::istream& in;
 
     /* Generic data for compressed formats. This data is shared across all block-compressed formats. */
     uint64_t iCurrentCompressedPCMFrame = 0;  /* The index of the next PCM frame that will be read by drwav_read_*(). This is used with "totalPCMFrameCount" to ensure we don't read excess samples at the end of the last block. */
@@ -194,6 +197,14 @@ struct drwav {
         int32_t  cachedFrames[16]; /* Samples are stored in this cache during decoding. */
         uint32_t cachedFrameCount;
     } ima = {};
+
+    wav_reader(std::istream& in) : in(in) {}
+};
+
+struct wav_writer : public wav_base {
+    std::ostream& out;
+
+    wav_writer(std::ostream& out) : out(out) {}
 };
 
 template<class T, std::size_t N>
@@ -551,16 +562,16 @@ static size_t drwav__on_read(std::istream& is, void* pBufferOut, size_t bytesToR
     return is ? bytesToRead : 0;
 }
 
-static uint32_t drwav_get_bytes_per_pcm_frame(drwav* pWav) {
+static uint32_t drwav_get_bytes_per_pcm_frame(const wav_base& wav) {
     /*
     The bytes per frame is a bit ambiguous. It can be either be based on the bits per sample, or the block align. The way I'm doing it here
     is that if the bits per sample is a multiple of 8, use floor(bitsPerSample*channels/8), otherwise fall back to the block align.
     */
-    if ((pWav->bitsPerSample & 0x7) == 0) {
+    if ((wav.bitsPerSample & 0x7) == 0) {
         /* Bits per sample is a multiple of 8. */
-        return (pWav->bitsPerSample * pWav->fmt.channels) >> 3;
+        return (wav.bitsPerSample * wav.fmt.channels) >> 3;
     } else {
-        return pWav->fmt.blockAlign;
+        return wav.fmt.blockAlign;
     }
 }
 
@@ -576,7 +587,7 @@ extern uint16_t drwav_fmt_get_format(const drwav_fmt* pFMT) {
     }
 }
 
-extern bool drwav_init(drwav* pWav, std::istream& is) {
+extern bool drwav_init(wav_reader& wav) {
     uint8_t riff[4];
     drwav_fmt fmt;
     unsigned short translatedFormatTag;
@@ -588,7 +599,7 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
     uint64_t cursor = 0;
 
     /* The first 4 bytes should be the RIFF identifier. */
-    if (!drwav__on_read(is, riff, sizeof(riff), &cursor)) {
+    if (!drwav__on_read(wav.in, riff, sizeof(riff), &cursor)) {
         return false;
     }
 
@@ -597,15 +608,15 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
     w64 it will start with "riff".
     */
     if (drwav__fourcc_equal(riff, "RIFF")) {
-        pWav->container = drwav_container_riff;
+        wav.container = drwav_container_riff;
     } else if (drwav__fourcc_equal(riff, "riff")) {
         int i;
         uint8_t riff2[12];
 
-        pWav->container = drwav_container_w64;
+        wav.container = drwav_container_w64;
 
         /* Check the rest of the GUID for validity. */
-        if (!drwav__on_read(is, riff2, sizeof(riff2), &cursor)) {
+        if (!drwav__on_read(wav.in, riff2, sizeof(riff2), &cursor)) {
             return false;
         }
 
@@ -619,12 +630,12 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
     }
 
 
-    if (pWav->container == drwav_container_riff) {
+    if (wav.container == drwav_container_riff) {
         uint8_t chunkSizeBytes[4];
         uint8_t wave[4];
 
         /* RIFF/WAVE */
-        if (!drwav__on_read(is, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor)) {
+        if (!drwav__on_read(wav.in, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor)) {
             return false;
         }
 
@@ -632,7 +643,7 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
             return false;    /* Chunk size should always be at least 36 bytes. */
         }
 
-        if (!drwav__on_read(is, wave, sizeof(wave), &cursor)) {
+        if (!drwav__on_read(wav.in, wave, sizeof(wave), &cursor)) {
             return false;
         }
 
@@ -644,7 +655,7 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
         uint8_t wave[16];
 
         /* W64 */
-        if (!drwav__on_read(is, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor)) {
+        if (!drwav__on_read(wav.in, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor)) {
             return false;
         }
 
@@ -652,7 +663,7 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
             return false;
         }
 
-        if (!drwav__on_read(is, wave, sizeof(wave), &cursor)) {
+        if (!drwav__on_read(wav.in, wave, sizeof(wave), &cursor)) {
             return false;
         }
 
@@ -663,7 +674,7 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
 
 
     /* The next bytes should be the "fmt " chunk. */
-    if (!drwav__read_fmt(is, pWav->container, &cursor, &fmt)) {
+    if (!drwav__read_fmt(wav.in, wav.container, &cursor, &fmt)) {
         return false;    /* Failed to read the "fmt " chunk. */
     }
 
@@ -694,22 +705,22 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
     for (;;)
     {
         drwav_chunk_header header;
-        int result = drwav__read_chunk_header(is, pWav->container, &cursor, &header);
+        int result = drwav__read_chunk_header(wav.in, wav.container, &cursor, &header);
         if (result != 0) {
             if (!foundDataChunk) {
                 return false;
             } else {
-                is.clear(); // need to clear eofbit
+                wav.in.clear(); // need to clear eofbit
                 break;  /* Probably at the end of the file. Get out of the loop. */
             }
         }
 
         if (!foundDataChunk) {
-            pWav->dataChunkDataPos = cursor;
+            wav.dataChunkDataPos = cursor;
         }
 
         chunkSize = header.sizeInBytes;
-        if (pWav->container == drwav_container_riff) {
+        if (wav.container == drwav_container_riff) {
             if (drwav__fourcc_equal(header.id.fourcc, "data")) {
                 foundDataChunk = true;
                 dataChunkSize = chunkSize;
@@ -722,23 +733,23 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
         }
 
         /* Optional. Get the total sample count from the FACT chunk. This is useful for compressed formats. */
-        if (pWav->container == drwav_container_riff) {
+        if (wav.container == drwav_container_riff) {
             if (drwav__fourcc_equal(header.id.fourcc, "fact")) {
                 uint32_t sampleCount;
-                if (!drwav__on_read(is, &sampleCount, 4, &cursor)) {
+                if (!drwav__on_read(wav.in, &sampleCount, 4, &cursor)) {
                     return false;
                 }
                 chunkSize -= 4;
 
                 if (!foundDataChunk) {
-                    pWav->dataChunkDataPos = cursor;
+                    wav.dataChunkDataPos = cursor;
                 }
 
                 /*
                 The sample count in the "fact" chunk is either unreliable, or I'm not understanding it properly. For now I am only enabling this
                 for Microsoft ADPCM formats.
                 */
-                if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
+                if (wav.translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
                     sampleCountFromFactChunk = sampleCount;
                 } else {
                     sampleCountFromFactChunk = 0;
@@ -746,50 +757,50 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
             }
         } else {
             if (drwav__guid_equal(header.id.guid, drwavGUID_W64_FACT)) {
-                if (!drwav__on_read(is, &sampleCountFromFactChunk, 8, &cursor)) {
+                if (!drwav__on_read(wav.in, &sampleCountFromFactChunk, 8, &cursor)) {
                     return false;
                 }
                 chunkSize -= 8;
 
                 if (!foundDataChunk) {
-                    pWav->dataChunkDataPos = cursor;
+                    wav.dataChunkDataPos = cursor;
                 }
             }
         }
 
         /* "smpl" chunk. */
-        if (pWav->container == drwav_container_riff) {
+        if (wav.container == drwav_container_riff) {
             if (drwav__fourcc_equal(header.id.fourcc, "smpl")) {
                 uint8_t smplHeaderData[36];    /* 36 = size of the smpl header section, not including the loop data. */
                 if (chunkSize >= sizeof(smplHeaderData)) {
-                    uint64_t bytesJustRead = drwav__on_read(is, smplHeaderData, sizeof(smplHeaderData), &cursor);
+                    uint64_t bytesJustRead = drwav__on_read(wav.in, smplHeaderData, sizeof(smplHeaderData), &cursor);
                     chunkSize -= bytesJustRead;
 
                     if (bytesJustRead == sizeof(smplHeaderData)) {
                         uint32_t iLoop;
 
-                        pWav->smpl.manufacturer      = drwav__bytes_to_u32(smplHeaderData+0);
-                        pWav->smpl.product           = drwav__bytes_to_u32(smplHeaderData+4);
-                        pWav->smpl.samplePeriod      = drwav__bytes_to_u32(smplHeaderData+8);
-                        pWav->smpl.midiUnityNotes    = drwav__bytes_to_u32(smplHeaderData+12);
-                        pWav->smpl.midiPitchFraction = drwav__bytes_to_u32(smplHeaderData+16);
-                        pWav->smpl.smpteFormat       = drwav__bytes_to_u32(smplHeaderData+20);
-                        pWav->smpl.smpteOffset       = drwav__bytes_to_u32(smplHeaderData+24);
-                        pWav->smpl.numSampleLoops    = drwav__bytes_to_u32(smplHeaderData+28);
-                        pWav->smpl.samplerData       = drwav__bytes_to_u32(smplHeaderData+32);
+                        wav.smpl.manufacturer      = drwav__bytes_to_u32(smplHeaderData+0);
+                        wav.smpl.product           = drwav__bytes_to_u32(smplHeaderData+4);
+                        wav.smpl.samplePeriod      = drwav__bytes_to_u32(smplHeaderData+8);
+                        wav.smpl.midiUnityNotes    = drwav__bytes_to_u32(smplHeaderData+12);
+                        wav.smpl.midiPitchFraction = drwav__bytes_to_u32(smplHeaderData+16);
+                        wav.smpl.smpteFormat       = drwav__bytes_to_u32(smplHeaderData+20);
+                        wav.smpl.smpteOffset       = drwav__bytes_to_u32(smplHeaderData+24);
+                        wav.smpl.numSampleLoops    = drwav__bytes_to_u32(smplHeaderData+28);
+                        wav.smpl.samplerData       = drwav__bytes_to_u32(smplHeaderData+32);
 
-                        for (iLoop = 0; iLoop < pWav->smpl.numSampleLoops && iLoop < wav_countof(pWav->smpl.loops); ++iLoop) {
+                        for (iLoop = 0; iLoop < wav.smpl.numSampleLoops && iLoop < wav_countof(wav.smpl.loops); ++iLoop) {
                             uint8_t smplLoopData[24];  /* 24 = size of a loop section in the smpl chunk. */
-                            bytesJustRead = drwav__on_read(is, smplLoopData, sizeof(smplLoopData), &cursor);
+                            bytesJustRead = drwav__on_read(wav.in, smplLoopData, sizeof(smplLoopData), &cursor);
                             chunkSize -= bytesJustRead;
 
                             if (bytesJustRead == sizeof(smplLoopData)) {
-                                pWav->smpl.loops[iLoop].cuePointId = drwav__bytes_to_u32(smplLoopData+0);
-                                pWav->smpl.loops[iLoop].type       = drwav__bytes_to_u32(smplLoopData+4);
-                                pWav->smpl.loops[iLoop].start      = drwav__bytes_to_u32(smplLoopData+8);
-                                pWav->smpl.loops[iLoop].end        = drwav__bytes_to_u32(smplLoopData+12);
-                                pWav->smpl.loops[iLoop].fraction   = drwav__bytes_to_u32(smplLoopData+16);
-                                pWav->smpl.loops[iLoop].playCount  = drwav__bytes_to_u32(smplLoopData+20);
+                                wav.smpl.loops[iLoop].cuePointId = drwav__bytes_to_u32(smplLoopData+0);
+                                wav.smpl.loops[iLoop].type       = drwav__bytes_to_u32(smplLoopData+4);
+                                wav.smpl.loops[iLoop].start      = drwav__bytes_to_u32(smplLoopData+8);
+                                wav.smpl.loops[iLoop].end        = drwav__bytes_to_u32(smplLoopData+12);
+                                wav.smpl.loops[iLoop].fraction   = drwav__bytes_to_u32(smplLoopData+16);
+                                wav.smpl.loops[iLoop].playCount  = drwav__bytes_to_u32(smplLoopData+20);
                             } else {
                                 break;  /* Break from the smpl loop for loop. */
                             }
@@ -811,13 +822,13 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
         /* Make sure we seek past the padding. */
         chunkSize += header.paddingSize;
 
-        if (!is.seekg(chunkSize, std::ios_base::cur)) {
+        if (!wav.in.seekg(chunkSize, std::ios_base::cur)) {
             break;
         }
         cursor += chunkSize;
 
         if (!foundDataChunk) {
-            pWav->dataChunkDataPos = cursor;
+            wav.dataChunkDataPos = cursor;
         }
     }
 
@@ -827,28 +838,28 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
     }
 
     /* We may have moved passed the data chunk. If so we need to move back. */
-    if (!is.seekg(pWav->dataChunkDataPos, std::ios_base::beg)) {
+    if (!wav.in.seekg(wav.dataChunkDataPos, std::ios_base::beg)) {
         return false;
     }
-    cursor = pWav->dataChunkDataPos;
+    cursor = wav.dataChunkDataPos;
     
 
     /* At this point we should be sitting on the first byte of the raw audio data. */
 
-    pWav->fmt                 = fmt;
-    pWav->sampleRate          = fmt.sampleRate;
-    pWav->channels            = fmt.channels;
-    pWav->bitsPerSample       = fmt.bitsPerSample;
-    pWav->bytesRemaining      = dataChunkSize;
-    pWav->translatedFormatTag = translatedFormatTag;
-    pWav->dataChunkDataSize   = dataChunkSize;
+    wav.fmt                 = fmt;
+    wav.sampleRate          = fmt.sampleRate;
+    wav.channels            = fmt.channels;
+    wav.bitsPerSample       = fmt.bitsPerSample;
+    wav.bytesRemaining      = dataChunkSize;
+    wav.translatedFormatTag = translatedFormatTag;
+    wav.dataChunkDataSize   = dataChunkSize;
 
     if (sampleCountFromFactChunk != 0) {
-        pWav->totalPCMFrameCount = sampleCountFromFactChunk;
+        wav.totalPCMFrameCount = sampleCountFromFactChunk;
     } else {
-        pWav->totalPCMFrameCount = dataChunkSize / drwav_get_bytes_per_pcm_frame(pWav);
+        wav.totalPCMFrameCount = dataChunkSize / drwav_get_bytes_per_pcm_frame(wav);
 
-        if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
+        if (wav.translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
             uint64_t totalBlockHeaderSizeInBytes;
             uint64_t blockCount = dataChunkSize / fmt.blockAlign;
 
@@ -859,9 +870,9 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
 
             /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
             totalBlockHeaderSizeInBytes = blockCount * (6*fmt.channels);
-            pWav->totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
+            wav.totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
         }
-        if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
+        if (wav.translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
             uint64_t totalBlockHeaderSizeInBytes;
             uint64_t blockCount = dataChunkSize / fmt.blockAlign;
 
@@ -872,16 +883,16 @@ extern bool drwav_init(drwav* pWav, std::istream& is) {
 
             /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
             totalBlockHeaderSizeInBytes = blockCount * (4*fmt.channels);
-            pWav->totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
+            wav.totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
 
             /* The header includes a decoded sample for each channel which acts as the initial predictor sample. */
-            pWav->totalPCMFrameCount += blockCount;
+            wav.totalPCMFrameCount += blockCount;
         }
     }
 
     /* Some formats only support a certain number of channels. */
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM || pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        if (pWav->channels > 2) {
+    if (wav.translatedFormatTag == DR_WAVE_FORMAT_ADPCM || wav.translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
+        if (wav.channels > 2) {
             return false;
         }
     }
@@ -918,11 +929,7 @@ static uint64_t drwav__data_chunk_size_w64(uint64_t dataChunkSize) {
 }
 
 
-static bool drwav_preinit_write(drwav* pWav, const drwav_data_format* pFormat, std::ostream& out) {
-    if (pWav == NULL) {
-        return false;
-    }
-
+static bool drwav_preinit_write(wav_writer& wav, const drwav_data_format* pFormat) {
     /* Not currently supporting compressed formats. Will need to add support for the "fact" chunk before we enable this. */
     if (pFormat->format == DR_WAVE_FORMAT_EXTENSIBLE) {
         return false;
@@ -931,15 +938,13 @@ static bool drwav_preinit_write(drwav* pWav, const drwav_data_format* pFormat, s
         return false;
     }
 
-    memset(pWav, 0, sizeof(*pWav));
-
-    pWav->fmt.formatTag = (uint16_t)pFormat->format;
-    pWav->fmt.channels = (uint16_t)pFormat->channels;
-    pWav->fmt.sampleRate = pFormat->sampleRate;
-    pWav->fmt.avgBytesPerSec = (uint32_t)((pFormat->bitsPerSample * pFormat->sampleRate * pFormat->channels) / 8);
-    pWav->fmt.blockAlign = (uint16_t)((pFormat->channels * pFormat->bitsPerSample) / 8);
-    pWav->fmt.bitsPerSample = (uint16_t)pFormat->bitsPerSample;
-    pWav->fmt.extendedSize = 0;
+    wav.fmt.formatTag = (uint16_t)pFormat->format;
+    wav.fmt.channels = (uint16_t)pFormat->channels;
+    wav.fmt.sampleRate = pFormat->sampleRate;
+    wav.fmt.avgBytesPerSec = (uint32_t)((pFormat->bitsPerSample * pFormat->sampleRate * pFormat->channels) / 8);
+    wav.fmt.blockAlign = (uint16_t)((pFormat->channels * pFormat->bitsPerSample) / 8);
+    wav.fmt.bitsPerSample = (uint16_t)pFormat->bitsPerSample;
+    wav.fmt.extendedSize = 0;
 
     return true;
 }
@@ -954,7 +959,7 @@ inline size_t wav_read(std::istream& in, void* data, size_t count) {
     return in ? count : 0;
 }
 
-static bool drwav_init_write__internal(drwav* pWav, std::ostream& out, const drwav_data_format* pFormat, uint64_t totalSampleCount) {
+static bool drwav_init_write__internal(wav_writer& wav, const drwav_data_format* pFormat) {
     /* The function assumes drwav_preinit_write() was called beforehand. */
 
     size_t runningPos = 0;
@@ -964,45 +969,45 @@ static bool drwav_init_write__internal(drwav* pWav, std::ostream& out, const drw
     /* "RIFF" chunk. */
     if (pFormat->container == drwav_container_riff) {
         uint32_t chunkSizeRIFF = 36 + (uint32_t)initialDataChunkSize;   /* +36 = "RIFF"+[RIFF Chunk Size]+"WAVE" + [sizeof "fmt " chunk] */
-        runningPos += wav_write(out, "RIFF", 4);
-        runningPos += wav_write(out, &chunkSizeRIFF, 4);
-        runningPos += wav_write(out, "WAVE", 4);
+        runningPos += wav_write(wav.out, "RIFF", 4);
+        runningPos += wav_write(wav.out, &chunkSizeRIFF, 4);
+        runningPos += wav_write(wav.out, "WAVE", 4);
     } else {
         uint64_t chunkSizeRIFF = 80 + 24 + initialDataChunkSize;   /* +24 because W64 includes the size of the GUID and size fields. */
-        runningPos += wav_write(out, drwavGUID_W64_RIFF, 16);
-        runningPos += wav_write(out, &chunkSizeRIFF, 8);
-        runningPos += wav_write(out, drwavGUID_W64_WAVE, 16);
+        runningPos += wav_write(wav.out, drwavGUID_W64_RIFF, 16);
+        runningPos += wav_write(wav.out, &chunkSizeRIFF, 8);
+        runningPos += wav_write(wav.out, drwavGUID_W64_WAVE, 16);
     }
 
     /* "fmt " chunk. */
     if (pFormat->container == drwav_container_riff) {
         chunkSizeFMT = 16;
-        runningPos += wav_write(out, "fmt ", 4);
-        runningPos += wav_write(out, &chunkSizeFMT, 4);
+        runningPos += wav_write(wav.out, "fmt ", 4);
+        runningPos += wav_write(wav.out, &chunkSizeFMT, 4);
     } else {
         chunkSizeFMT = 40;
-        runningPos += wav_write(out, drwavGUID_W64_FMT, 16);
-        runningPos += wav_write(out, &chunkSizeFMT, 8);
+        runningPos += wav_write(wav.out, drwavGUID_W64_FMT, 16);
+        runningPos += wav_write(wav.out, &chunkSizeFMT, 8);
     }
 
-    runningPos += wav_write(out, &pWav->fmt.formatTag,      2);
-    runningPos += wav_write(out, &pWav->fmt.channels,       2);
-    runningPos += wav_write(out, &pWav->fmt.sampleRate,     4);
-    runningPos += wav_write(out, &pWav->fmt.avgBytesPerSec, 4);
-    runningPos += wav_write(out, &pWav->fmt.blockAlign,     2);
-    runningPos += wav_write(out, &pWav->fmt.bitsPerSample,  2);
+    runningPos += wav_write(wav.out, &wav.fmt.formatTag,      2);
+    runningPos += wav_write(wav.out, &wav.fmt.channels,       2);
+    runningPos += wav_write(wav.out, &wav.fmt.sampleRate,     4);
+    runningPos += wav_write(wav.out, &wav.fmt.avgBytesPerSec, 4);
+    runningPos += wav_write(wav.out, &wav.fmt.blockAlign,     2);
+    runningPos += wav_write(wav.out, &wav.fmt.bitsPerSample,  2);
 
-    pWav->dataChunkDataPos = runningPos;
+    wav.dataChunkDataPos = runningPos;
 
     /* "data" chunk. */
     if (pFormat->container == drwav_container_riff) {
         uint32_t chunkSizeDATA = (uint32_t)initialDataChunkSize;
-        runningPos += wav_write(out, "data", 4);
-        runningPos += wav_write(out, &chunkSizeDATA, 4);
+        runningPos += wav_write(wav.out, "data", 4);
+        runningPos += wav_write(wav.out, &chunkSizeDATA, 4);
     } else {
         uint64_t chunkSizeDATA = 24 + initialDataChunkSize; /* +24 because W64 includes the size of the GUID and size fields. */
-        runningPos += wav_write(out, drwavGUID_W64_DATA, 16);
-        runningPos += wav_write(out, &chunkSizeDATA, 8);
+        runningPos += wav_write(wav.out, drwavGUID_W64_DATA, 16);
+        runningPos += wav_write(wav.out, &chunkSizeDATA, 8);
     }
 
 
@@ -1019,57 +1024,26 @@ static bool drwav_init_write__internal(drwav* pWav, std::ostream& out, const drw
     
 
     /* Set some properties for the client's convenience. */
-    pWav->container = pFormat->container;
-    pWav->channels = (uint16_t)pFormat->channels;
-    pWav->sampleRate = pFormat->sampleRate;
-    pWav->bitsPerSample = (uint16_t)pFormat->bitsPerSample;
-    pWav->translatedFormatTag = (uint16_t)pFormat->format;
+    wav.container = pFormat->container;
+    wav.channels = (uint16_t)pFormat->channels;
+    wav.sampleRate = pFormat->sampleRate;
+    wav.bitsPerSample = (uint16_t)pFormat->bitsPerSample;
+    wav.translatedFormatTag = (uint16_t)pFormat->format;
 
     return true;
 }
 
-
-/*
-Initializes a pre-allocated drwav object for writing.
-
-onWrite   [in]           The function to call when data needs to be written.
-onSeek    [in]           The function to call when the write position needs to move.
-pUserData [in, optional] A pointer to application defined data that will be passed to onWrite and onSeek.
-
-Returns true if successful; false otherwise.
-
-Close the writer with drwav_uninit().
-
-This is the lowest level function for initializing a WAV file. You can also use drwav_init_file_write() and drwav_init_memory_write()
-to open the stream from a file or from a block of memory respectively.
-
-If the total sample count is known, you can use drwav_init_write_sequential(). This avoids the need for dr_wav to perform
-a post-processing step for storing the total sample count and the size of the data chunk which requires a backwards seek.
-
-See also: drwav_init_file_write(), drwav_init_memory_write(), drwav_uninit()
-*/
-extern bool drwav_init_write(drwav* pWav, const drwav_data_format* pFormat, std::ostream& out) {
-    if (!drwav_preinit_write(pWav, pFormat, out)) {
+extern bool drwav_init_write(wav_writer& wav, const drwav_data_format* pFormat) {
+    if (!drwav_preinit_write(wav, pFormat)) {
         return false;
     }
 
-    return drwav_init_write__internal(pWav, out, pFormat, 0);               /* false = Not Sequential */
+    return drwav_init_write__internal(wav, pFormat);
 }
 
-/*
-Utility function to determine the target size of the entire data to be written (including all headers and chunks).
-
-Returns the target size in bytes.
-
-Useful if the application needs to know the size to allocate.
-
-Only writing to the RIFF chunk and one data chunk is currently supported.
-
-See also: drwav_init_write(), drwav_init_file_write(), drwav_init_memory_write()
-*/
 extern uint64_t drwav_target_write_size_bytes(const drwav_data_format* pFormat, uint64_t totalSampleCount) {
     /* Casting totalSampleCount to int64_t for VC6 compatibility. No issues in practice because nobody is going to exhaust the whole 63 bits. */
-    uint64_t targetDataSizeBytes = (uint64_t)((int64_t)totalSampleCount * pFormat->channels * pFormat->bitsPerSample/8.0);
+    uint64_t targetDataSizeBytes = totalSampleCount * pFormat->channels * (pFormat->bitsPerSample / 8);
     uint64_t riffChunkSizeBytes;
     uint64_t fileSizeBytes;
 
@@ -1092,22 +1066,20 @@ static int drwav_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMo
     return 0;
 }
 
-static bool drwav_init_file_write__internal_FILE(drwav* pWav, std::ostream& out, const drwav_data_format* pFormat, uint64_t totalSampleCount) {
-    if (!drwav_preinit_write(pWav, pFormat, out)) {
+static bool drwav_init_file_write__internal_FILE(wav_writer& wav, const drwav_data_format* pFormat) {
+    if (!drwav_preinit_write(wav, pFormat)) {
         return false;
     }
 
-    if (!drwav_init_write__internal(pWav, out, pFormat, totalSampleCount)) {
+    if (!drwav_init_write__internal(wav, pFormat)) {
         return false;
     }
 
     return true;
 }
 
-static bool drwav_init_file_write__internal(drwav* pWav, const char* filename, const drwav_data_format* pFormat, uint64_t totalSampleCount) {
-    std::ofstream fout(filename, std::fstream::binary);
-
-    return drwav_init_file_write__internal_FILE(pWav, fout, pFormat, totalSampleCount);
+static bool drwav_init_file_write__internal(wav_writer& wav, const drwav_data_format* pFormat) {
+    return drwav_init_file_write__internal_FILE(wav, pFormat);
 }
 
 /*
@@ -1117,8 +1089,8 @@ This holds the internal FILE object until drwav_uninit() is called. Keep this in
 objects because the operating system may restrict the number of file handles an application can have open at
 any given time.
 */
-extern bool drwav_init_file_write(drwav* pWav, const char* filename, const drwav_data_format* pFormat) {
-    return drwav_init_file_write__internal(pWav, filename, pFormat, 0);
+extern bool drwav_init_file_write(wav_writer& wav, const drwav_data_format* pFormat) {
+    return drwav_init_file_write__internal(wav, pFormat);
 }
 
 /*
@@ -1126,11 +1098,7 @@ Uninitializes the given drwav object.
 
 Use this only for objects initialized with drwav_init*() functions (drwav_init(), drwav_init_ex(), drwav_init_write(), drwav_init_write_sequential()).
 */
-extern int drwav_uninit(drwav* pWav, std::ostream& out) {
-    if (pWav == NULL) {
-        return -1;
-    }
-
+extern int drwav_uninit(wav_writer& wav) {
     /*
     If the drwav object was opened in write mode we'll need to finalize a few things:
       - Make sure the "data" chunk is aligned to 16-bits for RIFF containers, or 64 bits for W64 containers.
@@ -1138,41 +1106,41 @@ extern int drwav_uninit(drwav* pWav, std::ostream& out) {
     */
     uint32_t paddingSize = 0;
 
-    /* Padding. Do not adjust pWav->dataChunkDataSize - this should not include the padding. */
-    if (pWav->container == drwav_container_riff) {
-        paddingSize = drwav__chunk_padding_size_riff(pWav->dataChunkDataSize);
+    /* Padding. Do not adjust wav.dataChunkDataSize - this should not include the padding. */
+    if (wav.container == drwav_container_riff) {
+        paddingSize = drwav__chunk_padding_size_riff(wav.dataChunkDataSize);
     } else {
-        paddingSize = drwav__chunk_padding_size_w64(pWav->dataChunkDataSize);
+        paddingSize = drwav__chunk_padding_size_w64(wav.dataChunkDataSize);
     }
         
     if (paddingSize > 0) {
         uint64_t paddingData = 0;
-        out.write((char*)&paddingData, paddingSize);
+        wav.out.write((char*)&paddingData, paddingSize);
     }
 
-    if (pWav->container == drwav_container_riff) {
+    if (wav.container == drwav_container_riff) {
         /* The "RIFF" chunk size. */
-        if (out.seekp(4, std::ios_base::beg)) {
-            uint32_t riffChunkSize = drwav__riff_chunk_size_riff(pWav->dataChunkDataSize);
-            wav_write(out, &riffChunkSize, 4);
+        if (wav.out.seekp(4, std::ios_base::beg)) {
+            uint32_t riffChunkSize = drwav__riff_chunk_size_riff(wav.dataChunkDataSize);
+            wav_write(wav.out, &riffChunkSize, 4);
         }
 
         /* the "data" chunk size. */
-        if (out.seekp(pWav->dataChunkDataPos + 4, std::ios_base::beg)) {
-            uint32_t dataChunkSize = drwav__data_chunk_size_riff(pWav->dataChunkDataSize);
-            wav_write(out, &dataChunkSize, 4);
+        if (wav.out.seekp(wav.dataChunkDataPos + 4, std::ios_base::beg)) {
+            uint32_t dataChunkSize = drwav__data_chunk_size_riff(wav.dataChunkDataSize);
+            wav_write(wav.out, &dataChunkSize, 4);
         }
     } else {
         /* The "RIFF" chunk size. */
-        if (out.seekp(16, std::ios_base::beg)) {
-            uint64_t riffChunkSize = drwav__riff_chunk_size_w64(pWav->dataChunkDataSize);
-            wav_write(out, &riffChunkSize, 8);
+        if (wav.out.seekp(16, std::ios_base::beg)) {
+            uint64_t riffChunkSize = drwav__riff_chunk_size_w64(wav.dataChunkDataSize);
+            wav_write(wav.out, &riffChunkSize, 8);
         }
 
         /* The "data" chunk size. */
-        if (out.seekp(pWav->dataChunkDataPos + 16, std::ios_base::beg)) {
-            uint64_t dataChunkSize = drwav__data_chunk_size_w64(pWav->dataChunkDataSize);
-            wav_write(out, &dataChunkSize, 8);
+        if (wav.out.seekp(wav.dataChunkDataPos + 16, std::ios_base::beg)) {
+            uint64_t dataChunkSize = drwav__data_chunk_size_w64(wav.dataChunkDataSize);
+            wav_write(wav.out, &dataChunkSize, 8);
         }
     }
 
@@ -1192,19 +1160,19 @@ pBufferOut can be NULL in which case a seek will be performed.
 
 Returns the number of bytes actually read.
 */
-extern size_t drwav_read_raw(drwav* pWav, std::istream& in, size_t bytesToRead, void* pBufferOut) {
+extern size_t drwav_read_raw(wav_reader& wav, size_t bytesToRead, void* pBufferOut) {
     size_t bytesRead;
 
-    if (pWav == NULL || bytesToRead == 0) {
+    if (bytesToRead == 0) {
         return 0;
     }
 
-    if (bytesToRead > pWav->bytesRemaining) {
-        bytesToRead = (size_t)pWav->bytesRemaining;
+    if (bytesToRead > wav.bytesRemaining) {
+        bytesToRead = (size_t)wav.bytesRemaining;
     }
 
     if (pBufferOut != NULL) {
-        bytesRead = wav_read(in, pBufferOut, bytesToRead);
+        bytesRead = wav_read(wav.in, pBufferOut, bytesToRead);
     } else {
         /* We need to seek. If we fail, we need to read-and-discard to make sure we get a good byte count. */
         bytesRead = 0;
@@ -1214,7 +1182,7 @@ extern size_t drwav_read_raw(drwav* pWav, std::istream& in, size_t bytesToRead, 
                 bytesToSeek = 0x7FFFFFFF;
             }
 
-            if (!in.seekg(bytesToSeek, std::ios_base::cur)) {
+            if (!wav.in.seekg(bytesToSeek, std::ios_base::cur)) {
                 break;
             }
 
@@ -1230,7 +1198,7 @@ extern size_t drwav_read_raw(drwav* pWav, std::istream& in, size_t bytesToRead, 
                 bytesToSeek = sizeof(buffer);
             }
 
-            bytesSeeked = wav_read(in, buffer, bytesToSeek);
+            bytesSeeked = wav_read(wav.in, buffer, bytesToSeek);
             bytesRead += bytesSeeked;
 
             if (bytesSeeked < bytesToSeek) {
@@ -1239,128 +1207,113 @@ extern size_t drwav_read_raw(drwav* pWav, std::istream& in, size_t bytesToRead, 
         }
     }
 
-    pWav->bytesRemaining -= bytesRead;
+    wav.bytesRemaining -= bytesRead;
     return bytesRead;
 }
 
 
 
-extern uint64_t drwav_read_pcm_frames_le(drwav* pWav, std::istream& in, uint64_t framesToRead, void* pBufferOut) {
-    if (pWav == NULL || framesToRead == 0) {
+extern uint64_t drwav_read_pcm_frames_le(wav_reader& wav, uint64_t framesToRead, void* pBufferOut) {
+    if (framesToRead == 0) {
         return 0;
     }
 
     /* Cannot use this function for compressed formats. */
-    if (drwav__is_compressed_format_tag(pWav->translatedFormatTag)) {
+    if (drwav__is_compressed_format_tag(wav.translatedFormatTag)) {
         return 0;
     }
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
 
-    return drwav_read_raw(pWav, in, (size_t)(framesToRead * bytesPerFrame), pBufferOut) / bytesPerFrame;
+    return drwav_read_raw(wav, (size_t)(framesToRead * bytesPerFrame), pBufferOut) / bytesPerFrame;
 }
 
-extern uint64_t drwav_read_pcm_frames_be(drwav* pWav, std::istream& in, uint64_t framesToRead, void* pBufferOut) {
-    uint64_t framesRead = drwav_read_pcm_frames_le(pWav, in, framesToRead, pBufferOut);
+extern uint64_t drwav_read_pcm_frames_be(wav_reader& wav, uint64_t framesToRead, void* pBufferOut) {
+    uint64_t framesRead = drwav_read_pcm_frames_le(wav, framesToRead, pBufferOut);
 
     if (pBufferOut != NULL) {
-        drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, drwav_get_bytes_per_pcm_frame(pWav)/pWav->channels, pWav->translatedFormatTag);
+        drwav__bswap_samples(pBufferOut, framesRead*wav.channels, drwav_get_bytes_per_pcm_frame(wav)/wav.channels, wav.translatedFormatTag);
     }
 
     return framesRead;
 }
 
-/*
-Reads up to the specified number of PCM frames from the WAV file.
-
-The output data will be in the file's internal format, converted to native-endian byte order. Use
-drwav_read_pcm_frames_s16/f32/s32() to read data in a specific format.
-
-If the return value is less than <framesToRead> it means the end of the file has been reached or
-you have requested more PCM frames than can possibly fit in the output buffer.
-
-This function will only work when sample data is of a fixed size and uncompressed. If you are
-using a compressed format consider using drwav_read_raw() or drwav_read_pcm_frames_s16/s32/f32().
-
-pBufferOut can be NULL in which case a seek will be performed.
-*/
-extern uint64_t drwav_read_pcm_frames(drwav* pWav, std::istream& in, uint64_t framesToRead, void* pBufferOut) {
+extern uint64_t drwav_read_pcm_frames(wav_reader& wav, uint64_t framesToRead, void* pBufferOut) {
     if (drwav__is_little_endian()) {
-        return drwav_read_pcm_frames_le(pWav, in, framesToRead, pBufferOut);
+        return drwav_read_pcm_frames_le(wav, framesToRead, pBufferOut);
     } else {
-        return drwav_read_pcm_frames_be(pWav, in, framesToRead, pBufferOut);
+        return drwav_read_pcm_frames_be(wav, framesToRead, pBufferOut);
     }
 }
 
-static uint64_t drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s16__msadpcm(wav_reader& wav, uint64_t framesToRead, int16_t* pBufferOut) {
     uint64_t totalFramesRead = 0;
 
-    assert(pWav != NULL);
     assert(framesToRead > 0);
 
     /* TODO: Lots of room for optimization here. */
 
-    while (framesToRead > 0 && pWav->iCurrentCompressedPCMFrame < pWav->totalPCMFrameCount) {
+    while (framesToRead > 0 && wav.iCurrentCompressedPCMFrame < wav.totalPCMFrameCount) {
         /* If there are no cached frames we need to load a new block. */
-        if (pWav->msadpcm.cachedFrameCount == 0 && pWav->msadpcm.bytesRemainingInBlock == 0) {
-            if (pWav->channels == 1) {
+        if (wav.msadpcm.cachedFrameCount == 0 && wav.msadpcm.bytesRemainingInBlock == 0) {
+            if (wav.channels == 1) {
                 /* Mono. */
                 uint8_t header[7];
-                if (!wav_read(in, header, sizeof(header))) {
+                if (!wav_read(wav.in, header, sizeof(header))) {
                     return totalFramesRead;
                 }
-                pWav->msadpcm.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
+                wav.msadpcm.bytesRemainingInBlock = wav.fmt.blockAlign - sizeof(header);
 
-                pWav->msadpcm.predictor[0] = header[0];
-                pWav->msadpcm.delta[0] = drwav__bytes_to_s16(header + 1);
-                pWav->msadpcm.prevFrames[0][1] = (int32_t)drwav__bytes_to_s16(header + 3);
-                pWav->msadpcm.prevFrames[0][0] = (int32_t)drwav__bytes_to_s16(header + 5);
-                pWav->msadpcm.cachedFrames[2] = pWav->msadpcm.prevFrames[0][0];
-                pWav->msadpcm.cachedFrames[3] = pWav->msadpcm.prevFrames[0][1];
-                pWav->msadpcm.cachedFrameCount = 2;
+                wav.msadpcm.predictor[0] = header[0];
+                wav.msadpcm.delta[0] = drwav__bytes_to_s16(header + 1);
+                wav.msadpcm.prevFrames[0][1] = (int32_t)drwav__bytes_to_s16(header + 3);
+                wav.msadpcm.prevFrames[0][0] = (int32_t)drwav__bytes_to_s16(header + 5);
+                wav.msadpcm.cachedFrames[2] = wav.msadpcm.prevFrames[0][0];
+                wav.msadpcm.cachedFrames[3] = wav.msadpcm.prevFrames[0][1];
+                wav.msadpcm.cachedFrameCount = 2;
             } else {
                 /* Stereo. */
                 uint8_t header[14];
-                if (!wav_read(in, header, sizeof(header))) {
+                if (!wav_read(wav.in, header, sizeof(header))) {
                     return totalFramesRead;
                 }
-                pWav->msadpcm.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
+                wav.msadpcm.bytesRemainingInBlock = wav.fmt.blockAlign - sizeof(header);
 
-                pWav->msadpcm.predictor[0] = header[0];
-                pWav->msadpcm.predictor[1] = header[1];
-                pWav->msadpcm.delta[0] = drwav__bytes_to_s16(header + 2);
-                pWav->msadpcm.delta[1] = drwav__bytes_to_s16(header + 4);
-                pWav->msadpcm.prevFrames[0][1] = (int32_t)drwav__bytes_to_s16(header + 6);
-                pWav->msadpcm.prevFrames[1][1] = (int32_t)drwav__bytes_to_s16(header + 8);
-                pWav->msadpcm.prevFrames[0][0] = (int32_t)drwav__bytes_to_s16(header + 10);
-                pWav->msadpcm.prevFrames[1][0] = (int32_t)drwav__bytes_to_s16(header + 12);
+                wav.msadpcm.predictor[0] = header[0];
+                wav.msadpcm.predictor[1] = header[1];
+                wav.msadpcm.delta[0] = drwav__bytes_to_s16(header + 2);
+                wav.msadpcm.delta[1] = drwav__bytes_to_s16(header + 4);
+                wav.msadpcm.prevFrames[0][1] = (int32_t)drwav__bytes_to_s16(header + 6);
+                wav.msadpcm.prevFrames[1][1] = (int32_t)drwav__bytes_to_s16(header + 8);
+                wav.msadpcm.prevFrames[0][0] = (int32_t)drwav__bytes_to_s16(header + 10);
+                wav.msadpcm.prevFrames[1][0] = (int32_t)drwav__bytes_to_s16(header + 12);
 
-                pWav->msadpcm.cachedFrames[0] = pWav->msadpcm.prevFrames[0][0];
-                pWav->msadpcm.cachedFrames[1] = pWav->msadpcm.prevFrames[1][0];
-                pWav->msadpcm.cachedFrames[2] = pWav->msadpcm.prevFrames[0][1];
-                pWav->msadpcm.cachedFrames[3] = pWav->msadpcm.prevFrames[1][1];
-                pWav->msadpcm.cachedFrameCount = 2;
+                wav.msadpcm.cachedFrames[0] = wav.msadpcm.prevFrames[0][0];
+                wav.msadpcm.cachedFrames[1] = wav.msadpcm.prevFrames[1][0];
+                wav.msadpcm.cachedFrames[2] = wav.msadpcm.prevFrames[0][1];
+                wav.msadpcm.cachedFrames[3] = wav.msadpcm.prevFrames[1][1];
+                wav.msadpcm.cachedFrameCount = 2;
             }
         }
 
         /* Output anything that's cached. */
-        while (framesToRead > 0 && pWav->msadpcm.cachedFrameCount > 0 && pWav->iCurrentCompressedPCMFrame < pWav->totalPCMFrameCount) {
+        while (framesToRead > 0 && wav.msadpcm.cachedFrameCount > 0 && wav.iCurrentCompressedPCMFrame < wav.totalPCMFrameCount) {
             if (pBufferOut != NULL) {
                 uint32_t iSample = 0;
-                for (iSample = 0; iSample < pWav->channels; iSample += 1) {
-                    pBufferOut[iSample] = (int16_t)pWav->msadpcm.cachedFrames[(wav_countof(pWav->msadpcm.cachedFrames) - (pWav->msadpcm.cachedFrameCount*pWav->channels)) + iSample];
+                for (iSample = 0; iSample < wav.channels; iSample += 1) {
+                    pBufferOut[iSample] = (int16_t)wav.msadpcm.cachedFrames[(wav_countof(wav.msadpcm.cachedFrames) - (wav.msadpcm.cachedFrameCount*wav.channels)) + iSample];
                 }
 
-                pBufferOut += pWav->channels;
+                pBufferOut += wav.channels;
             }
 
             framesToRead -= 1;
             totalFramesRead += 1;
-            pWav->iCurrentCompressedPCMFrame += 1;
-            pWav->msadpcm.cachedFrameCount -= 1;
+            wav.iCurrentCompressedPCMFrame += 1;
+            wav.msadpcm.cachedFrameCount -= 1;
         }
 
         if (framesToRead == 0) {
@@ -1372,8 +1325,8 @@ static uint64_t drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, std::istream& in
         If there's nothing left in the cache, just go ahead and load more. If there's nothing left to load in the current block we just continue to the next
         loop iteration which will trigger the loading of a new block.
         */
-        if (pWav->msadpcm.cachedFrameCount == 0) {
-            if (pWav->msadpcm.bytesRemainingInBlock == 0) {
+        if (wav.msadpcm.cachedFrameCount == 0) {
+            if (wav.msadpcm.bytesRemainingInBlock == 0) {
                 continue;
             } else {
                 static int32_t adaptationTable[] = {
@@ -1387,84 +1340,84 @@ static uint64_t drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, std::istream& in
                 int32_t nibble0;
                 int32_t nibble1;
 
-                if (!wav_read(in, &nibbles, 1)) {
+                if (!wav_read(wav.in, &nibbles, 1)) {
                     return totalFramesRead;
                 }
-                pWav->msadpcm.bytesRemainingInBlock -= 1;
+                wav.msadpcm.bytesRemainingInBlock -= 1;
 
                 /* TODO: Optimize away these if statements. */
                 nibble0 = ((nibbles & 0xF0) >> 4); if ((nibbles & 0x80)) { nibble0 |= 0xFFFFFFF0UL; }
                 nibble1 = ((nibbles & 0x0F) >> 0); if ((nibbles & 0x08)) { nibble1 |= 0xFFFFFFF0UL; }
 
-                if (pWav->channels == 1) {
+                if (wav.channels == 1) {
                     /* Mono. */
                     int32_t newSample0;
                     int32_t newSample1;
 
-                    newSample0 = ((pWav->msadpcm.prevFrames[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevFrames[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
-                    newSample0 += nibble0 * pWav->msadpcm.delta[0];
+                    newSample0 = ((wav.msadpcm.prevFrames[0][1] * coeff1Table[wav.msadpcm.predictor[0]]) + (wav.msadpcm.prevFrames[0][0] * coeff2Table[wav.msadpcm.predictor[0]])) >> 8;
+                    newSample0 += nibble0 * wav.msadpcm.delta[0];
                     newSample0 = wav_clamp(newSample0, -32768, 32767);
 
-                    pWav->msadpcm.delta[0] = (adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta[0]) >> 8;
-                    if (pWav->msadpcm.delta[0] < 16) {
-                        pWav->msadpcm.delta[0] = 16;
+                    wav.msadpcm.delta[0] = (adaptationTable[((nibbles & 0xF0) >> 4)] * wav.msadpcm.delta[0]) >> 8;
+                    if (wav.msadpcm.delta[0] < 16) {
+                        wav.msadpcm.delta[0] = 16;
                     }
 
-                    pWav->msadpcm.prevFrames[0][0] = pWav->msadpcm.prevFrames[0][1];
-                    pWav->msadpcm.prevFrames[0][1] = newSample0;
+                    wav.msadpcm.prevFrames[0][0] = wav.msadpcm.prevFrames[0][1];
+                    wav.msadpcm.prevFrames[0][1] = newSample0;
 
 
-                    newSample1 = ((pWav->msadpcm.prevFrames[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevFrames[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
-                    newSample1 += nibble1 * pWav->msadpcm.delta[0];
+                    newSample1 = ((wav.msadpcm.prevFrames[0][1] * coeff1Table[wav.msadpcm.predictor[0]]) + (wav.msadpcm.prevFrames[0][0] * coeff2Table[wav.msadpcm.predictor[0]])) >> 8;
+                    newSample1 += nibble1 * wav.msadpcm.delta[0];
                     newSample1 = wav_clamp(newSample1, -32768, 32767);
 
-                    pWav->msadpcm.delta[0] = (adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta[0]) >> 8;
-                    if (pWav->msadpcm.delta[0] < 16) {
-                        pWav->msadpcm.delta[0] = 16;
+                    wav.msadpcm.delta[0] = (adaptationTable[((nibbles & 0x0F) >> 0)] * wav.msadpcm.delta[0]) >> 8;
+                    if (wav.msadpcm.delta[0] < 16) {
+                        wav.msadpcm.delta[0] = 16;
                     }
 
-                    pWav->msadpcm.prevFrames[0][0] = pWav->msadpcm.prevFrames[0][1];
-                    pWav->msadpcm.prevFrames[0][1] = newSample1;
+                    wav.msadpcm.prevFrames[0][0] = wav.msadpcm.prevFrames[0][1];
+                    wav.msadpcm.prevFrames[0][1] = newSample1;
 
 
-                    pWav->msadpcm.cachedFrames[2] = newSample0;
-                    pWav->msadpcm.cachedFrames[3] = newSample1;
-                    pWav->msadpcm.cachedFrameCount = 2;
+                    wav.msadpcm.cachedFrames[2] = newSample0;
+                    wav.msadpcm.cachedFrames[3] = newSample1;
+                    wav.msadpcm.cachedFrameCount = 2;
                 } else {
                     /* Stereo. */
                     int32_t newSample0;
                     int32_t newSample1;
 
                     /* Left. */
-                    newSample0 = ((pWav->msadpcm.prevFrames[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevFrames[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
-                    newSample0 += nibble0 * pWav->msadpcm.delta[0];
+                    newSample0 = ((wav.msadpcm.prevFrames[0][1] * coeff1Table[wav.msadpcm.predictor[0]]) + (wav.msadpcm.prevFrames[0][0] * coeff2Table[wav.msadpcm.predictor[0]])) >> 8;
+                    newSample0 += nibble0 * wav.msadpcm.delta[0];
                     newSample0 = wav_clamp(newSample0, -32768, 32767);
 
-                    pWav->msadpcm.delta[0] = (adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta[0]) >> 8;
-                    if (pWav->msadpcm.delta[0] < 16) {
-                        pWav->msadpcm.delta[0] = 16;
+                    wav.msadpcm.delta[0] = (adaptationTable[((nibbles & 0xF0) >> 4)] * wav.msadpcm.delta[0]) >> 8;
+                    if (wav.msadpcm.delta[0] < 16) {
+                        wav.msadpcm.delta[0] = 16;
                     }
 
-                    pWav->msadpcm.prevFrames[0][0] = pWav->msadpcm.prevFrames[0][1];
-                    pWav->msadpcm.prevFrames[0][1] = newSample0;
+                    wav.msadpcm.prevFrames[0][0] = wav.msadpcm.prevFrames[0][1];
+                    wav.msadpcm.prevFrames[0][1] = newSample0;
 
 
                     /* Right. */
-                    newSample1 = ((pWav->msadpcm.prevFrames[1][1] * coeff1Table[pWav->msadpcm.predictor[1]]) + (pWav->msadpcm.prevFrames[1][0] * coeff2Table[pWav->msadpcm.predictor[1]])) >> 8;
-                    newSample1 += nibble1 * pWav->msadpcm.delta[1];
+                    newSample1 = ((wav.msadpcm.prevFrames[1][1] * coeff1Table[wav.msadpcm.predictor[1]]) + (wav.msadpcm.prevFrames[1][0] * coeff2Table[wav.msadpcm.predictor[1]])) >> 8;
+                    newSample1 += nibble1 * wav.msadpcm.delta[1];
                     newSample1 = wav_clamp(newSample1, -32768, 32767);
 
-                    pWav->msadpcm.delta[1] = (adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta[1]) >> 8;
-                    if (pWav->msadpcm.delta[1] < 16) {
-                        pWav->msadpcm.delta[1] = 16;
+                    wav.msadpcm.delta[1] = (adaptationTable[((nibbles & 0x0F) >> 0)] * wav.msadpcm.delta[1]) >> 8;
+                    if (wav.msadpcm.delta[1] < 16) {
+                        wav.msadpcm.delta[1] = 16;
                     }
 
-                    pWav->msadpcm.prevFrames[1][0] = pWav->msadpcm.prevFrames[1][1];
-                    pWav->msadpcm.prevFrames[1][1] = newSample1;
+                    wav.msadpcm.prevFrames[1][0] = wav.msadpcm.prevFrames[1][1];
+                    wav.msadpcm.prevFrames[1][1] = newSample1;
 
-                    pWav->msadpcm.cachedFrames[2] = newSample0;
-                    pWav->msadpcm.cachedFrames[3] = newSample1;
-                    pWav->msadpcm.cachedFrameCount = 1;
+                    wav.msadpcm.cachedFrames[2] = newSample0;
+                    wav.msadpcm.cachedFrames[3] = newSample1;
+                    wav.msadpcm.cachedFrameCount = 1;
                 }
             }
         }
@@ -1473,7 +1426,7 @@ static uint64_t drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, std::istream& in
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s16__ima(drwav* pWav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s16__ima(wav_reader& wav, uint64_t framesToRead, int16_t* pBufferOut) {
     uint64_t totalFramesRead = 0;
 
     static int32_t indexTable[16] = {
@@ -1493,71 +1446,70 @@ static uint64_t drwav_read_pcm_frames_s16__ima(drwav* pWav, std::istream& in, ui
         15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
     };
 
-    assert(pWav != NULL);
     assert(framesToRead > 0);
 
     /* TODO: Lots of room for optimization here. */
 
-    while (framesToRead > 0 && pWav->iCurrentCompressedPCMFrame < pWav->totalPCMFrameCount) {
+    while (framesToRead > 0 && wav.iCurrentCompressedPCMFrame < wav.totalPCMFrameCount) {
         /* If there are no cached samples we need to load a new block. */
-        if (pWav->ima.cachedFrameCount == 0 && pWav->ima.bytesRemainingInBlock == 0) {
-            if (pWav->channels == 1) {
+        if (wav.ima.cachedFrameCount == 0 && wav.ima.bytesRemainingInBlock == 0) {
+            if (wav.channels == 1) {
                 /* Mono. */
                 uint8_t header[4];
-                if (!wav_read(in, header, sizeof(header))) {
+                if (!wav_read(wav.in, header, sizeof(header))) {
                     return totalFramesRead;
                 }
-                pWav->ima.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
+                wav.ima.bytesRemainingInBlock = wav.fmt.blockAlign - sizeof(header);
 
                 if (header[2] >= wav_countof(stepTable)) {
-                    in.seekg(pWav->ima.bytesRemainingInBlock, std::ios_base::cur);
-                    pWav->ima.bytesRemainingInBlock = 0;
+                    wav.in.seekg(wav.ima.bytesRemainingInBlock, std::ios_base::cur);
+                    wav.ima.bytesRemainingInBlock = 0;
                     return totalFramesRead; /* Invalid data. */
                 }
 
-                pWav->ima.predictor[0] = drwav__bytes_to_s16(header + 0);
-                pWav->ima.stepIndex[0] = header[2];
-                pWav->ima.cachedFrames[wav_countof(pWav->ima.cachedFrames) - 1] = pWav->ima.predictor[0];
-                pWav->ima.cachedFrameCount = 1;
+                wav.ima.predictor[0] = drwav__bytes_to_s16(header + 0);
+                wav.ima.stepIndex[0] = header[2];
+                wav.ima.cachedFrames[wav_countof(wav.ima.cachedFrames) - 1] = wav.ima.predictor[0];
+                wav.ima.cachedFrameCount = 1;
             } else {
                 /* Stereo. */
                 uint8_t header[8];
-                if (!wav_read(in, header, sizeof(header))) {
+                if (!wav_read(wav.in, header, sizeof(header))) {
                     return totalFramesRead;
                 }
-                pWav->ima.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
+                wav.ima.bytesRemainingInBlock = wav.fmt.blockAlign - sizeof(header);
 
                 if (header[2] >= wav_countof(stepTable) || header[6] >= wav_countof(stepTable)) {
-                    in.seekg(pWav->ima.bytesRemainingInBlock, std::ios_base::cur);
-                    pWav->ima.bytesRemainingInBlock = 0;
+                    wav.in.seekg(wav.ima.bytesRemainingInBlock, std::ios_base::cur);
+                    wav.ima.bytesRemainingInBlock = 0;
                     return totalFramesRead; /* Invalid data. */
                 }
 
-                pWav->ima.predictor[0] = drwav__bytes_to_s16(header + 0);
-                pWav->ima.stepIndex[0] = header[2];
-                pWav->ima.predictor[1] = drwav__bytes_to_s16(header + 4);
-                pWav->ima.stepIndex[1] = header[6];
+                wav.ima.predictor[0] = drwav__bytes_to_s16(header + 0);
+                wav.ima.stepIndex[0] = header[2];
+                wav.ima.predictor[1] = drwav__bytes_to_s16(header + 4);
+                wav.ima.stepIndex[1] = header[6];
 
-                pWav->ima.cachedFrames[wav_countof(pWav->ima.cachedFrames) - 2] = pWav->ima.predictor[0];
-                pWav->ima.cachedFrames[wav_countof(pWav->ima.cachedFrames) - 1] = pWav->ima.predictor[1];
-                pWav->ima.cachedFrameCount = 1;
+                wav.ima.cachedFrames[wav_countof(wav.ima.cachedFrames) - 2] = wav.ima.predictor[0];
+                wav.ima.cachedFrames[wav_countof(wav.ima.cachedFrames) - 1] = wav.ima.predictor[1];
+                wav.ima.cachedFrameCount = 1;
             }
         }
 
         /* Output anything that's cached. */
-        while (framesToRead > 0 && pWav->ima.cachedFrameCount > 0 && pWav->iCurrentCompressedPCMFrame < pWav->totalPCMFrameCount) {
+        while (framesToRead > 0 && wav.ima.cachedFrameCount > 0 && wav.iCurrentCompressedPCMFrame < wav.totalPCMFrameCount) {
             if (pBufferOut != NULL) {
                 uint32_t iSample;
-                for (iSample = 0; iSample < pWav->channels; iSample += 1) {
-                    pBufferOut[iSample] = (int16_t)pWav->ima.cachedFrames[(wav_countof(pWav->ima.cachedFrames) - (pWav->ima.cachedFrameCount*pWav->channels)) + iSample];
+                for (iSample = 0; iSample < wav.channels; iSample += 1) {
+                    pBufferOut[iSample] = (int16_t)wav.ima.cachedFrames[(wav_countof(wav.ima.cachedFrames) - (wav.ima.cachedFrameCount*wav.channels)) + iSample];
                 }
-                pBufferOut += pWav->channels;
+                pBufferOut += wav.channels;
             }
 
             framesToRead -= 1;
             totalFramesRead += 1;
-            pWav->iCurrentCompressedPCMFrame += 1;
-            pWav->ima.cachedFrameCount -= 1;
+            wav.iCurrentCompressedPCMFrame += 1;
+            wav.ima.cachedFrameCount -= 1;
         }
 
         if (framesToRead == 0) {
@@ -1568,30 +1520,30 @@ static uint64_t drwav_read_pcm_frames_s16__ima(drwav* pWav, std::istream& in, ui
         If there's nothing left in the cache, just go ahead and load more. If there's nothing left to load in the current block we just continue to the next
         loop iteration which will trigger the loading of a new block.
         */
-        if (pWav->ima.cachedFrameCount == 0) {
-            if (pWav->ima.bytesRemainingInBlock == 0) {
+        if (wav.ima.cachedFrameCount == 0) {
+            if (wav.ima.bytesRemainingInBlock == 0) {
                 continue;
             } else {
                 /*
                 From what I can tell with stereo streams, it looks like every 4 bytes (8 samples) is for one channel. So it goes 4 bytes for the
                 left channel, 4 bytes for the right channel.
                 */
-                pWav->ima.cachedFrameCount = 8;
-                for (uint32_t iChannel = 0; iChannel < pWav->channels; ++iChannel) {
+                wav.ima.cachedFrameCount = 8;
+                for (uint32_t iChannel = 0; iChannel < wav.channels; ++iChannel) {
                     uint32_t iByte;
                     uint8_t nibbles[4];
-                    if (!wav_read(in, &nibbles, 4)) {
-                        pWav->ima.cachedFrameCount = 0;
+                    if (!wav_read(wav.in, &nibbles, 4)) {
+                        wav.ima.cachedFrameCount = 0;
                         return totalFramesRead;
                     }
-                    pWav->ima.bytesRemainingInBlock -= 4;
+                    wav.ima.bytesRemainingInBlock -= 4;
 
                     for (iByte = 0; iByte < 4; ++iByte) {
                         uint8_t nibble0 = ((nibbles[iByte] & 0x0F) >> 0);
                         uint8_t nibble1 = ((nibbles[iByte] & 0xF0) >> 4);
 
-                        int32_t step = stepTable[pWav->ima.stepIndex[iChannel]];
-                        int32_t predictor = pWav->ima.predictor[iChannel];
+                        int32_t step = stepTable[wav.ima.stepIndex[iChannel]];
+                        int32_t predictor = wav.ima.predictor[iChannel];
 
                         int32_t      diff = step >> 3;
                         if (nibble0 & 1) diff += step >> 2;
@@ -1600,13 +1552,13 @@ static uint64_t drwav_read_pcm_frames_s16__ima(drwav* pWav, std::istream& in, ui
                         if (nibble0 & 8) diff = -diff;
 
                         predictor = wav_clamp(predictor + diff, -32768, 32767);
-                        pWav->ima.predictor[iChannel] = predictor;
-                        pWav->ima.stepIndex[iChannel] = wav_clamp(pWav->ima.stepIndex[iChannel] + indexTable[nibble0], 0, (int32_t)wav_countof(stepTable) - 1);
-                        pWav->ima.cachedFrames[(wav_countof(pWav->ima.cachedFrames) - (pWav->ima.cachedFrameCount*pWav->channels)) + (iByte * 2 + 0)*pWav->channels + iChannel] = predictor;
+                        wav.ima.predictor[iChannel] = predictor;
+                        wav.ima.stepIndex[iChannel] = wav_clamp(wav.ima.stepIndex[iChannel] + indexTable[nibble0], 0, (int32_t)wav_countof(stepTable) - 1);
+                        wav.ima.cachedFrames[(wav_countof(wav.ima.cachedFrames) - (wav.ima.cachedFrameCount*wav.channels)) + (iByte * 2 + 0)*wav.channels + iChannel] = predictor;
 
 
-                        step = stepTable[pWav->ima.stepIndex[iChannel]];
-                        predictor = pWav->ima.predictor[iChannel];
+                        step = stepTable[wav.ima.stepIndex[iChannel]];
+                        predictor = wav.ima.predictor[iChannel];
 
                         diff = step >> 3;
                         if (nibble1 & 1) diff += step >> 2;
@@ -1615,9 +1567,9 @@ static uint64_t drwav_read_pcm_frames_s16__ima(drwav* pWav, std::istream& in, ui
                         if (nibble1 & 8) diff = -diff;
 
                         predictor = wav_clamp(predictor + diff, -32768, 32767);
-                        pWav->ima.predictor[iChannel] = predictor;
-                        pWav->ima.stepIndex[iChannel] = wav_clamp(pWav->ima.stepIndex[iChannel] + indexTable[nibble1], 0, (int32_t)wav_countof(stepTable) - 1);
-                        pWav->ima.cachedFrames[(wav_countof(pWav->ima.cachedFrames) - (pWav->ima.cachedFrameCount*pWav->channels)) + (iByte * 2 + 1)*pWav->channels + iChannel] = predictor;
+                        wav.ima.predictor[iChannel] = predictor;
+                        wav.ima.stepIndex[iChannel] = wav_clamp(wav.ima.stepIndex[iChannel] + indexTable[nibble1], 0, (int32_t)wav_countof(stepTable) - 1);
+                        wav.ima.cachedFrames[(wav_countof(wav.ima.cachedFrames) - (wav.ima.cachedFrameCount*wav.channels)) + (iByte * 2 + 1)*wav.channels + iChannel] = predictor;
                     }
                 }
             }
@@ -1632,30 +1584,30 @@ Writes raw audio data.
 
 Returns the number of bytes actually written. If this differs from bytesToWrite, it indicates an error.
 */
-extern size_t drwav_write_raw(drwav* pWav, std::ostream& out, size_t bytesToWrite, const void* pData) {
-    if (pWav == NULL || bytesToWrite == 0 || pData == NULL) {
+extern size_t drwav_write_raw(wav_writer& wav, size_t bytesToWrite, const void* pData) {
+    if (bytesToWrite == 0 || pData == NULL) {
         return 0;
     }
 
-    size_t bytesWritten = wav_write(out, pData, bytesToWrite);
-    pWav->dataChunkDataSize += bytesWritten;
+    size_t bytesWritten = wav_write(wav.out, pData, bytesToWrite);
+    wav.dataChunkDataSize += bytesWritten;
 
     return bytesWritten;
 }
 
 
-extern uint64_t drwav_write_pcm_frames_le(drwav* pWav, std::ostream& out, uint64_t framesToWrite, const void* pData) {
-    if (pWav == NULL || framesToWrite == 0 || pData == NULL) {
+extern uint64_t drwav_write_pcm_frames_le(wav_writer& wav, uint64_t framesToWrite, const void* pData) {
+    if (framesToWrite == 0 || pData == NULL) {
         return 0;
     }
 
-    uint64_t bytesToWrite = ((framesToWrite * pWav->channels * pWav->bitsPerSample) / 8);
+    uint64_t bytesToWrite = ((framesToWrite * wav.channels * wav.bitsPerSample) / 8);
 
     uint64_t bytesWritten = 0;
     const uint8_t* pRunningData = (const uint8_t*)pData;
 
     while (bytesToWrite > 0) {
-        size_t bytesJustWritten = drwav_write_raw(pWav, out, (size_t)bytesToWrite, pRunningData);
+        size_t bytesJustWritten = drwav_write_raw(wav, (size_t)bytesToWrite, pRunningData);
         if (bytesJustWritten == 0) {
             break;
         }
@@ -1665,20 +1617,20 @@ extern uint64_t drwav_write_pcm_frames_le(drwav* pWav, std::ostream& out, uint64
         pRunningData += bytesJustWritten;
     }
 
-    return (bytesWritten * 8) / pWav->bitsPerSample / pWav->channels;
+    return (bytesWritten * 8) / wav.bitsPerSample / wav.channels;
 }
 
-extern uint64_t drwav_write_pcm_frames_be(drwav* pWav, std::ostream& out, uint64_t framesToWrite, const void* pData) {
-    if (pWav == NULL || framesToWrite == 0 || pData == NULL) {
+extern uint64_t drwav_write_pcm_frames_be(wav_writer& wav, uint64_t framesToWrite, const void* pData) {
+    if (framesToWrite == 0 || pData == NULL) {
         return 0;
     }
 
-    uint64_t bytesToWrite = ((framesToWrite * pWav->channels * pWav->bitsPerSample) / 8);
+    uint64_t bytesToWrite = ((framesToWrite * wav.channels * wav.bitsPerSample) / 8);
 
     uint64_t bytesWritten = 0;
     const uint8_t* pRunningData = (const uint8_t*)pData;
 
-    uint32_t bytesPerSample = drwav_get_bytes_per_pcm_frame(pWav) / pWav->channels;
+    uint32_t bytesPerSample = drwav_get_bytes_per_pcm_frame(wav) / wav.channels;
     
     while (bytesToWrite > 0) {
         uint8_t temp[4096];
@@ -1699,9 +1651,9 @@ extern uint64_t drwav_write_pcm_frames_be(drwav* pWav, std::ostream& out, uint64
         }
 
         memcpy(temp, pRunningData, (size_t)bytesToWriteThisIteration);
-        drwav__bswap_samples(temp, sampleCount, bytesPerSample, pWav->translatedFormatTag);
+        drwav__bswap_samples(temp, sampleCount, bytesPerSample, wav.translatedFormatTag);
 
-        bytesJustWritten = drwav_write_raw(pWav, out, (size_t)bytesToWriteThisIteration, temp);
+        bytesJustWritten = drwav_write_raw(wav, (size_t)bytesToWriteThisIteration, temp);
         if (bytesJustWritten == 0) {
             break;
         }
@@ -1711,7 +1663,7 @@ extern uint64_t drwav_write_pcm_frames_be(drwav* pWav, std::ostream& out, uint64
         pRunningData += bytesJustWritten;
     }
 
-    return (bytesWritten * 8) / pWav->bitsPerSample / pWav->channels;
+    return (bytesWritten * 8) / wav.bitsPerSample / wav.channels;
 }
 
 /*
@@ -1722,11 +1674,11 @@ Returns the number of PCM frames written.
 Input samples need to be in native-endian byte order. On big-endian architectures the input data will be converted to
 little-endian. Use drwav_write_raw() to write raw audio data without performing any conversion.
 */
-extern uint64_t drwav_write_pcm_frames(drwav* pWav, std::ostream& out, uint64_t framesToWrite, const void* pData) {
+extern uint64_t drwav_write_pcm_frames(wav_writer& wav, uint64_t framesToWrite, const void* pData) {
     if (drwav__is_little_endian()) {
-        return drwav_write_pcm_frames_le(pWav, out, framesToWrite, pData);
+        return drwav_write_pcm_frames_le(wav, framesToWrite, pData);
     } else {
-        return drwav_write_pcm_frames_be(pWav, out, framesToWrite, pData);
+        return drwav_write_pcm_frames_be(wav, framesToWrite, pData);
     }
 }
 
@@ -2176,15 +2128,15 @@ static void drwav__ieee_to_s16(int16_t* pOut, const uint8_t* pIn, size_t totalSa
     }
 }
 
-static uint64_t drwav_read_pcm_frames_s16__pcm(drwav* pWav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s16__pcm(wav_reader& wav, uint64_t framesToRead, int16_t* pBufferOut) {
     uint8_t sampleData[4096];
 
     /* Fast path. */
-    if ((pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM && pWav->bitsPerSample == 16) || pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, in, framesToRead, pBufferOut);
+    if ((wav.translatedFormatTag == DR_WAVE_FORMAT_PCM && wav.bitsPerSample == 16) || pBufferOut == NULL) {
+        return drwav_read_pcm_frames(wav, framesToRead, pBufferOut);
     }
     
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2192,14 +2144,14 @@ static uint64_t drwav_read_pcm_frames_s16__pcm(drwav* pWav, std::istream& in, ui
     uint64_t totalFramesRead = 0;
     
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav__pcm_to_s16(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
+        drwav__pcm_to_s16(pBufferOut, sampleData, (size_t)(framesRead*wav.channels), bytesPerFrame / wav.channels);
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2207,14 +2159,14 @@ static uint64_t drwav_read_pcm_frames_s16__pcm(drwav* pWav, std::istream& in, ui
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s16__ieee(drwav* pWav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s16__ieee(wav_reader& wav, uint64_t framesToRead, int16_t* pBufferOut) {
     uint8_t sampleData[4096];
 
     if (pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, in, framesToRead, NULL);
+        return drwav_read_pcm_frames(wav, framesToRead, NULL);
     }
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2222,14 +2174,14 @@ static uint64_t drwav_read_pcm_frames_s16__ieee(drwav* pWav, std::istream& in, u
     uint64_t totalFramesRead = 0;
     
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav__ieee_to_s16(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
+        drwav__ieee_to_s16(pBufferOut, sampleData, (size_t)(framesRead * wav.channels), bytesPerFrame / wav.channels);
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2237,14 +2189,14 @@ static uint64_t drwav_read_pcm_frames_s16__ieee(drwav* pWav, std::istream& in, u
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s16__alaw(drwav* pWav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s16__alaw(wav_reader& wav, uint64_t framesToRead, int16_t* pBufferOut) {
     uint8_t sampleData[4096];
 
     if (pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, in, framesToRead, NULL);
+        return drwav_read_pcm_frames(wav, framesToRead, NULL);
     }
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2252,14 +2204,14 @@ static uint64_t drwav_read_pcm_frames_s16__alaw(drwav* pWav, std::istream& in, u
     uint64_t totalFramesRead = 0;
     
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_alaw_to_s16(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
+        drwav_alaw_to_s16(pBufferOut, sampleData, (size_t)(framesRead * wav.channels));
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2267,14 +2219,14 @@ static uint64_t drwav_read_pcm_frames_s16__alaw(drwav* pWav, std::istream& in, u
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s16__mulaw(drwav* pWav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s16__mulaw(wav_reader& wav, uint64_t framesToRead, int16_t* pBufferOut) {
     uint8_t sampleData[4096];
 
     if (pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, in, framesToRead, NULL);
+        return drwav_read_pcm_frames(wav, framesToRead, NULL);
     }
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2282,14 +2234,14 @@ static uint64_t drwav_read_pcm_frames_s16__mulaw(drwav* pWav, std::istream& in, 
     uint64_t totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_mulaw_to_s16(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
+        drwav_mulaw_to_s16(pBufferOut, sampleData, (size_t)(framesRead*wav.channels));
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2307,55 +2259,46 @@ Returns the number of PCM frames actually read.
 
 If the return value is less than <framesToRead> it means the end of the file has been reached.
 */
-extern uint64_t drwav_read_pcm_frames_s16(drwav* pWav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
-    if (pWav == NULL || framesToRead == 0) {
+extern uint64_t drwav_read_pcm_frames_s16(wav_reader& wav, uint64_t framesToRead, int16_t* pBufferOut) {
+    if (framesToRead == 0) {
         return 0;
     }
 
     if (pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, in, framesToRead, NULL);
+        return drwav_read_pcm_frames(wav, framesToRead, NULL);
     }
 
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM) {
-        return drwav_read_pcm_frames_s16__pcm(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT) {
-        return drwav_read_pcm_frames_s16__ieee(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ALAW) {
-        return drwav_read_pcm_frames_s16__alaw(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_MULAW) {
-        return drwav_read_pcm_frames_s16__mulaw(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-        return drwav_read_pcm_frames_s16__msadpcm(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        return drwav_read_pcm_frames_s16__ima(pWav, in, framesToRead, pBufferOut);
+    switch (wav.translatedFormatTag) {
+    case DR_WAVE_FORMAT_PCM:
+        return drwav_read_pcm_frames_s16__pcm(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_IEEE_FLOAT:
+        return drwav_read_pcm_frames_s16__ieee(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_ALAW:
+        return drwav_read_pcm_frames_s16__alaw(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_MULAW:
+        return drwav_read_pcm_frames_s16__mulaw(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_ADPCM:
+        return drwav_read_pcm_frames_s16__msadpcm(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_DVI_ADPCM:
+        return drwav_read_pcm_frames_s16__ima(wav, framesToRead, pBufferOut);
     }
 
     return 0;
 }
 
-extern uint64_t drwav_read_pcm_frames_s16le(drwav* pWav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
-    uint64_t framesRead = drwav_read_pcm_frames_s16(pWav, in, framesToRead, pBufferOut);
+extern uint64_t drwav_read_pcm_frames_s16le(wav_reader& wav, uint64_t framesToRead, int16_t* pBufferOut) {
+    uint64_t framesRead = drwav_read_pcm_frames_s16(wav, framesToRead, pBufferOut);
     if (pBufferOut != NULL && drwav__is_little_endian() == false) {
-        drwav__bswap_samples_s16(pBufferOut, framesRead*pWav->channels);
+        drwav__bswap_samples_s16(pBufferOut, framesRead * wav.channels);
     }
 
     return framesRead;
 }
 
-extern uint64_t drwav_read_pcm_frames_s16be(drwav* pWav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
-    uint64_t framesRead = drwav_read_pcm_frames_s16(pWav, in, framesToRead, pBufferOut);
+extern uint64_t drwav_read_pcm_frames_s16be(wav_reader& wav, std::istream& in, uint64_t framesToRead, int16_t* pBufferOut) {
+    uint64_t framesRead = drwav_read_pcm_frames_s16(wav, framesToRead, pBufferOut);
     if (pBufferOut != NULL && drwav__is_little_endian() == true) {
-        drwav__bswap_samples_s16(pBufferOut, framesRead*pWav->channels);
+        drwav__bswap_samples_s16(pBufferOut, framesRead * wav.channels);
     }
 
     return framesRead;
@@ -2363,10 +2306,10 @@ extern uint64_t drwav_read_pcm_frames_s16be(drwav* pWav, std::istream& in, uint6
 
 
 
-static uint64_t drwav_read_pcm_frames_f32__pcm(drwav* pWav, std::istream& in, uint64_t framesToRead, float* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_f32__pcm(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2374,14 +2317,14 @@ static uint64_t drwav_read_pcm_frames_f32__pcm(drwav* pWav, std::istream& in, ui
     uint64_t totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav__pcm_to_f32(pBufferOut, sampleData, (size_t)framesRead*pWav->channels, bytesPerFrame/pWav->channels);
+        drwav__pcm_to_f32(pBufferOut, sampleData, (size_t)framesRead * wav.channels, bytesPerFrame / wav.channels);
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2389,7 +2332,7 @@ static uint64_t drwav_read_pcm_frames_f32__pcm(drwav* pWav, std::istream& in, ui
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_f32__msadpcm(drwav* pWav, std::istream& in, uint64_t framesToRead, float* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_f32__msadpcm(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
     /*
     We're just going to borrow the implementation from the drwav_read_s16() since ADPCM is a little bit more complicated than other formats and I don't
     want to duplicate that code.
@@ -2397,14 +2340,14 @@ static uint64_t drwav_read_pcm_frames_f32__msadpcm(drwav* pWav, std::istream& in
     uint64_t totalFramesRead = 0;
     int16_t samples16[2048];
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames_s16(pWav, in, std::min(framesToRead, wav_countof(samples16)/pWav->channels), samples16);
+        uint64_t framesRead = drwav_read_pcm_frames_s16(wav, std::min(framesToRead, wav_countof(samples16) / wav.channels), samples16);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_s16_to_f32(pBufferOut, samples16, (size_t)(framesRead*pWav->channels));   /* <-- Safe cast because we're clamping to 2048. */
+        drwav_s16_to_f32(pBufferOut, samples16, (size_t)(framesRead * wav.channels));   /* <-- Safe cast because we're clamping to 2048. */
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2412,7 +2355,7 @@ static uint64_t drwav_read_pcm_frames_f32__msadpcm(drwav* pWav, std::istream& in
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_f32__ima(drwav* pWav, std::istream& in, uint64_t framesToRead, float* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_f32__ima(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
     /*
     We're just going to borrow the implementation from the drwav_read_s16() since IMA-ADPCM is a little bit more complicated than other formats and I don't
     want to duplicate that code.
@@ -2420,14 +2363,14 @@ static uint64_t drwav_read_pcm_frames_f32__ima(drwav* pWav, std::istream& in, ui
     uint64_t totalFramesRead = 0;
     int16_t samples16[2048];
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames_s16(pWav, in, std::min(framesToRead, wav_countof(samples16)/pWav->channels), samples16);
+        uint64_t framesRead = drwav_read_pcm_frames_s16(wav, std::min(framesToRead, wav_countof(samples16) / wav.channels), samples16);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_s16_to_f32(pBufferOut, samples16, (size_t)(framesRead*pWav->channels));   /* <-- Safe cast because we're clamping to 2048. */
+        drwav_s16_to_f32(pBufferOut, samples16, (size_t)(framesRead * wav.channels));   /* <-- Safe cast because we're clamping to 2048. */
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2435,15 +2378,15 @@ static uint64_t drwav_read_pcm_frames_f32__ima(drwav* pWav, std::istream& in, ui
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_f32__ieee(drwav* pWav, std::istream& in, uint64_t framesToRead, float* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_f32__ieee(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
     uint8_t sampleData[4096];
 
     /* Fast path. */
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT && pWav->bitsPerSample == 32) {
-        return drwav_read_pcm_frames(pWav, in, framesToRead, pBufferOut);
+    if (wav.translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT && wav.bitsPerSample == 32) {
+        return drwav_read_pcm_frames(wav, framesToRead, pBufferOut);
     }
     
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2451,14 +2394,14 @@ static uint64_t drwav_read_pcm_frames_f32__ieee(drwav* pWav, std::istream& in, u
     uint64_t totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav__ieee_to_f32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
+        drwav__ieee_to_f32(pBufferOut, sampleData, (size_t)(framesRead*wav.channels), bytesPerFrame/ wav.channels);
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2466,9 +2409,9 @@ static uint64_t drwav_read_pcm_frames_f32__ieee(drwav* pWav, std::istream& in, u
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_f32__alaw(drwav* pWav, std::istream& in, uint64_t framesToRead, float* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_f32__alaw(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
     uint8_t sampleData[4096];
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2476,14 +2419,14 @@ static uint64_t drwav_read_pcm_frames_f32__alaw(drwav* pWav, std::istream& in, u
     uint64_t totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_alaw_to_f32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
+        drwav_alaw_to_f32(pBufferOut, sampleData, (size_t)(framesRead*wav.channels));
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2491,10 +2434,10 @@ static uint64_t drwav_read_pcm_frames_f32__alaw(drwav* pWav, std::istream& in, u
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_f32__mulaw(drwav* pWav, std::istream& in, uint64_t framesToRead, float* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_f32__mulaw(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2502,14 +2445,14 @@ static uint64_t drwav_read_pcm_frames_f32__mulaw(drwav* pWav, std::istream& in, 
     uint64_t totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_mulaw_to_f32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
+        drwav_mulaw_to_f32(pBufferOut, sampleData, (size_t)(framesRead*wav.channels));
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2526,69 +2469,61 @@ Returns the number of PCM frames actually read.
 
 If the return value is less than <framesToRead> it means the end of the file has been reached.
 */
-extern uint64_t drwav_read_pcm_frames_f32(drwav* pWav, std::istream& in, uint64_t framesToRead, float* pBufferOut) {
-    if (pWav == NULL || framesToRead == 0) {
+extern uint64_t drwav_read_pcm_frames_f32(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
+    if (framesToRead == 0) {
         return 0;
     }
 
     if (pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, in, framesToRead, NULL);
+        return drwav_read_pcm_frames(wav, framesToRead, NULL);
     }
 
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM) {
-        return drwav_read_pcm_frames_f32__pcm(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-        return drwav_read_pcm_frames_f32__msadpcm(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT) {
-        return drwav_read_pcm_frames_f32__ieee(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ALAW) {
-        return drwav_read_pcm_frames_f32__alaw(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_MULAW) {
-        return drwav_read_pcm_frames_f32__mulaw(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        return drwav_read_pcm_frames_f32__ima(pWav, in, framesToRead, pBufferOut);
+    switch (wav.translatedFormatTag)
+    {
+    case DR_WAVE_FORMAT_PCM:
+        return drwav_read_pcm_frames_f32__pcm(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_ADPCM:
+        return drwav_read_pcm_frames_f32__msadpcm(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_IEEE_FLOAT:
+        return drwav_read_pcm_frames_f32__ieee(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_ALAW:
+        return drwav_read_pcm_frames_f32__alaw(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_MULAW:
+        return drwav_read_pcm_frames_f32__mulaw(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_DVI_ADPCM:
+        return drwav_read_pcm_frames_f32__ima(wav, framesToRead, pBufferOut);
     }
 
     return 0;
 }
 
-extern uint64_t drwav_read_pcm_frames_f32le(drwav* pWav, std::istream& in, uint64_t framesToRead, float* pBufferOut) {
-    uint64_t framesRead = drwav_read_pcm_frames_f32(pWav, in, framesToRead, pBufferOut);
+extern uint64_t drwav_read_pcm_frames_f32le(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
+    uint64_t framesRead = drwav_read_pcm_frames_f32(wav, framesToRead, pBufferOut);
     if (pBufferOut != NULL && drwav__is_little_endian() == false) {
-        drwav__bswap_samples_f32(pBufferOut, framesRead*pWav->channels);
+        drwav__bswap_samples_f32(pBufferOut, framesRead*wav.channels);
     }
 
     return framesRead;
 }
 
-extern uint64_t drwav_read_pcm_frames_f32be(drwav* pWav, std::istream& in, uint64_t framesToRead, float* pBufferOut) {
-    uint64_t framesRead = drwav_read_pcm_frames_f32(pWav, in, framesToRead, pBufferOut);
+extern uint64_t drwav_read_pcm_frames_f32be(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
+    uint64_t framesRead = drwav_read_pcm_frames_f32(wav, framesToRead, pBufferOut);
     if (pBufferOut != NULL && drwav__is_little_endian() == true) {
-        drwav__bswap_samples_f32(pBufferOut, framesRead*pWav->channels);
+        drwav__bswap_samples_f32(pBufferOut, framesRead*wav.channels);
     }
 
     return framesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s32__pcm(drwav* pWav, std::istream& in, uint64_t framesToRead, int32_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s32__pcm(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
     uint8_t sampleData[4096];
 
     /* Fast path. */
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM && pWav->bitsPerSample == 32) {
-        return drwav_read_pcm_frames(pWav, in, framesToRead, pBufferOut);
+    if (wav.translatedFormatTag == DR_WAVE_FORMAT_PCM && wav.bitsPerSample == 32) {
+        return drwav_read_pcm_frames(wav, framesToRead, pBufferOut);
     }
     
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2596,14 +2531,14 @@ static uint64_t drwav_read_pcm_frames_s32__pcm(drwav* pWav, std::istream& in, ui
     uint64_t totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav__pcm_to_s32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
+        drwav__pcm_to_s32(pBufferOut, sampleData, (size_t)(framesRead*wav.channels), bytesPerFrame / wav.channels);
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2611,7 +2546,7 @@ static uint64_t drwav_read_pcm_frames_s32__pcm(drwav* pWav, std::istream& in, ui
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s32__msadpcm(drwav* pWav, std::istream& in, uint64_t framesToRead, int32_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s32__msadpcm(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
     /*
     We're just going to borrow the implementation from the drwav_read_s16() since ADPCM is a little bit more complicated than other formats and I don't
     want to duplicate that code.
@@ -2619,14 +2554,14 @@ static uint64_t drwav_read_pcm_frames_s32__msadpcm(drwav* pWav, std::istream& in
     uint64_t totalFramesRead = 0;
     int16_t samples16[2048];
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames_s16(pWav, in, std::min(framesToRead, wav_countof(samples16)/pWav->channels), samples16);
+        uint64_t framesRead = drwav_read_pcm_frames_s16(wav, std::min(framesToRead, wav_countof(samples16) / wav.channels), samples16);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_s16_to_s32(pBufferOut, samples16, (size_t)(framesRead*pWav->channels));   /* <-- Safe cast because we're clamping to 2048. */
+        drwav_s16_to_s32(pBufferOut, samples16, (size_t)(framesRead * wav.channels));   /* <-- Safe cast because we're clamping to 2048. */
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2634,7 +2569,7 @@ static uint64_t drwav_read_pcm_frames_s32__msadpcm(drwav* pWav, std::istream& in
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s32__ima(drwav* pWav, std::istream& in, uint64_t framesToRead, int32_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s32__ima(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
     /*
     We're just going to borrow the implementation from the drwav_read_s16() since IMA-ADPCM is a little bit more complicated than other formats and I don't
     want to duplicate that code.
@@ -2642,14 +2577,14 @@ static uint64_t drwav_read_pcm_frames_s32__ima(drwav* pWav, std::istream& in, ui
     uint64_t totalFramesRead = 0;
     int16_t samples16[2048];
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames_s16(pWav, in, std::min(framesToRead, wav_countof(samples16)/pWav->channels), samples16);
+        uint64_t framesRead = drwav_read_pcm_frames_s16(wav, std::min(framesToRead, wav_countof(samples16) / wav.channels), samples16);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_s16_to_s32(pBufferOut, samples16, (size_t)(framesRead*pWav->channels));   /* <-- Safe cast because we're clamping to 2048. */
+        drwav_s16_to_s32(pBufferOut, samples16, (size_t)(framesRead * wav.channels));   /* <-- Safe cast because we're clamping to 2048. */
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2657,10 +2592,10 @@ static uint64_t drwav_read_pcm_frames_s32__ima(drwav* pWav, std::istream& in, ui
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s32__ieee(drwav* pWav, std::istream& in, uint64_t framesToRead, int32_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s32__ieee(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2668,14 +2603,14 @@ static uint64_t drwav_read_pcm_frames_s32__ieee(drwav* pWav, std::istream& in, u
     uint64_t totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData) / bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav__ieee_to_s32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
+        drwav__ieee_to_s32(pBufferOut, sampleData, (size_t)(framesRead * wav.channels), bytesPerFrame / wav.channels);
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2683,10 +2618,10 @@ static uint64_t drwav_read_pcm_frames_s32__ieee(drwav* pWav, std::istream& in, u
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s32__alaw(drwav* pWav, std::istream& in, uint64_t framesToRead, int32_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s32__alaw(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2694,14 +2629,14 @@ static uint64_t drwav_read_pcm_frames_s32__alaw(drwav* pWav, std::istream& in, u
     uint64_t totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_alaw_to_s32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
+        drwav_alaw_to_s32(pBufferOut, sampleData, (size_t)(framesRead*wav.channels));
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2709,10 +2644,10 @@ static uint64_t drwav_read_pcm_frames_s32__alaw(drwav* pWav, std::istream& in, u
     return totalFramesRead;
 }
 
-static uint64_t drwav_read_pcm_frames_s32__mulaw(drwav* pWav, std::istream& in, uint64_t framesToRead, int32_t* pBufferOut) {
+static uint64_t drwav_read_pcm_frames_s32__mulaw(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2720,14 +2655,14 @@ static uint64_t drwav_read_pcm_frames_s32__mulaw(drwav* pWav, std::istream& in, 
     uint64_t totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        uint64_t framesRead = drwav_read_pcm_frames(pWav, in, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        uint64_t framesRead = drwav_read_pcm_frames(wav, std::min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
         }
 
-        drwav_mulaw_to_s32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
+        drwav_mulaw_to_s32(pBufferOut, sampleData, (size_t)(framesRead * wav.channels));
 
-        pBufferOut      += framesRead*pWav->channels;
+        pBufferOut      += framesRead * wav.channels;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
     }
@@ -2744,209 +2679,194 @@ Returns the number of PCM frames actually read.
 
 If the return value is less than <framesToRead> it means the end of the file has been reached.
 */
-extern uint64_t drwav_read_pcm_frames_s32(drwav* pWav, std::istream& in, uint64_t framesToRead, int32_t* pBufferOut) {
-    if (pWav == NULL || framesToRead == 0) {
+extern uint64_t drwav_read_pcm_frames_s32(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
+    if (framesToRead == 0) {
         return 0;
     }
 
     if (pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, in, framesToRead, NULL);
+        return drwav_read_pcm_frames(wav, framesToRead, NULL);
     }
 
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM) {
-        return drwav_read_pcm_frames_s32__pcm(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-        return drwav_read_pcm_frames_s32__msadpcm(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT) {
-        return drwav_read_pcm_frames_s32__ieee(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ALAW) {
-        return drwav_read_pcm_frames_s32__alaw(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_MULAW) {
-        return drwav_read_pcm_frames_s32__mulaw(pWav, in, framesToRead, pBufferOut);
-    }
-
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        return drwav_read_pcm_frames_s32__ima(pWav, in, framesToRead, pBufferOut);
+    switch (wav.translatedFormatTag) {
+    case DR_WAVE_FORMAT_PCM:
+        return drwav_read_pcm_frames_s32__pcm(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_ADPCM:
+        return drwav_read_pcm_frames_s32__msadpcm(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_IEEE_FLOAT:
+        return drwav_read_pcm_frames_s32__ieee(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_ALAW:
+        return drwav_read_pcm_frames_s32__alaw(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_MULAW:
+        return drwav_read_pcm_frames_s32__mulaw(wav, framesToRead, pBufferOut);
+    case DR_WAVE_FORMAT_DVI_ADPCM:
+        return drwav_read_pcm_frames_s32__ima(wav, framesToRead, pBufferOut);
     }
 
     return 0;
 }
 
-extern uint64_t drwav_read_pcm_frames_s32le(drwav* pWav, std::istream& in, uint64_t framesToRead, int32_t* pBufferOut) {
-    uint64_t framesRead = drwav_read_pcm_frames_s32(pWav, in, framesToRead, pBufferOut);
+extern uint64_t drwav_read_pcm_frames_s32le(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
+    uint64_t framesRead = drwav_read_pcm_frames_s32(wav, framesToRead, pBufferOut);
     if (pBufferOut != NULL && drwav__is_little_endian() == false) {
-        drwav__bswap_samples_s32(pBufferOut, framesRead*pWav->channels);
+        drwav__bswap_samples_s32(pBufferOut, framesRead * wav.channels);
     }
 
     return framesRead;
 }
 
-extern uint64_t drwav_read_pcm_frames_s32be(drwav* pWav, std::istream& in, uint64_t framesToRead, int32_t* pBufferOut) {
-    uint64_t framesRead = drwav_read_pcm_frames_s32(pWav, in, framesToRead, pBufferOut);
+extern uint64_t drwav_read_pcm_frames_s32be(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
+    uint64_t framesRead = drwav_read_pcm_frames_s32(wav, framesToRead, pBufferOut);
     if (pBufferOut != NULL && drwav__is_little_endian() == true) {
-        drwav__bswap_samples_s32(pBufferOut, framesRead*pWav->channels);
+        drwav__bswap_samples_s32(pBufferOut, framesRead * wav.channels);
     }
 
     return framesRead;
 }
 
-static int16_t* drwav__read_pcm_frames_and_close_s16(drwav* pWav, std::istream& in, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalFrameCount) {
-    assert(pWav != NULL);
-
-    uint64_t sampleDataSize = pWav->totalPCMFrameCount * pWav->channels * sizeof(int16_t);
+static int16_t* drwav__read_pcm_frames_and_close_s16(wav_reader& wav, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalFrameCount) {
+    uint64_t sampleDataSize = wav.totalPCMFrameCount * wav.channels * sizeof(int16_t);
 
     int16_t* pSampleData = (int16_t*)malloc((size_t)sampleDataSize);
     if (pSampleData == NULL) {
         return NULL;    /* Failed to allocate memory. */
     }
 
-    uint64_t framesRead = drwav_read_pcm_frames_s16(pWav, in, (size_t)pWav->totalPCMFrameCount, pSampleData);
-    if (framesRead != pWav->totalPCMFrameCount) {
+    uint64_t framesRead = drwav_read_pcm_frames_s16(wav, wav.totalPCMFrameCount, pSampleData);
+    if (framesRead != wav.totalPCMFrameCount) {
         free(pSampleData);
         return NULL;    /* There was an error reading the samples. */
     }
 
     if (sampleRate) {
-        *sampleRate = pWav->sampleRate;
+        *sampleRate = wav.sampleRate;
     }
     if (channels) {
-        *channels = pWav->channels;
+        *channels = wav.channels;
     }
     if (totalFrameCount) {
-        *totalFrameCount = pWav->totalPCMFrameCount;
+        *totalFrameCount = wav.totalPCMFrameCount;
     }
 
     return pSampleData;
 }
 
-static float* drwav__read_pcm_frames_and_close_f32(drwav* pWav, std::istream& in, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalFrameCount) {
-    assert(pWav != NULL);
-
-    uint64_t sampleDataSize = pWav->totalPCMFrameCount * pWav->channels * sizeof(float);
+static float* drwav__read_pcm_frames_and_close_f32(wav_reader& wav, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalFrameCount) {
+    uint64_t sampleDataSize = wav.totalPCMFrameCount * wav.channels * sizeof(float);
 
     float* pSampleData = (float*)malloc((size_t)sampleDataSize); /* <-- Safe cast due to the check above. */
     if (pSampleData == NULL) {
         return NULL;    /* Failed to allocate memory. */
     }
 
-    uint64_t framesRead = drwav_read_pcm_frames_f32(pWav, in, (size_t)pWav->totalPCMFrameCount, pSampleData);
-    if (framesRead != pWav->totalPCMFrameCount) {
+    uint64_t framesRead = drwav_read_pcm_frames_f32(wav, (size_t)wav.totalPCMFrameCount, pSampleData);
+    if (framesRead != wav.totalPCMFrameCount) {
         free(pSampleData);
         return NULL;    /* There was an error reading the samples. */
     }
 
     if (sampleRate) {
-        *sampleRate = pWav->sampleRate;
+        *sampleRate = wav.sampleRate;
     }
     if (channels) {
-        *channels = pWav->channels;
+        *channels = wav.channels;
     }
     if (totalFrameCount) {
-        *totalFrameCount = pWav->totalPCMFrameCount;
+        *totalFrameCount = wav.totalPCMFrameCount;
     }
 
     return pSampleData;
 }
 
-static int32_t* drwav__read_pcm_frames_and_close_s32(drwav* pWav, std::istream& in, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalFrameCount) {
-    assert(pWav != NULL);
-
-    uint64_t sampleDataSize = pWav->totalPCMFrameCount * pWav->channels * sizeof(int32_t);
+static int32_t* drwav__read_pcm_frames_and_close_s32(wav_reader& wav, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalFrameCount) {
+    uint64_t sampleDataSize = wav.totalPCMFrameCount * wav.channels * sizeof(int32_t);
 
     int32_t* pSampleData = (int32_t*)malloc((size_t)sampleDataSize); /* <-- Safe cast due to the check above. */
     if (pSampleData == NULL) {
         return NULL;    /* Failed to allocate memory. */
     }
 
-    uint64_t framesRead = drwav_read_pcm_frames_s32(pWav, in, (size_t)pWav->totalPCMFrameCount, pSampleData);
-    if (framesRead != pWav->totalPCMFrameCount) {
+    uint64_t framesRead = drwav_read_pcm_frames_s32(wav, (size_t)wav.totalPCMFrameCount, pSampleData);
+    if (framesRead != wav.totalPCMFrameCount) {
         free(pSampleData);
         return NULL;    /* There was an error reading the samples. */
     }
 
     if (sampleRate) {
-        *sampleRate = pWav->sampleRate;
+        *sampleRate = wav.sampleRate;
     }
     if (channels) {
-        *channels = pWav->channels;
+        *channels = wav.channels;
     }
     if (totalFrameCount) {
-        *totalFrameCount = pWav->totalPCMFrameCount;
+        *totalFrameCount = wav.totalPCMFrameCount;
     }
 
     return pSampleData;
 }
 
 extern int16_t* drwav_open_and_read_pcm_frames_s16(std::istream& in, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalFrameCountOut) {
-    drwav wav;
+    wav_reader wav(in);
 
-    if (!drwav_init(&wav, in)) {
+    if (!drwav_init(wav)) {
         return NULL;
     }
 
-    return drwav__read_pcm_frames_and_close_s16(&wav, in, channelsOut, sampleRateOut, totalFrameCountOut);
+    return drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 extern float* drwav_open_and_read_pcm_frames_f32(std::istream& in, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalFrameCountOut) {
-    drwav wav;
+    wav_reader wav(in);
 
-    if (!drwav_init(&wav, in)) {
+    if (!drwav_init(wav)) {
         return NULL;
     }
 
-    return drwav__read_pcm_frames_and_close_f32(&wav, in, channelsOut, sampleRateOut, totalFrameCountOut);
+    return drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 extern int32_t* drwav_open_and_read_pcm_frames_s32(std::istream& in, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalFrameCountOut) {
-    drwav wav;
+    wav_reader wav(in);
 
-    if (!drwav_init(&wav, in)) {
+    if (!drwav_init(wav)) {
         return NULL;
     }
 
-    return drwav__read_pcm_frames_and_close_s32(&wav, in, channelsOut, sampleRateOut, totalFrameCountOut);
+    return drwav__read_pcm_frames_and_close_s32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 extern int16_t* drwav_open_file_and_read_pcm_frames_s16(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalFrameCountOut) {
-    drwav wav;
-
     std::ifstream fin(filename, std::fstream::binary);
 
-    if (!drwav_init(&wav, fin)) {
+    wav_reader wav(fin);
+
+    if (!drwav_init(wav)) {
         return NULL;
     }
 
-    return drwav__read_pcm_frames_and_close_s16(&wav, fin, channelsOut, sampleRateOut, totalFrameCountOut);
+    return drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 extern float* drwav_open_file_and_read_pcm_frames_f32(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalFrameCountOut) {
-    drwav wav;
-
     std::ifstream fin(filename, std::fstream::binary);
 
-    if (!drwav_init(&wav, fin)) {
+    wav_reader wav(fin);
+
+    if (!drwav_init(wav)) {
         return NULL;
     }
 
-    return drwav__read_pcm_frames_and_close_f32(&wav, fin, channelsOut, sampleRateOut, totalFrameCountOut);
+    return drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 extern int32_t* drwav_open_file_and_read_pcm_frames_s32(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalFrameCountOut) {
-    drwav wav;
-
     std::ifstream fin(filename, std::fstream::binary);
 
-    if (!drwav_init(&wav, fin)) {
+    wav_reader wav(fin);
+
+    if (!drwav_init(wav)) {
         return NULL;
     }
 
-    return drwav__read_pcm_frames_and_close_s32(&wav, fin, channelsOut, sampleRateOut, totalFrameCountOut);
+    return drwav__read_pcm_frames_and_close_s32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
