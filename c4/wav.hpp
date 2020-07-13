@@ -992,7 +992,7 @@ public:
 
         size_t bytesRead;
 
-        if (bytesToRead == 0) {
+        if (bytesToRead == 0 || pBufferOut == NULL) {
             return 0;
         }
 
@@ -1000,41 +1000,7 @@ public:
             bytesToRead = (size_t)bytesRemaining;
         }
 
-        if (pBufferOut != NULL) {
-            bytesRead = wav_read(in, pBufferOut, bytesToRead);
-        } else {
-            /* We need to seek. If we fail, we need to read-and-discard to make sure we get a good byte count. */
-            bytesRead = 0;
-            while (bytesRead < bytesToRead) {
-                size_t bytesToSeek = (bytesToRead - bytesRead);
-                if (bytesToSeek > 0x7FFFFFFF) {
-                    bytesToSeek = 0x7FFFFFFF;
-                }
-
-                if (!in.seekg(bytesToSeek, std::ios_base::cur)) {
-                    break;
-                }
-
-                bytesRead += bytesToSeek;
-            }
-
-            /* When we get here we may need to read-and-discard some data. */
-            while (bytesRead < bytesToRead) {
-                uint8_t buffer[4096];
-                size_t bytesSeeked;
-                size_t bytesToSeek = (bytesToRead - bytesRead);
-                if (bytesToSeek > sizeof(buffer)) {
-                    bytesToSeek = sizeof(buffer);
-                }
-
-                bytesSeeked = wav_read(in, buffer, bytesToSeek);
-                bytesRead += bytesSeeked;
-
-                if (bytesSeeked < bytesToSeek) {
-                    break;  /* Reached the end. */
-                }
-            }
-        }
+        bytesRead = wav_read(in, pBufferOut, bytesToRead);
 
         bytesRemaining -= bytesRead;
         return bytesRead;
