@@ -30,6 +30,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
+#include <string>
 #include <cstdio>
 #include <cassert>
 #include <iostream>
@@ -581,15 +583,27 @@ static uint64_t drwav__data_chunk_size_w64(uint64_t dataChunkSize) {
     return 24 + dataChunkSize;        /* +24 because W64 includes the size of the GUID and size fields. */
 }
 
+inline size_t wav_write(std::ostream& out, const void* data, size_t count) {
+    out.write((const char*)data, count);
+    return out ? count : 0;
+}
+
+inline size_t wav_read(std::istream& in, void* data, size_t count) {
+    in.read((char*)data, count);
+    return in ? count : 0;
+}
+
 
 class wav_reader : public wav_base {
+private:
+    std::unique_ptr<std::ifstream> ifstreamHolder;
 public:
     std::istream& in;
 
     /* Generic data for compressed formats. This data is shared across all block-compressed formats. */
     uint64_t iCurrentCompressedPCMFrame = 0;  /* The index of the next PCM frame that will be read by drwav_read_*(). This is used with "totalPCMFrameCount" to ensure we don't read excess samples at the end of the last block. */
 
-                                              /* Microsoft ADPCM specific data. */
+    /* Microsoft ADPCM specific data. */
     struct {
         uint32_t bytesRemainingInBlock;
         uint16_t predictor[2];
@@ -611,6 +625,11 @@ public:
     wav_reader(std::istream& in) : wav_base(), in(in) {
         init();
     }
+
+    wav_reader(std::string filepath) : wav_base(), ifstreamHolder(std::make_unique<std::ifstream>(filepath, std::ifstream::binary)), in(*ifstreamHolder) {
+        init();
+    }
+
 private:
     void init() {
         uint8_t riff[4];
@@ -864,7 +883,6 @@ private:
         channels = fmt.channels;
         bitsPerSample = fmt.bitsPerSample;
         bytesRemaining = dataChunkSize;
-        translatedFormatTag = translatedFormatTag;
         dataChunkDataSize = dataChunkSize;
 
         if (sampleCountFromFactChunk != 0) {
@@ -916,120 +934,140 @@ private:
 struct wav_writer : public wav_base {
     std::ostream& out;
 
-    wav_writer(std::ostream& out) : wav_base(), out(out) {}
+    wav_writer(std::ostream& out, const drwav_data_format& format) : wav_base(), out(out) {
+        init(format);
+    }
+
+    void init(const drwav_data_format& format) {
+        if (format.format == DR_WAVE_FORMAT_EXTENSIBLE || format.format == DR_WAVE_FORMAT_ADPCM || format.format == DR_WAVE_FORMAT_DVI_ADPCM) {
+            throw std::logic_error("Format not supported for writing: " + std::to_string(format.format));
+        }
+
+        fmt.formatTag = (uint16_t)format.format;
+        fmt.channels = (uint16_t)format.channels;
+        fmt.sampleRate = format.sampleRate;
+        fmt.avgBytesPerSec = (uint32_t)((format.bitsPerSample * format.sampleRate * format.channels) / 8);
+        fmt.blockAlign = (uint16_t)((format.channels * format.bitsPerSample) / 8);
+        fmt.bitsPerSample = (uint16_t)format.bitsPerSample;
+        fmt.extendedSize = 0;
+
+        size_t runningPos = 0;
+        uint64_t initialDataChunkSize = 0;
+        uint64_t chunkSizeFMT;
+
+        /* "RIFF" chunk. */
+        if (format.container == drwav_container_riff) {
+            uint32_t chunkSizeRIFF = 36 + (uint32_t)initialDataChunkSize;   /* +36 = "RIFF"+[RIFF Chunk Size]+"WAVE" + [sizeof "fmt " chunk] */
+            runningPos += wav_write(out, "RIFF", 4);
+            runningPos += wav_write(out, &chunkSizeRIFF, 4);
+            runningPos += wav_write(out, "WAVE", 4);
+        } else {
+            uint64_t chunkSizeRIFF = 80 + 24 + initialDataChunkSize;   /* +24 because W64 includes the size of the GUID and size fields. */
+            runningPos += wav_write(out, drwavGUID_W64_RIFF, 16);
+            runningPos += wav_write(out, &chunkSizeRIFF, 8);
+            runningPos += wav_write(out, drwavGUID_W64_WAVE, 16);
+        }
+
+        /* "fmt " chunk. */
+        if (format.container == drwav_container_riff) {
+            chunkSizeFMT = 16;
+            runningPos += wav_write(out, "fmt ", 4);
+            runningPos += wav_write(out, &chunkSizeFMT, 4);
+        } else {
+            chunkSizeFMT = 40;
+            runningPos += wav_write(out, drwavGUID_W64_FMT, 16);
+            runningPos += wav_write(out, &chunkSizeFMT, 8);
+        }
+
+        runningPos += wav_write(out, &fmt.formatTag, 2);
+        runningPos += wav_write(out, &fmt.channels, 2);
+        runningPos += wav_write(out, &fmt.sampleRate, 4);
+        runningPos += wav_write(out, &fmt.avgBytesPerSec, 4);
+        runningPos += wav_write(out, &fmt.blockAlign, 2);
+        runningPos += wav_write(out, &fmt.bitsPerSample, 2);
+
+        dataChunkDataPos = runningPos;
+
+        /* "data" chunk. */
+        if (format.container == drwav_container_riff) {
+            uint32_t chunkSizeDATA = (uint32_t)initialDataChunkSize;
+            runningPos += wav_write(out, "data", 4);
+            runningPos += wav_write(out, &chunkSizeDATA, 4);
+        } else {
+            uint64_t chunkSizeDATA = 24 + initialDataChunkSize; /* +24 because W64 includes the size of the GUID and size fields. */
+            runningPos += wav_write(out, drwavGUID_W64_DATA, 16);
+            runningPos += wav_write(out, &chunkSizeDATA, 8);
+        }
+
+        /* Set some properties for the client's convenience. */
+        container = format.container;
+        channels = (uint16_t)format.channels;
+        sampleRate = format.sampleRate;
+        bitsPerSample = (uint16_t)format.bitsPerSample;
+        translatedFormatTag = (uint16_t)format.format;
+    }
+
+    bool finalized = false;
+
+    void finalize() {
+        if (finalized) {
+            return;
+        }
+
+        finalized = true;
+
+        /*
+        If the drwav object was opened in write mode we'll need to finalize a few things:
+        - Make sure the "data" chunk is aligned to 16-bits for RIFF containers, or 64 bits for W64 containers.
+        - Set the size of the "data" chunk.
+        */
+        uint32_t paddingSize = 0;
+
+        /* Padding. Do not adjust wav.dataChunkDataSize - this should not include the padding. */
+        if (container == drwav_container_riff) {
+            paddingSize = drwav__chunk_padding_size_riff(dataChunkDataSize);
+        } else {
+            paddingSize = drwav__chunk_padding_size_w64(dataChunkDataSize);
+        }
+
+        if (paddingSize > 0) {
+            uint64_t paddingData = 0;
+            out.write((char*)&paddingData, paddingSize);
+        }
+
+        if (container == drwav_container_riff) {
+            /* The "RIFF" chunk size. */
+            if (out.seekp(4, std::ios_base::beg)) {
+                uint32_t riffChunkSize = drwav__riff_chunk_size_riff(dataChunkDataSize);
+                wav_write(out, &riffChunkSize, 4);
+            }
+
+            /* the "data" chunk size. */
+            if (out.seekp(dataChunkDataPos + 4, std::ios_base::beg)) {
+                uint32_t dataChunkSize = drwav__data_chunk_size_riff(dataChunkDataSize);
+                wav_write(out, &dataChunkSize, 4);
+            }
+        } else {
+            /* The "RIFF" chunk size. */
+            if (out.seekp(16, std::ios_base::beg)) {
+                uint64_t riffChunkSize = drwav__riff_chunk_size_w64(dataChunkDataSize);
+                wav_write(out, &riffChunkSize, 8);
+            }
+
+            /* The "data" chunk size. */
+            if (out.seekp(dataChunkDataPos + 16, std::ios_base::beg)) {
+                uint64_t dataChunkSize = drwav__data_chunk_size_w64(dataChunkDataSize);
+                wav_write(out, &dataChunkSize, 8);
+            }
+        }
+
+        out.flush();
+    }
+
+    ~wav_writer() {
+        finalize();
+    }
 };
-
-static bool drwav_preinit_write(wav_writer& wav, const drwav_data_format* pFormat) {
-    /* Not currently supporting compressed formats. Will need to add support for the "fact" chunk before we enable this. */
-    if (pFormat->format == DR_WAVE_FORMAT_EXTENSIBLE) {
-        return false;
-    }
-    if (pFormat->format == DR_WAVE_FORMAT_ADPCM || pFormat->format == DR_WAVE_FORMAT_DVI_ADPCM) {
-        return false;
-    }
-
-    wav.fmt.formatTag = (uint16_t)pFormat->format;
-    wav.fmt.channels = (uint16_t)pFormat->channels;
-    wav.fmt.sampleRate = pFormat->sampleRate;
-    wav.fmt.avgBytesPerSec = (uint32_t)((pFormat->bitsPerSample * pFormat->sampleRate * pFormat->channels) / 8);
-    wav.fmt.blockAlign = (uint16_t)((pFormat->channels * pFormat->bitsPerSample) / 8);
-    wav.fmt.bitsPerSample = (uint16_t)pFormat->bitsPerSample;
-    wav.fmt.extendedSize = 0;
-
-    return true;
-}
-
-inline size_t wav_write(std::ostream& out, const void* data, size_t count) {
-    out.write((const char*)data, count);
-    return out ? count : 0;
-}
-
-inline size_t wav_read(std::istream& in, void* data, size_t count) {
-    in.read((char*)data, count);
-    return in ? count : 0;
-}
-
-static bool drwav_init_write__internal(wav_writer& wav, const drwav_data_format* pFormat) {
-    /* The function assumes drwav_preinit_write() was called beforehand. */
-
-    size_t runningPos = 0;
-    uint64_t initialDataChunkSize = 0;
-    uint64_t chunkSizeFMT;
-
-    /* "RIFF" chunk. */
-    if (pFormat->container == drwav_container_riff) {
-        uint32_t chunkSizeRIFF = 36 + (uint32_t)initialDataChunkSize;   /* +36 = "RIFF"+[RIFF Chunk Size]+"WAVE" + [sizeof "fmt " chunk] */
-        runningPos += wav_write(wav.out, "RIFF", 4);
-        runningPos += wav_write(wav.out, &chunkSizeRIFF, 4);
-        runningPos += wav_write(wav.out, "WAVE", 4);
-    } else {
-        uint64_t chunkSizeRIFF = 80 + 24 + initialDataChunkSize;   /* +24 because W64 includes the size of the GUID and size fields. */
-        runningPos += wav_write(wav.out, drwavGUID_W64_RIFF, 16);
-        runningPos += wav_write(wav.out, &chunkSizeRIFF, 8);
-        runningPos += wav_write(wav.out, drwavGUID_W64_WAVE, 16);
-    }
-
-    /* "fmt " chunk. */
-    if (pFormat->container == drwav_container_riff) {
-        chunkSizeFMT = 16;
-        runningPos += wav_write(wav.out, "fmt ", 4);
-        runningPos += wav_write(wav.out, &chunkSizeFMT, 4);
-    } else {
-        chunkSizeFMT = 40;
-        runningPos += wav_write(wav.out, drwavGUID_W64_FMT, 16);
-        runningPos += wav_write(wav.out, &chunkSizeFMT, 8);
-    }
-
-    runningPos += wav_write(wav.out, &wav.fmt.formatTag,      2);
-    runningPos += wav_write(wav.out, &wav.fmt.channels,       2);
-    runningPos += wav_write(wav.out, &wav.fmt.sampleRate,     4);
-    runningPos += wav_write(wav.out, &wav.fmt.avgBytesPerSec, 4);
-    runningPos += wav_write(wav.out, &wav.fmt.blockAlign,     2);
-    runningPos += wav_write(wav.out, &wav.fmt.bitsPerSample,  2);
-
-    wav.dataChunkDataPos = runningPos;
-
-    /* "data" chunk. */
-    if (pFormat->container == drwav_container_riff) {
-        uint32_t chunkSizeDATA = (uint32_t)initialDataChunkSize;
-        runningPos += wav_write(wav.out, "data", 4);
-        runningPos += wav_write(wav.out, &chunkSizeDATA, 4);
-    } else {
-        uint64_t chunkSizeDATA = 24 + initialDataChunkSize; /* +24 because W64 includes the size of the GUID and size fields. */
-        runningPos += wav_write(wav.out, drwavGUID_W64_DATA, 16);
-        runningPos += wav_write(wav.out, &chunkSizeDATA, 8);
-    }
-
-
-    /* Simple validation. */
-    if (pFormat->container == drwav_container_riff) {
-        if (runningPos != 20 + chunkSizeFMT + 8) {
-            return false;
-        }
-    } else {
-        if (runningPos != 40 + chunkSizeFMT + 24) {
-            return false;
-        }
-    }
-    
-
-    /* Set some properties for the client's convenience. */
-    wav.container = pFormat->container;
-    wav.channels = (uint16_t)pFormat->channels;
-    wav.sampleRate = pFormat->sampleRate;
-    wav.bitsPerSample = (uint16_t)pFormat->bitsPerSample;
-    wav.translatedFormatTag = (uint16_t)pFormat->format;
-
-    return true;
-}
-
-extern bool drwav_init_write(wav_writer& wav, const drwav_data_format* pFormat) {
-    if (!drwav_preinit_write(wav, pFormat)) {
-        return false;
-    }
-
-    return drwav_init_write__internal(wav, pFormat);
-}
 
 extern uint64_t drwav_target_write_size_bytes(const drwav_data_format* pFormat, uint64_t totalSampleCount) {
     /* Casting totalSampleCount to int64_t for VC6 compatibility. No issues in practice because nobody is going to exhaust the whole 63 bits. */
@@ -1051,87 +1089,6 @@ extern uint64_t drwav_target_write_size_bytes(const drwav_data_format* pFormat, 
 static int drwav_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode) {
     if (fopen_s(ppFile, pFilePath, pOpenMode) != 0) {
         return -1;
-    }
-
-    return 0;
-}
-
-static bool drwav_init_file_write__internal_FILE(wav_writer& wav, const drwav_data_format* pFormat) {
-    if (!drwav_preinit_write(wav, pFormat)) {
-        return false;
-    }
-
-    if (!drwav_init_write__internal(wav, pFormat)) {
-        return false;
-    }
-
-    return true;
-}
-
-static bool drwav_init_file_write__internal(wav_writer& wav, const drwav_data_format* pFormat) {
-    return drwav_init_file_write__internal_FILE(wav, pFormat);
-}
-
-/*
-Helper for initializing a wave file for writing using stdio.
-
-This holds the internal FILE object until drwav_uninit() is called. Keep this in mind if you're caching drwav
-objects because the operating system may restrict the number of file handles an application can have open at
-any given time.
-*/
-extern bool drwav_init_file_write(wav_writer& wav, const drwav_data_format* pFormat) {
-    return drwav_init_file_write__internal(wav, pFormat);
-}
-
-/*
-Uninitializes the given drwav object.
-
-Use this only for objects initialized with drwav_init*() functions (drwav_init(), drwav_init_ex(), drwav_init_write(), drwav_init_write_sequential()).
-*/
-extern int drwav_uninit(wav_writer& wav) {
-    /*
-    If the drwav object was opened in write mode we'll need to finalize a few things:
-      - Make sure the "data" chunk is aligned to 16-bits for RIFF containers, or 64 bits for W64 containers.
-      - Set the size of the "data" chunk.
-    */
-    uint32_t paddingSize = 0;
-
-    /* Padding. Do not adjust wav.dataChunkDataSize - this should not include the padding. */
-    if (wav.container == drwav_container_riff) {
-        paddingSize = drwav__chunk_padding_size_riff(wav.dataChunkDataSize);
-    } else {
-        paddingSize = drwav__chunk_padding_size_w64(wav.dataChunkDataSize);
-    }
-        
-    if (paddingSize > 0) {
-        uint64_t paddingData = 0;
-        wav.out.write((char*)&paddingData, paddingSize);
-    }
-
-    if (wav.container == drwav_container_riff) {
-        /* The "RIFF" chunk size. */
-        if (wav.out.seekp(4, std::ios_base::beg)) {
-            uint32_t riffChunkSize = drwav__riff_chunk_size_riff(wav.dataChunkDataSize);
-            wav_write(wav.out, &riffChunkSize, 4);
-        }
-
-        /* the "data" chunk size. */
-        if (wav.out.seekp(wav.dataChunkDataPos + 4, std::ios_base::beg)) {
-            uint32_t dataChunkSize = drwav__data_chunk_size_riff(wav.dataChunkDataSize);
-            wav_write(wav.out, &dataChunkSize, 4);
-        }
-    } else {
-        /* The "RIFF" chunk size. */
-        if (wav.out.seekp(16, std::ios_base::beg)) {
-            uint64_t riffChunkSize = drwav__riff_chunk_size_w64(wav.dataChunkDataSize);
-            wav_write(wav.out, &riffChunkSize, 8);
-        }
-
-        /* The "data" chunk size. */
-        if (wav.out.seekp(wav.dataChunkDataPos + 16, std::ios_base::beg)) {
-            uint64_t dataChunkSize = drwav__data_chunk_size_w64(wav.dataChunkDataSize);
-            wav_write(wav.out, &dataChunkSize, 8);
-        }
     }
 
     return 0;
