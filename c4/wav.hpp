@@ -2418,10 +2418,17 @@ private:
     }
 };
 
-struct wav_writer : public wav_base {
+class wav_writer : public wav_base {
+private:
+    std::unique_ptr<std::ofstream> ofstreamHolder;
+public:
     std::ostream& out;
 
     wav_writer(std::ostream& out, const drwav_data_format& format) : wav_base(), out(out) {
+        init(format);
+    }
+
+    wav_writer(std::string filepath, const drwav_data_format& format) : wav_base(), ofstreamHolder(std::make_unique<std::ofstream>(filepath, std::ifstream::binary)), out(*ofstreamHolder) {
         init(format);
     }
 
@@ -2494,6 +2501,95 @@ struct wav_writer : public wav_base {
         translatedFormatTag = (uint16_t)format.format;
     }
 
+    size_t drwav_write_raw(size_t bytesToWrite, const void* pData) {
+        if (bytesToWrite == 0 || pData == NULL) {
+            return 0;
+        }
+
+        size_t bytesWritten = wav_write(out, pData, bytesToWrite);
+        dataChunkDataSize += bytesWritten;
+
+        return bytesWritten;
+    }
+
+    uint64_t drwav_write_pcm_frames_le(uint64_t framesToWrite, const void* pData) {
+        if (framesToWrite == 0 || pData == NULL) {
+            return 0;
+        }
+
+        uint64_t bytesToWrite = ((framesToWrite * channels * bitsPerSample) / 8);
+
+        uint64_t bytesWritten = 0;
+        const uint8_t* pRunningData = (const uint8_t*)pData;
+
+        while (bytesToWrite > 0) {
+            size_t bytesJustWritten = drwav_write_raw(bytesToWrite, pRunningData);
+            if (bytesJustWritten == 0) {
+                break;
+            }
+
+            bytesToWrite -= bytesJustWritten;
+            bytesWritten += bytesJustWritten;
+            pRunningData += bytesJustWritten;
+        }
+
+        return (bytesWritten * 8) / bitsPerSample / channels;
+    }
+
+    uint64_t drwav_write_pcm_frames_be(uint64_t framesToWrite, const void* pData) {
+        if (framesToWrite == 0 || pData == NULL) {
+            return 0;
+        }
+
+        uint64_t bytesToWrite = ((framesToWrite * channels * bitsPerSample) / 8);
+
+        uint64_t bytesWritten = 0;
+        const uint8_t* pRunningData = (const uint8_t*)pData;
+
+        uint32_t bytesPerSample = get_bytes_per_pcm_frame() / channels;
+
+        while (bytesToWrite > 0) {
+            uint8_t temp[4096];
+            uint32_t sampleCount;
+            size_t bytesJustWritten;
+            uint64_t bytesToWriteThisIteration;
+
+            bytesToWriteThisIteration = bytesToWrite;
+
+            /*
+            WAV files are always little-endian. We need to byte swap on big-endian architectures. Since our input buffer is read-only we need
+            to use an intermediary buffer for the conversion.
+            */
+            sampleCount = sizeof(temp) / bytesPerSample;
+
+            if (bytesToWriteThisIteration > ((uint64_t)sampleCount)*bytesPerSample) {
+                bytesToWriteThisIteration = ((uint64_t)sampleCount)*bytesPerSample;
+            }
+
+            memcpy(temp, pRunningData, (size_t)bytesToWriteThisIteration);
+            drwav__bswap_samples(temp, sampleCount, bytesPerSample, translatedFormatTag);
+
+            bytesJustWritten = drwav_write_raw((size_t)bytesToWriteThisIteration, temp);
+            if (bytesJustWritten == 0) {
+                break;
+            }
+
+            bytesToWrite -= bytesJustWritten;
+            bytesWritten += bytesJustWritten;
+            pRunningData += bytesJustWritten;
+        }
+
+        return (bytesWritten * 8) / bitsPerSample / channels;
+    }
+
+    uint64_t drwav_write_pcm_frames(uint64_t framesToWrite, const void* pData) {
+        if (drwav__is_little_endian()) {
+            return drwav_write_pcm_frames_le(framesToWrite, pData);
+        } else {
+            return drwav_write_pcm_frames_be(framesToWrite, pData);
+        }
+    }
+
     bool finalized = false;
 
     void finalize() {
@@ -2557,7 +2653,6 @@ struct wav_writer : public wav_base {
 };
 
 extern uint64_t drwav_target_write_size_bytes(const drwav_data_format* pFormat, uint64_t totalSampleCount) {
-    /* Casting totalSampleCount to int64_t for VC6 compatibility. No issues in practice because nobody is going to exhaust the whole 63 bits. */
     uint64_t targetDataSizeBytes = totalSampleCount * pFormat->channels * (pFormat->bitsPerSample / 8);
     uint64_t riffChunkSizeBytes;
     uint64_t fileSizeBytes;
@@ -2572,107 +2667,3 @@ extern uint64_t drwav_target_write_size_bytes(const drwav_data_format* pFormat, 
 
     return fileSizeBytes;
 }
-
-static int drwav_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode) {
-    if (fopen_s(ppFile, pFilePath, pOpenMode) != 0) {
-        return -1;
-    }
-
-    return 0;
-}
-
-/*
-Writes raw audio data.
-
-Returns the number of bytes actually written. If this differs from bytesToWrite, it indicates an error.
-*/
-extern size_t drwav_write_raw(wav_writer& wav, size_t bytesToWrite, const void* pData) {
-    if (bytesToWrite == 0 || pData == NULL) {
-        return 0;
-    }
-
-    size_t bytesWritten = wav_write(wav.out, pData, bytesToWrite);
-    wav.dataChunkDataSize += bytesWritten;
-
-    return bytesWritten;
-}
-
-
-extern uint64_t drwav_write_pcm_frames_le(wav_writer& wav, uint64_t framesToWrite, const void* pData) {
-    if (framesToWrite == 0 || pData == NULL) {
-        return 0;
-    }
-
-    uint64_t bytesToWrite = ((framesToWrite * wav.channels * wav.bitsPerSample) / 8);
-
-    uint64_t bytesWritten = 0;
-    const uint8_t* pRunningData = (const uint8_t*)pData;
-
-    while (bytesToWrite > 0) {
-        size_t bytesJustWritten = drwav_write_raw(wav, (size_t)bytesToWrite, pRunningData);
-        if (bytesJustWritten == 0) {
-            break;
-        }
-
-        bytesToWrite -= bytesJustWritten;
-        bytesWritten += bytesJustWritten;
-        pRunningData += bytesJustWritten;
-    }
-
-    return (bytesWritten * 8) / wav.bitsPerSample / wav.channels;
-}
-
-extern uint64_t drwav_write_pcm_frames_be(wav_writer& wav, uint64_t framesToWrite, const void* pData) {
-    if (framesToWrite == 0 || pData == NULL) {
-        return 0;
-    }
-
-    uint64_t bytesToWrite = ((framesToWrite * wav.channels * wav.bitsPerSample) / 8);
-
-    uint64_t bytesWritten = 0;
-    const uint8_t* pRunningData = (const uint8_t*)pData;
-
-    uint32_t bytesPerSample = wav.get_bytes_per_pcm_frame() / wav.channels;
-    
-    while (bytesToWrite > 0) {
-        uint8_t temp[4096];
-        uint32_t sampleCount;
-        size_t bytesJustWritten;
-        uint64_t bytesToWriteThisIteration;
-
-        bytesToWriteThisIteration = bytesToWrite;
-
-        /*
-        WAV files are always little-endian. We need to byte swap on big-endian architectures. Since our input buffer is read-only we need
-        to use an intermediary buffer for the conversion.
-        */
-        sampleCount = sizeof(temp)/bytesPerSample;
-
-        if (bytesToWriteThisIteration > ((uint64_t)sampleCount)*bytesPerSample) {
-            bytesToWriteThisIteration = ((uint64_t)sampleCount)*bytesPerSample;
-        }
-
-        memcpy(temp, pRunningData, (size_t)bytesToWriteThisIteration);
-        drwav__bswap_samples(temp, sampleCount, bytesPerSample, wav.translatedFormatTag);
-
-        bytesJustWritten = drwav_write_raw(wav, (size_t)bytesToWriteThisIteration, temp);
-        if (bytesJustWritten == 0) {
-            break;
-        }
-
-        bytesToWrite -= bytesJustWritten;
-        bytesWritten += bytesJustWritten;
-        pRunningData += bytesJustWritten;
-    }
-
-    return (bytesWritten * 8) / wav.bitsPerSample / wav.channels;
-}
-
-extern uint64_t drwav_write_pcm_frames(wav_writer& wav, uint64_t framesToWrite, const void* pData) {
-    if (drwav__is_little_endian()) {
-        return drwav_write_pcm_frames_le(wav, framesToWrite, pData);
-    } else {
-        return drwav_write_pcm_frames_be(wav, framesToWrite, pData);
-    }
-}
-
