@@ -125,7 +125,7 @@ struct drwav_smpl_loop {
     uint32_t playCount;
 };
 
- struct drwav_smpl {
+struct drwav_smpl {
     uint32_t manufacturer;
     uint32_t product;
     uint32_t samplePeriod;
@@ -138,7 +138,7 @@ struct drwav_smpl_loop {
     drwav_smpl_loop loops[1];
 };
 
- struct wav_base {
+struct wav_base {
      /* Whether or not the WAV file is formatted as a standard RIFF file or W64. */
      drwav_container container = drwav_container_riff;
 
@@ -171,42 +171,21 @@ struct drwav_smpl_loop {
 
      /* smpl chunk. */
      drwav_smpl smpl = {};
- };
  
- struct wav_reader : public wav_base {
-    std::istream& in;
-
-    /* Generic data for compressed formats. This data is shared across all block-compressed formats. */
-    uint64_t iCurrentCompressedPCMFrame = 0;  /* The index of the next PCM frame that will be read by drwav_read_*(). This is used with "totalPCMFrameCount" to ensure we don't read excess samples at the end of the last block. */
-    
-    /* Microsoft ADPCM specific data. */
-    struct {
-        uint32_t bytesRemainingInBlock;
-        uint16_t predictor[2];
-        int32_t  delta[2];
-        int32_t  cachedFrames[4];  /* Samples are stored in this cache during decoding. */
-        uint32_t cachedFrameCount;
-        int32_t  prevFrames[2][2]; /* The previous 2 samples for each channel (2 channels at most). */
-    } msadpcm = {};
-
-    /* IMA ADPCM specific data. */
-    struct {
-        uint32_t bytesRemainingInBlock;
-        int32_t  predictor[2];
-        int32_t  stepIndex[2];
-        int32_t  cachedFrames[16]; /* Samples are stored in this cache during decoding. */
-        uint32_t cachedFrameCount;
-    } ima = {};
-
-    wav_reader(std::istream& in) : in(in) {}
+     uint32_t get_bytes_per_pcm_frame() const {
+         /*
+         The bytes per frame is a bit ambiguous. It can be either be based on the bits per sample, or the block align. The way I'm doing it here
+         is that if the bits per sample is a multiple of 8, use floor(bitsPerSample*channels/8), otherwise fall back to the block align.
+         */
+         if ((bitsPerSample & 0x7) == 0) {
+             /* Bits per sample is a multiple of 8. */
+             return (bitsPerSample * fmt.channels) >> 3;
+         } else {
+             return fmt.blockAlign;
+         }
+     }
 };
-
-struct wav_writer : public wav_base {
-    std::ostream& out;
-
-    wav_writer(std::ostream& out) : out(out) {}
-};
-
+ 
 template<class T, std::size_t N>
 constexpr std::size_t wav_countof(const T(&c)[N]) {
     return N;
@@ -562,19 +541,6 @@ static size_t drwav__on_read(std::istream& is, void* pBufferOut, size_t bytesToR
     return is ? bytesToRead : 0;
 }
 
-static uint32_t drwav_get_bytes_per_pcm_frame(const wav_base& wav) {
-    /*
-    The bytes per frame is a bit ambiguous. It can be either be based on the bits per sample, or the block align. The way I'm doing it here
-    is that if the bits per sample is a multiple of 8, use floor(bitsPerSample*channels/8), otherwise fall back to the block align.
-    */
-    if ((wav.bitsPerSample & 0x7) == 0) {
-        /* Bits per sample is a multiple of 8. */
-        return (wav.bitsPerSample * wav.fmt.channels) >> 3;
-    } else {
-        return wav.fmt.blockAlign;
-    }
-}
-
 extern uint16_t drwav_fmt_get_format(const drwav_fmt* pFMT) {
     if (pFMT == NULL) {
         return 0;
@@ -585,319 +551,6 @@ extern uint16_t drwav_fmt_get_format(const drwav_fmt* pFMT) {
     } else {
         return drwav__bytes_to_u16(pFMT->subFormat);    /* Only the first two bytes are required. */
     }
-}
-
-extern bool drwav_init(wav_reader& wav) {
-    uint8_t riff[4];
-    drwav_fmt fmt;
-    unsigned short translatedFormatTag;
-    uint64_t sampleCountFromFactChunk;
-    bool foundDataChunk;
-    uint64_t dataChunkSize;
-    uint64_t chunkSize;
-
-    uint64_t cursor = 0;
-
-    /* The first 4 bytes should be the RIFF identifier. */
-    if (!drwav__on_read(wav.in, riff, sizeof(riff), &cursor)) {
-        return false;
-    }
-
-    /*
-    The first 4 bytes can be used to identify the container. For RIFF files it will start with "RIFF" and for
-    w64 it will start with "riff".
-    */
-    if (drwav__fourcc_equal(riff, "RIFF")) {
-        wav.container = drwav_container_riff;
-    } else if (drwav__fourcc_equal(riff, "riff")) {
-        int i;
-        uint8_t riff2[12];
-
-        wav.container = drwav_container_w64;
-
-        /* Check the rest of the GUID for validity. */
-        if (!drwav__on_read(wav.in, riff2, sizeof(riff2), &cursor)) {
-            return false;
-        }
-
-        for (i = 0; i < 12; ++i) {
-            if (riff2[i] != drwavGUID_W64_RIFF[i+4]) {
-                return false;
-            }
-        }
-    } else {
-        return false;   /* Unknown or unsupported container. */
-    }
-
-
-    if (wav.container == drwav_container_riff) {
-        uint8_t chunkSizeBytes[4];
-        uint8_t wave[4];
-
-        /* RIFF/WAVE */
-        if (!drwav__on_read(wav.in, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor)) {
-            return false;
-        }
-
-        if (drwav__bytes_to_u32(chunkSizeBytes) < 36) {
-            return false;    /* Chunk size should always be at least 36 bytes. */
-        }
-
-        if (!drwav__on_read(wav.in, wave, sizeof(wave), &cursor)) {
-            return false;
-        }
-
-        if (!drwav__fourcc_equal(wave, "WAVE")) {
-            return false;    /* Expecting "WAVE". */
-        }
-    } else {
-        uint8_t chunkSizeBytes[8];
-        uint8_t wave[16];
-
-        /* W64 */
-        if (!drwav__on_read(wav.in, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor)) {
-            return false;
-        }
-
-        if (drwav__bytes_to_u64(chunkSizeBytes) < 80) {
-            return false;
-        }
-
-        if (!drwav__on_read(wav.in, wave, sizeof(wave), &cursor)) {
-            return false;
-        }
-
-        if (!drwav__guid_equal(wave, drwavGUID_W64_WAVE)) {
-            return false;
-        }
-    }
-
-
-    /* The next bytes should be the "fmt " chunk. */
-    if (!drwav__read_fmt(wav.in, wav.container, &cursor, &fmt)) {
-        return false;    /* Failed to read the "fmt " chunk. */
-    }
-
-    /* Basic validation. */
-    if (fmt.sampleRate == 0 || fmt.channels == 0 || fmt.bitsPerSample == 0 || fmt.blockAlign == 0) {
-        return false; /* Probably an invalid WAV file. */
-    }
-
-    /* Translate the internal format. */
-    translatedFormatTag = fmt.formatTag;
-    if (translatedFormatTag == DR_WAVE_FORMAT_EXTENSIBLE) {
-        translatedFormatTag = drwav__bytes_to_u16(fmt.subFormat + 0);
-    }
-
-    sampleCountFromFactChunk = 0;
-
-    /*
-    We need to enumerate over each chunk for two reasons:
-      1) The "data" chunk may not be the next one
-      2) We may want to report each chunk back to the client
-    
-    In order to correctly report each chunk back to the client we will need to keep looping until the end of the file.
-    */
-    foundDataChunk = false;
-    dataChunkSize = 0;
-
-    /* The next chunk we care about is the "data" chunk. This is not necessarily the next chunk so we'll need to loop. */
-    for (;;)
-    {
-        drwav_chunk_header header;
-        int result = drwav__read_chunk_header(wav.in, wav.container, &cursor, &header);
-        if (result != 0) {
-            if (!foundDataChunk) {
-                return false;
-            } else {
-                wav.in.clear(); // need to clear eofbit
-                break;  /* Probably at the end of the file. Get out of the loop. */
-            }
-        }
-
-        if (!foundDataChunk) {
-            wav.dataChunkDataPos = cursor;
-        }
-
-        chunkSize = header.sizeInBytes;
-        if (wav.container == drwav_container_riff) {
-            if (drwav__fourcc_equal(header.id.fourcc, "data")) {
-                foundDataChunk = true;
-                dataChunkSize = chunkSize;
-            }
-        } else {
-            if (drwav__guid_equal(header.id.guid, drwavGUID_W64_DATA)) {
-                foundDataChunk = true;
-                dataChunkSize = chunkSize;
-            }
-        }
-
-        /* Optional. Get the total sample count from the FACT chunk. This is useful for compressed formats. */
-        if (wav.container == drwav_container_riff) {
-            if (drwav__fourcc_equal(header.id.fourcc, "fact")) {
-                uint32_t sampleCount;
-                if (!drwav__on_read(wav.in, &sampleCount, 4, &cursor)) {
-                    return false;
-                }
-                chunkSize -= 4;
-
-                if (!foundDataChunk) {
-                    wav.dataChunkDataPos = cursor;
-                }
-
-                /*
-                The sample count in the "fact" chunk is either unreliable, or I'm not understanding it properly. For now I am only enabling this
-                for Microsoft ADPCM formats.
-                */
-                if (wav.translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-                    sampleCountFromFactChunk = sampleCount;
-                } else {
-                    sampleCountFromFactChunk = 0;
-                }
-            }
-        } else {
-            if (drwav__guid_equal(header.id.guid, drwavGUID_W64_FACT)) {
-                if (!drwav__on_read(wav.in, &sampleCountFromFactChunk, 8, &cursor)) {
-                    return false;
-                }
-                chunkSize -= 8;
-
-                if (!foundDataChunk) {
-                    wav.dataChunkDataPos = cursor;
-                }
-            }
-        }
-
-        /* "smpl" chunk. */
-        if (wav.container == drwav_container_riff) {
-            if (drwav__fourcc_equal(header.id.fourcc, "smpl")) {
-                uint8_t smplHeaderData[36];    /* 36 = size of the smpl header section, not including the loop data. */
-                if (chunkSize >= sizeof(smplHeaderData)) {
-                    uint64_t bytesJustRead = drwav__on_read(wav.in, smplHeaderData, sizeof(smplHeaderData), &cursor);
-                    chunkSize -= bytesJustRead;
-
-                    if (bytesJustRead == sizeof(smplHeaderData)) {
-                        uint32_t iLoop;
-
-                        wav.smpl.manufacturer      = drwav__bytes_to_u32(smplHeaderData+0);
-                        wav.smpl.product           = drwav__bytes_to_u32(smplHeaderData+4);
-                        wav.smpl.samplePeriod      = drwav__bytes_to_u32(smplHeaderData+8);
-                        wav.smpl.midiUnityNotes    = drwav__bytes_to_u32(smplHeaderData+12);
-                        wav.smpl.midiPitchFraction = drwav__bytes_to_u32(smplHeaderData+16);
-                        wav.smpl.smpteFormat       = drwav__bytes_to_u32(smplHeaderData+20);
-                        wav.smpl.smpteOffset       = drwav__bytes_to_u32(smplHeaderData+24);
-                        wav.smpl.numSampleLoops    = drwav__bytes_to_u32(smplHeaderData+28);
-                        wav.smpl.samplerData       = drwav__bytes_to_u32(smplHeaderData+32);
-
-                        for (iLoop = 0; iLoop < wav.smpl.numSampleLoops && iLoop < wav_countof(wav.smpl.loops); ++iLoop) {
-                            uint8_t smplLoopData[24];  /* 24 = size of a loop section in the smpl chunk. */
-                            bytesJustRead = drwav__on_read(wav.in, smplLoopData, sizeof(smplLoopData), &cursor);
-                            chunkSize -= bytesJustRead;
-
-                            if (bytesJustRead == sizeof(smplLoopData)) {
-                                wav.smpl.loops[iLoop].cuePointId = drwav__bytes_to_u32(smplLoopData+0);
-                                wav.smpl.loops[iLoop].type       = drwav__bytes_to_u32(smplLoopData+4);
-                                wav.smpl.loops[iLoop].start      = drwav__bytes_to_u32(smplLoopData+8);
-                                wav.smpl.loops[iLoop].end        = drwav__bytes_to_u32(smplLoopData+12);
-                                wav.smpl.loops[iLoop].fraction   = drwav__bytes_to_u32(smplLoopData+16);
-                                wav.smpl.loops[iLoop].playCount  = drwav__bytes_to_u32(smplLoopData+20);
-                            } else {
-                                break;  /* Break from the smpl loop for loop. */
-                            }
-                        }
-                    }
-                } else {
-                    /* Looks like invalid data. Ignore the chunk. */
-                }
-            }
-        } else {
-            if (drwav__guid_equal(header.id.guid, drwavGUID_W64_SMPL)) {
-                /*
-                This path will be hit when a W64 WAV file contains a smpl chunk. I don't have a sample file to test this path, so a contribution
-                is welcome to add support for this.
-                */
-            }
-        }
-
-        /* Make sure we seek past the padding. */
-        chunkSize += header.paddingSize;
-
-        if (!wav.in.seekg(chunkSize, std::ios_base::cur)) {
-            break;
-        }
-        cursor += chunkSize;
-
-        if (!foundDataChunk) {
-            wav.dataChunkDataPos = cursor;
-        }
-    }
-
-    /* If we haven't found a data chunk, return an error. */
-    if (!foundDataChunk) {
-        return false;
-    }
-
-    /* We may have moved passed the data chunk. If so we need to move back. */
-    if (!wav.in.seekg(wav.dataChunkDataPos, std::ios_base::beg)) {
-        return false;
-    }
-    cursor = wav.dataChunkDataPos;
-    
-
-    /* At this point we should be sitting on the first byte of the raw audio data. */
-
-    wav.fmt                 = fmt;
-    wav.sampleRate          = fmt.sampleRate;
-    wav.channels            = fmt.channels;
-    wav.bitsPerSample       = fmt.bitsPerSample;
-    wav.bytesRemaining      = dataChunkSize;
-    wav.translatedFormatTag = translatedFormatTag;
-    wav.dataChunkDataSize   = dataChunkSize;
-
-    if (sampleCountFromFactChunk != 0) {
-        wav.totalPCMFrameCount = sampleCountFromFactChunk;
-    } else {
-        wav.totalPCMFrameCount = dataChunkSize / drwav_get_bytes_per_pcm_frame(wav);
-
-        if (wav.translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-            uint64_t totalBlockHeaderSizeInBytes;
-            uint64_t blockCount = dataChunkSize / fmt.blockAlign;
-
-            /* Make sure any trailing partial block is accounted for. */
-            if ((blockCount * fmt.blockAlign) < dataChunkSize) {
-                blockCount += 1;
-            }
-
-            /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
-            totalBlockHeaderSizeInBytes = blockCount * (6*fmt.channels);
-            wav.totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
-        }
-        if (wav.translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-            uint64_t totalBlockHeaderSizeInBytes;
-            uint64_t blockCount = dataChunkSize / fmt.blockAlign;
-
-            /* Make sure any trailing partial block is accounted for. */
-            if ((blockCount * fmt.blockAlign) < dataChunkSize) {
-                blockCount += 1;
-            }
-
-            /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
-            totalBlockHeaderSizeInBytes = blockCount * (4*fmt.channels);
-            wav.totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
-
-            /* The header includes a decoded sample for each channel which acts as the initial predictor sample. */
-            wav.totalPCMFrameCount += blockCount;
-        }
-    }
-
-    /* Some formats only support a certain number of channels. */
-    if (wav.translatedFormatTag == DR_WAVE_FORMAT_ADPCM || wav.translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        if (wav.channels > 2) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 static uint32_t drwav__riff_chunk_size_riff(uint64_t dataChunkSize) {
@@ -928,6 +581,343 @@ static uint64_t drwav__data_chunk_size_w64(uint64_t dataChunkSize) {
     return 24 + dataChunkSize;        /* +24 because W64 includes the size of the GUID and size fields. */
 }
 
+
+class wav_reader : public wav_base {
+public:
+    std::istream& in;
+
+    /* Generic data for compressed formats. This data is shared across all block-compressed formats. */
+    uint64_t iCurrentCompressedPCMFrame = 0;  /* The index of the next PCM frame that will be read by drwav_read_*(). This is used with "totalPCMFrameCount" to ensure we don't read excess samples at the end of the last block. */
+
+                                              /* Microsoft ADPCM specific data. */
+    struct {
+        uint32_t bytesRemainingInBlock;
+        uint16_t predictor[2];
+        int32_t  delta[2];
+        int32_t  cachedFrames[4];  /* Samples are stored in this cache during decoding. */
+        uint32_t cachedFrameCount;
+        int32_t  prevFrames[2][2]; /* The previous 2 samples for each channel (2 channels at most). */
+    } msadpcm = {};
+
+    /* IMA ADPCM specific data. */
+    struct {
+        uint32_t bytesRemainingInBlock;
+        int32_t  predictor[2];
+        int32_t  stepIndex[2];
+        int32_t  cachedFrames[16]; /* Samples are stored in this cache during decoding. */
+        uint32_t cachedFrameCount;
+    } ima = {};
+
+    wav_reader(std::istream& in) : wav_base(), in(in) {
+        init();
+    }
+private:
+    void init() {
+        uint8_t riff[4];
+        uint64_t sampleCountFromFactChunk;
+        bool foundDataChunk;
+        uint64_t dataChunkSize;
+        uint64_t chunkSize;
+
+        uint64_t cursor = 0;
+
+        /* The first 4 bytes should be the RIFF identifier. */
+        if (!drwav__on_read(in, riff, sizeof(riff), &cursor)) {
+            throw std::runtime_error("Can't read RIFF identifier");
+        }
+
+        /*
+        The first 4 bytes can be used to identify the container. For RIFF files it will start with "RIFF" and for
+        w64 it will start with "riff".
+        */
+        if (drwav__fourcc_equal(riff, "RIFF")) {
+            container = drwav_container_riff;
+        } else if (drwav__fourcc_equal(riff, "riff")) {
+            uint8_t riff2[12];
+
+            container = drwav_container_w64;
+
+            /* Check the rest of the GUID for validity. */
+            if (!drwav__on_read(in, riff2, sizeof(riff2), &cursor)) {
+                throw std::runtime_error("Can't read GUID");
+            }
+
+            for (int i = 0; i < 12; ++i) {
+                if (riff2[i] != drwavGUID_W64_RIFF[i + 4]) {
+                    throw std::runtime_error("Invalid GUID");
+                }
+            }
+        } else {
+            throw std::runtime_error("Unknown or unsupported container");
+        }
+
+        if (container == drwav_container_riff) {
+            uint8_t chunkSizeBytes[4];
+            uint8_t wave[4];
+
+            /* RIFF/WAVE */
+            if (!drwav__on_read(in, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor)) {
+                throw std::runtime_error("Can't read RIFF");
+            }
+
+            if (drwav__bytes_to_u32(chunkSizeBytes) < 36) {
+                throw std::runtime_error("Chunk size should always be at least 36 bytes");
+            }
+
+            if (!drwav__on_read(in, wave, sizeof(wave), &cursor)) {
+                throw std::runtime_error("Can't read WAVE");
+            }
+
+            if (!drwav__fourcc_equal(wave, "WAVE")) {
+                throw std::runtime_error("Expecting WAVE");
+            }
+        } else {
+            uint8_t chunkSizeBytes[8];
+            uint8_t wave[16];
+
+            /* W64 */
+            if (!drwav__on_read(in, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor)) {
+                throw std::runtime_error("Can't read W64");
+            }
+
+            if (drwav__bytes_to_u64(chunkSizeBytes) < 80) {
+                throw std::runtime_error("Bad chunkSizeBytes");
+            }
+
+            if (!drwav__on_read(in, wave, sizeof(wave), &cursor)) {
+                throw std::runtime_error("Can't read WAVE");
+            }
+
+            if (!drwav__guid_equal(wave, drwavGUID_W64_WAVE)) {
+                throw std::runtime_error("Expecting W64_WAVE");
+            }
+        }
+
+
+        if (!drwav__read_fmt(in, container, &cursor, &fmt)) {
+            throw std::runtime_error("Failed to read the fmt chunk");
+        }
+
+        translatedFormatTag = fmt.formatTag;
+        if (translatedFormatTag == DR_WAVE_FORMAT_EXTENSIBLE) {
+            translatedFormatTag = drwav__bytes_to_u16(fmt.subFormat + 0);
+        }
+
+        sampleCountFromFactChunk = 0;
+
+        /*
+        We need to enumerate over each chunk for two reasons:
+        1) The "data" chunk may not be the next one
+        2) We may want to report each chunk back to the client
+
+        In order to correctly report each chunk back to the client we will need to keep looping until the end of the file.
+        */
+        foundDataChunk = false;
+        dataChunkSize = 0;
+
+        /* The next chunk we care about is the "data" chunk. This is not necessarily the next chunk so we'll need to loop. */
+        for (;;)
+        {
+            drwav_chunk_header header;
+            int result = drwav__read_chunk_header(in, container, &cursor, &header);
+            if (result != 0) {
+                if (!foundDataChunk) {
+                    throw std::runtime_error("Failed to find data chunk");
+                } else {
+                    in.clear(); // need to clear eofbit
+                    break;  /* Probably at the end of the file. Get out of the loop. */
+                }
+            }
+
+            if (!foundDataChunk) {
+                dataChunkDataPos = cursor;
+            }
+
+            chunkSize = header.sizeInBytes;
+            if (container == drwav_container_riff) {
+                if (drwav__fourcc_equal(header.id.fourcc, "data")) {
+                    foundDataChunk = true;
+                    dataChunkSize = chunkSize;
+                }
+            } else {
+                if (drwav__guid_equal(header.id.guid, drwavGUID_W64_DATA)) {
+                    foundDataChunk = true;
+                    dataChunkSize = chunkSize;
+                }
+            }
+
+            /* Optional. Get the total sample count from the FACT chunk. This is useful for compressed formats. */
+            if (container == drwav_container_riff) {
+                if (drwav__fourcc_equal(header.id.fourcc, "fact")) {
+                    uint32_t sampleCount;
+                    if (!drwav__on_read(in, &sampleCount, 4, &cursor)) {
+                        throw std::runtime_error("Failed to read the fact chunk");
+                    }
+                    chunkSize -= 4;
+
+                    if (!foundDataChunk) {
+                        dataChunkDataPos = cursor;
+                    }
+
+                    /*
+                    The sample count in the "fact" chunk is either unreliable, or I'm not understanding it properly. For now I am only enabling this
+                    for Microsoft ADPCM formats.
+                    */
+                    if (translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
+                        sampleCountFromFactChunk = sampleCount;
+                    } else {
+                        sampleCountFromFactChunk = 0;
+                    }
+                }
+            } else {
+                if (drwav__guid_equal(header.id.guid, drwavGUID_W64_FACT)) {
+                    if (!drwav__on_read(in, &sampleCountFromFactChunk, 8, &cursor)) {
+                        throw std::runtime_error("Failed to read the W64_fact chunk");
+                    }
+                    chunkSize -= 8;
+
+                    if (!foundDataChunk) {
+                        dataChunkDataPos = cursor;
+                    }
+                }
+            }
+
+            /* "smpl" chunk. */
+            if (container == drwav_container_riff) {
+                if (drwav__fourcc_equal(header.id.fourcc, "smpl")) {
+                    uint8_t smplHeaderData[36];    /* 36 = size of the smpl header section, not including the loop data. */
+                    if (chunkSize >= sizeof(smplHeaderData)) {
+                        uint64_t bytesJustRead = drwav__on_read(in, smplHeaderData, sizeof(smplHeaderData), &cursor);
+                        chunkSize -= bytesJustRead;
+
+                        if (bytesJustRead == sizeof(smplHeaderData)) {
+                            uint32_t iLoop;
+
+                            smpl.manufacturer = drwav__bytes_to_u32(smplHeaderData + 0);
+                            smpl.product = drwav__bytes_to_u32(smplHeaderData + 4);
+                            smpl.samplePeriod = drwav__bytes_to_u32(smplHeaderData + 8);
+                            smpl.midiUnityNotes = drwav__bytes_to_u32(smplHeaderData + 12);
+                            smpl.midiPitchFraction = drwav__bytes_to_u32(smplHeaderData + 16);
+                            smpl.smpteFormat = drwav__bytes_to_u32(smplHeaderData + 20);
+                            smpl.smpteOffset = drwav__bytes_to_u32(smplHeaderData + 24);
+                            smpl.numSampleLoops = drwav__bytes_to_u32(smplHeaderData + 28);
+                            smpl.samplerData = drwav__bytes_to_u32(smplHeaderData + 32);
+
+                            for (iLoop = 0; iLoop < smpl.numSampleLoops && iLoop < wav_countof(smpl.loops); ++iLoop) {
+                                uint8_t smplLoopData[24];  /* 24 = size of a loop section in the smpl chunk. */
+                                bytesJustRead = drwav__on_read(in, smplLoopData, sizeof(smplLoopData), &cursor);
+                                chunkSize -= bytesJustRead;
+
+                                if (bytesJustRead == sizeof(smplLoopData)) {
+                                    smpl.loops[iLoop].cuePointId = drwav__bytes_to_u32(smplLoopData + 0);
+                                    smpl.loops[iLoop].type = drwav__bytes_to_u32(smplLoopData + 4);
+                                    smpl.loops[iLoop].start = drwav__bytes_to_u32(smplLoopData + 8);
+                                    smpl.loops[iLoop].end = drwav__bytes_to_u32(smplLoopData + 12);
+                                    smpl.loops[iLoop].fraction = drwav__bytes_to_u32(smplLoopData + 16);
+                                    smpl.loops[iLoop].playCount = drwav__bytes_to_u32(smplLoopData + 20);
+                                } else {
+                                    break;  /* Break from the smpl loop for loop. */
+                                }
+                            }
+                        }
+                    } else {
+                        /* Looks like invalid data. Ignore the chunk. */
+                    }
+                }
+            } else {
+                if (drwav__guid_equal(header.id.guid, drwavGUID_W64_SMPL)) {
+                    /*
+                    This path will be hit when a W64 WAV file contains a smpl chunk. I don't have a sample file to test this path, so a contribution
+                    is welcome to add support for this.
+                    */
+                }
+            }
+
+            /* Make sure we seek past the padding. */
+            chunkSize += header.paddingSize;
+
+            if (!in.seekg(chunkSize, std::ios_base::cur)) {
+                break;
+            }
+            cursor += chunkSize;
+
+            if (!foundDataChunk) {
+                dataChunkDataPos = cursor;
+            }
+        }
+
+        /* If we haven't found a data chunk, return an error. */
+        if (!foundDataChunk) {
+            throw std::runtime_error("Failed to find data chunk");
+        }
+
+        /* We may have moved passed the data chunk. If so we need to move back. */
+        if (!in.seekg(dataChunkDataPos, std::ios_base::beg)) {
+            throw std::runtime_error("Failed to seek to the data chunk");
+        }
+        cursor = dataChunkDataPos;
+
+
+        /* At this point we should be sitting on the first byte of the raw audio data. */
+
+        sampleRate = fmt.sampleRate;
+        channels = fmt.channels;
+        bitsPerSample = fmt.bitsPerSample;
+        bytesRemaining = dataChunkSize;
+        translatedFormatTag = translatedFormatTag;
+        dataChunkDataSize = dataChunkSize;
+
+        if (sampleCountFromFactChunk != 0) {
+            totalPCMFrameCount = sampleCountFromFactChunk;
+        } else {
+            int tmp = get_bytes_per_pcm_frame();
+            totalPCMFrameCount = dataChunkSize / tmp;
+
+            if (translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
+                uint64_t totalBlockHeaderSizeInBytes;
+                uint64_t blockCount = dataChunkSize / fmt.blockAlign;
+
+                /* Make sure any trailing partial block is accounted for. */
+                if ((blockCount * fmt.blockAlign) < dataChunkSize) {
+                    blockCount += 1;
+                }
+
+                /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
+                totalBlockHeaderSizeInBytes = blockCount * (6 * fmt.channels);
+                totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
+            }
+            if (translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
+                uint64_t totalBlockHeaderSizeInBytes;
+                uint64_t blockCount = dataChunkSize / fmt.blockAlign;
+
+                /* Make sure any trailing partial block is accounted for. */
+                if ((blockCount * fmt.blockAlign) < dataChunkSize) {
+                    blockCount += 1;
+                }
+
+                /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
+                totalBlockHeaderSizeInBytes = blockCount * (4 * fmt.channels);
+                totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
+
+                /* The header includes a decoded sample for each channel which acts as the initial predictor sample. */
+                totalPCMFrameCount += blockCount;
+            }
+        }
+
+        /* Some formats only support a certain number of channels. */
+        if (translatedFormatTag == DR_WAVE_FORMAT_ADPCM || translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
+            if (channels > 2) {
+                throw std::runtime_error("Channels number doesn't match the format");
+            }
+        }
+    }
+};
+
+struct wav_writer : public wav_base {
+    std::ostream& out;
+
+    wav_writer(std::ostream& out) : wav_base(), out(out) {}
+};
 
 static bool drwav_preinit_write(wav_writer& wav, const drwav_data_format* pFormat) {
     /* Not currently supporting compressed formats. Will need to add support for the "fact" chunk before we enable this. */
@@ -1223,7 +1213,7 @@ extern uint64_t drwav_read_pcm_frames_le(wav_reader& wav, uint64_t framesToRead,
         return 0;
     }
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -1235,7 +1225,7 @@ extern uint64_t drwav_read_pcm_frames_be(wav_reader& wav, uint64_t framesToRead,
     uint64_t framesRead = drwav_read_pcm_frames_le(wav, framesToRead, pBufferOut);
 
     if (pBufferOut != NULL) {
-        drwav__bswap_samples(pBufferOut, framesRead*wav.channels, drwav_get_bytes_per_pcm_frame(wav)/wav.channels, wav.translatedFormatTag);
+        drwav__bswap_samples(pBufferOut, framesRead*wav.channels, wav.get_bytes_per_pcm_frame() / wav.channels, wav.translatedFormatTag);
     }
 
     return framesRead;
@@ -1630,7 +1620,7 @@ extern uint64_t drwav_write_pcm_frames_be(wav_writer& wav, uint64_t framesToWrit
     uint64_t bytesWritten = 0;
     const uint8_t* pRunningData = (const uint8_t*)pData;
 
-    uint32_t bytesPerSample = drwav_get_bytes_per_pcm_frame(wav) / wav.channels;
+    uint32_t bytesPerSample = wav.get_bytes_per_pcm_frame() / wav.channels;
     
     while (bytesToWrite > 0) {
         uint8_t temp[4096];
@@ -2136,7 +2126,7 @@ static uint64_t drwav_read_pcm_frames_s16__pcm(wav_reader& wav, uint64_t framesT
         return drwav_read_pcm_frames(wav, framesToRead, pBufferOut);
     }
     
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2166,7 +2156,7 @@ static uint64_t drwav_read_pcm_frames_s16__ieee(wav_reader& wav, uint64_t frames
         return drwav_read_pcm_frames(wav, framesToRead, NULL);
     }
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2196,7 +2186,7 @@ static uint64_t drwav_read_pcm_frames_s16__alaw(wav_reader& wav, uint64_t frames
         return drwav_read_pcm_frames(wav, framesToRead, NULL);
     }
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2226,7 +2216,7 @@ static uint64_t drwav_read_pcm_frames_s16__mulaw(wav_reader& wav, uint64_t frame
         return drwav_read_pcm_frames(wav, framesToRead, NULL);
     }
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2309,7 +2299,7 @@ extern uint64_t drwav_read_pcm_frames_s16be(wav_reader& wav, std::istream& in, u
 static uint64_t drwav_read_pcm_frames_f32__pcm(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2386,7 +2376,7 @@ static uint64_t drwav_read_pcm_frames_f32__ieee(wav_reader& wav, uint64_t frames
         return drwav_read_pcm_frames(wav, framesToRead, pBufferOut);
     }
     
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2411,7 +2401,7 @@ static uint64_t drwav_read_pcm_frames_f32__ieee(wav_reader& wav, uint64_t frames
 
 static uint64_t drwav_read_pcm_frames_f32__alaw(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
     uint8_t sampleData[4096];
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2437,7 +2427,7 @@ static uint64_t drwav_read_pcm_frames_f32__alaw(wav_reader& wav, uint64_t frames
 static uint64_t drwav_read_pcm_frames_f32__mulaw(wav_reader& wav, uint64_t framesToRead, float* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2523,7 +2513,7 @@ static uint64_t drwav_read_pcm_frames_s32__pcm(wav_reader& wav, uint64_t framesT
         return drwav_read_pcm_frames(wav, framesToRead, pBufferOut);
     }
     
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2595,7 +2585,7 @@ static uint64_t drwav_read_pcm_frames_s32__ima(wav_reader& wav, uint64_t framesT
 static uint64_t drwav_read_pcm_frames_s32__ieee(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2621,7 +2611,7 @@ static uint64_t drwav_read_pcm_frames_s32__ieee(wav_reader& wav, uint64_t frames
 static uint64_t drwav_read_pcm_frames_s32__alaw(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2647,7 +2637,7 @@ static uint64_t drwav_read_pcm_frames_s32__alaw(wav_reader& wav, uint64_t frames
 static uint64_t drwav_read_pcm_frames_s32__mulaw(wav_reader& wav, uint64_t framesToRead, int32_t* pBufferOut) {
     uint8_t sampleData[4096];
 
-    uint32_t bytesPerFrame = drwav_get_bytes_per_pcm_frame(wav);
+    uint32_t bytesPerFrame = wav.get_bytes_per_pcm_frame();
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -2808,29 +2798,17 @@ static int32_t* drwav__read_pcm_frames_and_close_s32(wav_reader& wav, unsigned i
 extern int16_t* drwav_open_and_read_pcm_frames_s16(std::istream& in, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalFrameCountOut) {
     wav_reader wav(in);
 
-    if (!drwav_init(wav)) {
-        return NULL;
-    }
-
     return drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 extern float* drwav_open_and_read_pcm_frames_f32(std::istream& in, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalFrameCountOut) {
     wav_reader wav(in);
 
-    if (!drwav_init(wav)) {
-        return NULL;
-    }
-
     return drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 extern int32_t* drwav_open_and_read_pcm_frames_s32(std::istream& in, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalFrameCountOut) {
     wav_reader wav(in);
-
-    if (!drwav_init(wav)) {
-        return NULL;
-    }
 
     return drwav__read_pcm_frames_and_close_s32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
@@ -2840,10 +2818,6 @@ extern int16_t* drwav_open_file_and_read_pcm_frames_s16(const char* filename, un
 
     wav_reader wav(fin);
 
-    if (!drwav_init(wav)) {
-        return NULL;
-    }
-
     return drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
@@ -2852,10 +2826,6 @@ extern float* drwav_open_file_and_read_pcm_frames_f32(const char* filename, unsi
 
     wav_reader wav(fin);
 
-    if (!drwav_init(wav)) {
-        return NULL;
-    }
-
     return drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
@@ -2863,10 +2833,6 @@ extern int32_t* drwav_open_file_and_read_pcm_frames_s32(const char* filename, un
     std::ifstream fin(filename, std::fstream::binary);
 
     wav_reader wav(fin);
-
-    if (!drwav_init(wav)) {
-        return NULL;
-    }
 
     return drwav__read_pcm_frames_and_close_s32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
