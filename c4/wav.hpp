@@ -29,6 +29,7 @@
 #include <stdexcept>
 #include <cstdint>
 #include <cstdlib>
+#include <vector>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -2057,18 +2058,13 @@ public:
         return 0;
     }
 
-    int16_t* read_pcm_frames_s16(unsigned int* pChannels, unsigned int* pSampleRate, uint64_t* pTotalFrameCount) {
-        uint64_t sampleDataSize = totalPCMFrameCount * channels * sizeof(int16_t);
+    void read_pcm_frames_s16(std::vector<int16_t>& data, int* pChannels, unsigned int* pSampleRate, uint64_t* pTotalFrameCount) {
+        data.resize(totalPCMFrameCount * channels);
 
-        int16_t* pSampleData = (int16_t*)malloc((size_t)sampleDataSize);
-        if (pSampleData == NULL) {
-            return NULL;    /* Failed to allocate memory. */
-        }
-
-        uint64_t framesRead = drwav_read_pcm_frames_s16(totalPCMFrameCount, pSampleData);
+        uint64_t framesRead = drwav_read_pcm_frames_s16(totalPCMFrameCount, data.data());
         if (framesRead != totalPCMFrameCount) {
-            free(pSampleData);
-            return NULL;    /* There was an error reading the samples. */
+            data.clear();
+            return;    /* There was an error reading the samples. */
         }
 
         if (pSampleRate) {
@@ -2080,22 +2076,15 @@ public:
         if (pTotalFrameCount) {
             *pTotalFrameCount = totalPCMFrameCount;
         }
-
-        return pSampleData;
     }
 
-    float* drwav__read_pcm_frames_and_close_f32(unsigned int* pChannels, unsigned int* pSampleRate, uint64_t* pTotalFrameCount) {
-        uint64_t sampleDataSize = totalPCMFrameCount * channels * sizeof(float);
+    void drwav__read_pcm_frames_and_close_f32(std::vector<float>& data, unsigned int* pChannels, unsigned int* pSampleRate, uint64_t* pTotalFrameCount) {
+        data.resize(totalPCMFrameCount * channels);
 
-        float* pSampleData = (float*)malloc((size_t)sampleDataSize); /* <-- Safe cast due to the check above. */
-        if (pSampleData == NULL) {
-            return NULL;    /* Failed to allocate memory. */
-        }
-
-        uint64_t framesRead = drwav_read_pcm_frames_f32(totalPCMFrameCount, pSampleData);
+        uint64_t framesRead = drwav_read_pcm_frames_f32(totalPCMFrameCount, data.data());
         if (framesRead != totalPCMFrameCount) {
-            free(pSampleData);
-            return NULL;    /* There was an error reading the samples. */
+            data.clear();
+            return;    /* There was an error reading the samples. */
         }
 
         if (pSampleRate) {
@@ -2107,22 +2096,15 @@ public:
         if (pTotalFrameCount) {
             *pTotalFrameCount = totalPCMFrameCount;
         }
-
-        return pSampleData;
     }
 
-    int32_t* drwav__read_pcm_frames_and_close_s32(unsigned int* pChannels, unsigned int* pSampleRate, uint64_t* pTotalFrameCount) {
-        uint64_t sampleDataSize = totalPCMFrameCount * channels * sizeof(int32_t);
+    void drwav__read_pcm_frames_and_close_s32(std::vector<int32_t>& data, unsigned int* pChannels, unsigned int* pSampleRate, uint64_t* pTotalFrameCount) {
+        data.resize(totalPCMFrameCount * channels);
 
-        int32_t* pSampleData = (int32_t*)malloc((size_t)sampleDataSize); /* <-- Safe cast due to the check above. */
-        if (pSampleData == NULL) {
-            return NULL;    /* Failed to allocate memory. */
-        }
-
-        uint64_t framesRead = drwav_read_pcm_frames_s32((size_t)totalPCMFrameCount, pSampleData);
+        uint64_t framesRead = drwav_read_pcm_frames_s32((size_t)totalPCMFrameCount, data.data());
         if (framesRead != totalPCMFrameCount) {
-            free(pSampleData);
-            return NULL;    /* There was an error reading the samples. */
+            data.clear();
+            return;    /* There was an error reading the samples. */
         }
 
         if (pSampleRate) {
@@ -2134,8 +2116,6 @@ public:
         if (pTotalFrameCount) {
             *pTotalFrameCount = totalPCMFrameCount;
         }
-
-        return pSampleData;
     }
 private:
     void init() {

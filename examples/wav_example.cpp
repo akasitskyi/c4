@@ -42,9 +42,10 @@ int main(int argc, char* argv[]) {
         unsigned int channels;
         unsigned int sampleRate;
         uint64_t totalPCMFrameCount;
+        std::vector<float> data;
 
-        float* data = wav_reader(inputFile).drwav__read_pcm_frames_and_close_f32(&channels, &sampleRate, &totalPCMFrameCount);
-        if (data == NULL) {
+        wav_reader(inputFile).drwav__read_pcm_frames_and_close_f32(data, &channels, &sampleRate, &totalPCMFrameCount);
+        if (data.empty()) {
             THROW_EXCEPTION("Can't read wav file: " + inputFile);
         }
 
@@ -54,7 +55,7 @@ int main(int argc, char* argv[]) {
             data[i] *= gain;
         }
 
-        drwav_f32_to_s16(result.data(), data, result.size());
+        drwav_f32_to_s16(result.data(), data.data(), result.size());
 
         std::ofstream fout(outputFile, std::fstream::binary);
 
@@ -69,8 +70,6 @@ int main(int argc, char* argv[]) {
 
         auto framesWritten = drwav_write_pcm_frames(wav, totalPCMFrameCount, result.data());
         ASSERT_EQUAL(framesWritten, totalPCMFrameCount);
-
-        free(data);
     }
     catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
