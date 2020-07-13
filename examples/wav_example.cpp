@@ -42,7 +42,8 @@ int main(int argc, char* argv[]) {
         unsigned int channels;
         unsigned int sampleRate;
         uint64_t totalPCMFrameCount;
-        float* data = drwav_open_file_and_read_pcm_frames_f32(inputFile.c_str(), &channels, &sampleRate, &totalPCMFrameCount);
+
+        float* data = wav_reader(inputFile).drwav__read_pcm_frames_and_close_f32(&channels, &sampleRate, &totalPCMFrameCount);
         if (data == NULL) {
             THROW_EXCEPTION("Can't read wav file: " + inputFile);
         }
