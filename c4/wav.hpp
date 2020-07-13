@@ -63,7 +63,6 @@ struct wav_chunk_header {
         uint8_t guid[16];
     } id;
 
-    /* The size in bytes of the chunk. */
     uint64_t sizeInBytes;
 
     /*
@@ -80,13 +79,10 @@ struct wav_fmt {
     */
     uint16_t formatTag;
 
-    /* The number of channels making up the audio data. When this is set to 1 it is mono, 2 is stereo, etc. */
     uint16_t channels;
 
-    /* The sample rate. Usually set to something like 44100. */
     uint32_t sampleRate;
 
-    /* Average bytes per second. You probably don't need this, but it's left here for informational purposes. */
     uint32_t avgBytesPerSec;
 
     /* Block align. This is equal to the number of channels * bytes per sample. */
@@ -144,28 +140,17 @@ struct wav_smpl {
 };
 
 struct wav_base {
-     /* Whether or not the WAV file is formatted as a standard RIFF file or W64. */
      wav_container container = wav_container_riff;
-
-     /* Structure containing format information exactly as specified by the wav file. */
      wav_fmt fmt = {};
-
-     /* The sample rate. Will be set to something like 44100. */
      uint32_t sampleRate = 0;
-
-     /* The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc. */
      uint16_t channels = 0;
-
-     /* The bits per sample. Will be set to something like 16, 24, etc. */
      uint16_t bitsPerSample = 0;
 
      /* Equal to fmt.formatTag, or the value specified by fmt.subFormat if fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE). */
      uint16_t translatedFormatTag = 0;
 
-     /* The total number of PCM frames making up the audio data. */
      uint64_t totalPCMFrameCount = 0;
 
-     /* The size in bytes of the data chunk. */
      uint64_t dataChunkDataSize = 0;
 
      /* The position in the stream of the first byte of the data chunk. This is used for seeking. */
@@ -253,136 +238,65 @@ namespace detail {
         memcpy(guid, data, 16);
     }
 
-    inline uint16_t wav_bswap16(uint16_t n) {
-        return ((n & 0xFF00) >> 8) | ((n & 0x00FF) << 8);
+    inline void wav_bswap16(uint8_t* p) {
+        std::swap(p[0], p[1]);
     }
 
-    inline uint32_t wav_bswap32(uint32_t n) {
-        return ((n & 0xFF000000) >> 24) | ((n & 0x00FF0000) >> 8) | ((n & 0x0000FF00) << 8) | ((n & 0x000000FF) << 24);
-    }
-
-    inline uint64_t wav_bswap64(uint64_t n) {
-        return ((n & (uint64_t)0xFF00000000000000) >> 56) |
-            ((n & (uint64_t)0x00FF000000000000) >> 40) |
-            ((n & (uint64_t)0x0000FF0000000000) >> 24) |
-            ((n & (uint64_t)0x000000FF00000000) >> 8) |
-            ((n & (uint64_t)0x00000000FF000000) << 8) |
-            ((n & (uint64_t)0x0000000000FF0000) << 24) |
-            ((n & (uint64_t)0x000000000000FF00) << 40) |
-            ((n & (uint64_t)0x00000000000000FF) << 56);
-    }
-
-    inline int16_t wav_bswap_s16(int16_t n) {
-        return (int16_t)wav_bswap16((uint16_t)n);
-    }
-
-    inline void wav_bswap_samples_s16(int16_t* pSamples, uint64_t sampleCount) {
-        for (uint64_t iSample = 0; iSample < sampleCount; iSample += 1) {
-            pSamples[iSample] = wav_bswap_s16(pSamples[iSample]);
-        }
-    }
-
-    inline void wav_bswap_s24(uint8_t* p) {
+    inline void wav_bswap24(uint8_t* p) {
         std::swap(p[0], p[2]);
     }
 
-    inline void wav_bswap_samples_s24(uint8_t* pSamples, uint64_t sampleCount) {
-        for (uint64_t iSample = 0; iSample < sampleCount; iSample += 1) {
-            uint8_t* pSample = pSamples + (iSample * 3);
-            wav_bswap_s24(pSample);
+    inline void wav_bswap32(uint8_t* p) {
+        std::swap(p[0], p[3]);
+        std::swap(p[1], p[2]);
+    }
+
+    inline void wav_bswap64(uint8_t* p) {
+        std::swap(p[0], p[7]);
+        std::swap(p[1], p[6]);
+        std::swap(p[2], p[5]);
+        std::swap(p[3], p[4]);
+    }
+
+    inline void wav_bswap_samples_16(uint8_t* pSamples, uint64_t sampleCount) {
+        for (uint64_t i = 0; i < sampleCount; i++) {
+            wav_bswap16(pSamples + i * 2);
         }
     }
 
-    inline int32_t wav_bswap_s32(int32_t n) {
-        return (int32_t)wav_bswap32((uint32_t)n);
-    }
-
-    inline void wav_bswap_samples_s32(int32_t* pSamples, uint64_t sampleCount) {
-        for (uint64_t iSample = 0; iSample < sampleCount; iSample += 1) {
-            pSamples[iSample] = wav_bswap_s32(pSamples[iSample]);
+    inline void wav_bswap_samples_24(uint8_t* pSamples, uint64_t sampleCount) {
+        for (uint64_t i = 0; i < sampleCount; i++) {
+            wav_bswap24(pSamples + i * 3);
         }
     }
 
-    inline float wav_bswap_f32(float n) {
-        union {
-            uint32_t i;
-            float f;
-        } x;
-        x.f = n;
-        x.i = wav_bswap32(x.i);
-
-        return x.f;
-    }
-
-    inline void wav_bswap_samples_f32(float* pSamples, uint64_t sampleCount) {
-        for (uint64_t iSample = 0; iSample < sampleCount; iSample += 1) {
-            pSamples[iSample] = wav_bswap_f32(pSamples[iSample]);
+    inline void wav_bswap_samples_32(uint8_t* pSamples, uint64_t sampleCount) {
+        for (uint64_t i = 0; i < sampleCount; i++) {
+            wav_bswap32(pSamples + i * 4);
         }
     }
 
-    inline double wav_bswap_f64(double n) {
-        union {
-            uint64_t i;
-            double f;
-        } x;
-        x.f = n;
-        x.i = wav_bswap64(x.i);
-
-        return x.f;
-    }
-
-    inline void wav_bswap_samples_f64(double* pSamples, uint64_t sampleCount) {
-        for (uint64_t iSample = 0; iSample < sampleCount; iSample += 1) {
-            pSamples[iSample] = wav_bswap_f64(pSamples[iSample]);
-        }
-    }
-
-    inline void wav_bswap_samples_pcm(void* pSamples, uint64_t sampleCount, uint32_t bytesPerSample) {
-        /* Assumes integer PCM. Floating point PCM is done in wav_bswap_samples_ieee(). */
-        switch (bytesPerSample) {
-        case 2: /* s16, s12 (loosely packed) */
-            wav_bswap_samples_s16((int16_t*)pSamples, sampleCount);
-            break;
-        case 3: /* s24 */
-            wav_bswap_samples_s24((uint8_t*)pSamples, sampleCount);
-            break;
-        case 4: /* s32 */
-            wav_bswap_samples_s32((int32_t*)pSamples, sampleCount);
-            break;
-        default:
-            /* Unsupported format. */
-            assert(false);
-        }
-    }
-
-    inline void wav_bswap_samples_ieee(void* pSamples, uint64_t sampleCount, uint32_t bytesPerSample) {
-        switch (bytesPerSample) {
-        case 4: /* f32 */
-            wav_bswap_samples_f32((float*)pSamples, sampleCount);
-            break;
-        case 8: /* f64 */
-            wav_bswap_samples_f64((double*)pSamples, sampleCount);
-            break;
-        default:
-            /* Unsupported format. */
-            assert(false);
+    inline void wav_bswap_samples_64(uint8_t* pSamples, uint64_t sampleCount) {
+        for (uint64_t i = 0; i < sampleCount; i++) {
+            wav_bswap64(pSamples + i * 8);
         }
     }
 
     inline void wav_bswap_samples(void* pSamples, uint64_t sampleCount, uint32_t bytesPerSample, uint16_t format) {
-        switch (format) {
-        case WAVE_FORMAT_PCM:
-            wav_bswap_samples_pcm(pSamples, sampleCount, bytesPerSample);
+        /* Assumes integer PCM. Floating point PCM is done in wav_bswap_samples_ieee(). */
+        switch (bytesPerSample) {
+        case 2:
+            wav_bswap_samples_16((uint8_t*)pSamples, sampleCount);
             break;
-        case WAVE_FORMAT_IEEE_FLOAT:
-            wav_bswap_samples_ieee(pSamples, sampleCount, bytesPerSample);
+        case 3:
+            wav_bswap_samples_24((uint8_t*)pSamples, sampleCount);
             break;
-        case WAVE_FORMAT_ALAW:
-        case WAVE_FORMAT_MULAW:
-            wav_bswap_samples_s16((int16_t*)pSamples, sampleCount);
+        case 4:
+            wav_bswap_samples_32((uint8_t*)pSamples, sampleCount);
             break;
-        case WAVE_FORMAT_ADPCM:
-        case WAVE_FORMAT_DVI_ADPCM:
+        case 8:
+            wav_bswap_samples_32((uint8_t*)pSamples, sampleCount);
+            break;
         default:
             /* Unsupported format. */
             assert(false);
@@ -1300,7 +1214,7 @@ public:
 
         uint64_t framesRead = wav_read_pcm_frames_s16(framesToRead, pBufferOut);
         if (pBufferOut != NULL && wav_is_little_endian() == false) {
-            wav_bswap_samples_s16(pBufferOut, framesRead * channels);
+            wav_bswap_samples_16((uint8_t*)pBufferOut, framesRead * channels);
         }
 
         return framesRead;
@@ -1311,13 +1225,11 @@ public:
 
         uint64_t framesRead = wav_read_pcm_frames_s16(framesToRead, pBufferOut);
         if (pBufferOut != NULL && wav_is_little_endian() == true) {
-            wav_bswap_samples_s16(pBufferOut, framesRead * channels);
+            wav_bswap_samples_16((uint8_t*)pBufferOut, framesRead * channels);
         }
 
         return framesRead;
     }
-
-
 
     uint64_t wav_read_pcm_frames_f32__pcm(uint64_t framesToRead, float* pBufferOut) {
         using namespace detail;
@@ -1520,7 +1432,7 @@ public:
 
         uint64_t framesRead = wav_read_pcm_frames_f32(framesToRead, pBufferOut);
         if (pBufferOut != NULL && wav_is_little_endian() == false) {
-            wav_bswap_samples_f32(pBufferOut, framesRead * channels);
+            wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
         }
 
         return framesRead;
@@ -1531,7 +1443,7 @@ public:
 
         uint64_t framesRead = wav_read_pcm_frames_f32(framesToRead, pBufferOut);
         if (pBufferOut != NULL && wav_is_little_endian() == true) {
-            wav_bswap_samples_f32(pBufferOut, framesRead * channels);
+            wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
         }
 
         return framesRead;
@@ -1736,7 +1648,7 @@ public:
 
         uint64_t framesRead = wav_read_pcm_frames_s32(framesToRead, pBufferOut);
         if (pBufferOut != NULL && wav_is_little_endian() == false) {
-            wav_bswap_samples_s32(pBufferOut, framesRead * channels);
+            wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
         }
 
         return framesRead;
@@ -1747,7 +1659,7 @@ public:
 
         uint64_t framesRead = wav_read_pcm_frames_s32(framesToRead, pBufferOut);
         if (pBufferOut != NULL && wav_is_little_endian() == true) {
-            wav_bswap_samples_s32(pBufferOut, framesRead * channels);
+            wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
         }
 
         return framesRead;
