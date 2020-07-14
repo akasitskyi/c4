@@ -307,15 +307,15 @@ namespace detail {
         return formatTag == WAVE_FORMAT_ADPCM || formatTag == WAVE_FORMAT_DVI_ADPCM;
     }
 
-    static unsigned int wav_chunk_padding_size_riff(uint64_t chunkSize) {
+    inline unsigned int wav_chunk_padding_size_riff(uint64_t chunkSize) {
         return (unsigned int)(chunkSize % 2);
     }
 
-    static unsigned int wav_chunk_padding_size_w64(uint64_t chunkSize) {
+    inline unsigned int wav_chunk_padding_size_w64(uint64_t chunkSize) {
         return (unsigned int)(chunkSize % 8);
     }
 
-    static int wav_read_chunk_header(std::istream& is, wav_container container, uint64_t* pRunningBytesReadOut, wav_chunk_header* pHeaderOut) {
+    inline int wav_read_chunk_header(std::istream& is, wav_container container, uint64_t* pRunningBytesReadOut, wav_chunk_header* pHeaderOut) {
         if (container == wav_container_riff) {
             uint8_t sizeInBytes[4];
 
@@ -347,7 +347,7 @@ namespace detail {
         return 0;
     }
 
-    static bool wav_read_fmt(std::istream& is, wav_container container, uint64_t* pRunningBytesReadOut, wav_fmt* fmtOut) {
+    inline bool wav_read_fmt(std::istream& is, wav_container container, uint64_t* pRunningBytesReadOut, wav_fmt* fmtOut) {
         wav_chunk_header header;
         uint8_t fmt[16];
 
@@ -453,13 +453,13 @@ namespace detail {
         return true;
     }
 
-    static size_t wav_on_read(std::istream& is, void* pBufferOut, size_t bytesToRead, uint64_t* pCursor) {
+    inline size_t wav_on_read(std::istream& is, void* pBufferOut, size_t bytesToRead, uint64_t* pCursor) {
         is.read((char*)pBufferOut, bytesToRead);
         *pCursor += bytesToRead;
         return is ? bytesToRead : 0;
     }
 
-    static uint32_t wav_riff_chunk_size_riff(uint64_t dataChunkSize) {
+    inline uint32_t wav_riff_chunk_size_riff(uint64_t dataChunkSize) {
         uint32_t dataSubchunkPaddingSize = wav_chunk_padding_size_riff(dataChunkSize);
 
         if (dataChunkSize <= (0xFFFFFFFFUL - 36 - dataSubchunkPaddingSize)) {
@@ -469,7 +469,7 @@ namespace detail {
         }
     }
 
-    static uint32_t wav_data_chunk_size_riff(uint64_t dataChunkSize) {
+    inline uint32_t wav_data_chunk_size_riff(uint64_t dataChunkSize) {
         if (dataChunkSize <= 0xFFFFFFFFUL) {
             return (uint32_t)dataChunkSize;
         } else {
@@ -477,13 +477,13 @@ namespace detail {
         }
     }
 
-    static uint64_t wav_riff_chunk_size_w64(uint64_t dataChunkSize) {
+    inline uint64_t wav_riff_chunk_size_w64(uint64_t dataChunkSize) {
         uint64_t dataSubchunkPaddingSize = wav_chunk_padding_size_w64(dataChunkSize);
 
         return 80 + 24 + dataChunkSize + dataSubchunkPaddingSize;   /* +24 because W64 includes the size of the GUID and size fields. */
     }
 
-    static uint64_t wav_data_chunk_size_w64(uint64_t dataChunkSize) {
+    inline uint64_t wav_data_chunk_size_w64(uint64_t dataChunkSize) {
         return 24 + dataChunkSize;        /* +24 because W64 includes the size of the GUID and size fields. */
     }
 
@@ -564,9 +564,13 @@ inline void wav_s24_to_s16(int16_t* pOut, const uint8_t* pIn, size_t sampleCount
 
 inline void wav_s32_to_s16(int16_t* pOut, const int32_t* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
-        int x = pIn[i];
-        int r = x >> 16;
-        pOut[i] = (short)r;
+        pOut[i] = int16_t(pIn[i] >> 16);
+    }
+}
+
+inline void wav_s64_to_s16(int16_t* pOut, const int64_t* pIn, size_t sampleCount) {
+    for (size_t i = 0; i < sampleCount; ++i) {
+        pOut[i] = int16_t(pIn[i] >> 48);
     }
 }
 
@@ -624,14 +628,22 @@ inline void wav_s16_to_f32(float* pOut, const int16_t* pIn, size_t sampleCount) 
 
 inline void wav_s24_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
-        double x = (double)(((int32_t)(((uint32_t)(pIn[i * 3 + 0]) << 8) | ((uint32_t)(pIn[i * 3 + 1]) << 16) | ((uint32_t)(pIn[i * 3 + 2])) << 24)) >> 8);
-        *pOut++ = (float)(x * 0.00000011920928955078125);
+        float x = (float)(((int32_t)(((uint32_t)(pIn[i * 3 + 0]) << 8) | ((uint32_t)(pIn[i * 3 + 1]) << 16) | ((uint32_t)(pIn[i * 3 + 2])) << 24)) >> 8);
+        *pOut++ = x * 0.00000011920928955078125f;
     }
 }
 
 inline void wav_s32_to_f32(float* pOut, const int32_t* pIn, size_t sampleCount) {
+    constexpr float q = 1.f / -std::numeric_limits<int32_t>::min();
     for (size_t i = 0; i < sampleCount; ++i) {
-        *pOut++ = (float)(pIn[i] / 2147483648.0);
+        *pOut++ = pIn[i] * q;
+    }
+}
+
+inline void wav_s64_to_f32(float* pOut, const int64_t* pIn, size_t sampleCount) {
+    constexpr float q = 1.f / -std::numeric_limits<int64_t>::min();
+    for (size_t i = 0; i < sampleCount; ++i) {
+        *pOut++ = pIn[i] * q;
     }
 }
 
@@ -642,14 +654,16 @@ inline void wav_f64_to_f32(float* pOut, const double* pIn, size_t sampleCount) {
 }
 
 inline void wav_alaw_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
+    constexpr float q = 1.f / -std::numeric_limits<int16_t>::min();
     for (size_t i = 0; i < sampleCount; ++i) {
-        *pOut++ = detail::wav_alaw_to_s16(pIn[i]) / 32768.0f;
+        *pOut++ = detail::wav_alaw_to_s16(pIn[i]) * q;
     }
 }
 
 inline void wav_mulaw_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
+    constexpr float q = 1.f / -std::numeric_limits<int16_t>::min();
     for (size_t i = 0; i < sampleCount; ++i) {
-        *pOut++ = detail::wav_mulaw_to_s16(pIn[i]) / 32768.0f;
+        *pOut++ = detail::wav_mulaw_to_s16(pIn[i]) * q;
     }
 }
 
@@ -673,6 +687,12 @@ inline void wav_s24_to_s32(int32_t* pOut, const uint8_t* pIn, size_t sampleCount
 
         int32_t sample32 = (int32_t)((s0 << 8) | (s1 << 16) | (s2 << 24));
         *pOut++ = sample32;
+    }
+}
+
+inline void wav_s64_to_s32(int32_t* pOut, const int64_t* pIn, size_t sampleCount) {
+    for (size_t i = 0; i < sampleCount; ++i) {
+        *pOut++ = int32_t(pIn[i] >> 32);
     }
 }
 
@@ -701,185 +721,105 @@ inline void wav_mulaw_to_s32(int32_t* pOut, const uint8_t* pIn, size_t sampleCou
 }
 
 inline void wav_pcm_to_s32(int32_t* pOut, const uint8_t* pIn, size_t totalSampleCount, unsigned int bytesPerSample) {
-    /* Special case for 8-bit sample data because it's treated as unsigned. */
-    if (bytesPerSample == 1) {
+    switch (bytesPerSample)
+    {
+    case 1:
         wav_u8_to_s32(pOut, pIn, totalSampleCount);
-        return;
-    }
-
-    /* Slightly more optimal implementation for common formats. */
-    if (bytesPerSample == 2) {
+        break;
+    case 2:
         wav_s16_to_s32(pOut, (const int16_t*)pIn, totalSampleCount);
-        return;
-    }
-    if (bytesPerSample == 3) {
+        break;
+    case 3:
         wav_s24_to_s32(pOut, pIn, totalSampleCount);
-        return;
-    }
-    if (bytesPerSample == 4) {
-        for (unsigned int i = 0; i < totalSampleCount; ++i) {
-            *pOut++ = ((const int32_t*)pIn)[i];
-        }
-        return;
-    }
-
-    /* Anything more than 64 bits per sample is not supported. */
-    if (bytesPerSample > 8) {
-        memset(pOut, 0, totalSampleCount * sizeof(*pOut));
-        return;
-    }
-
-    /* Generic, slow converter. */
-    for (unsigned int i = 0; i < totalSampleCount; ++i) {
-        uint64_t sample = 0;
-        unsigned int shift = (8 - bytesPerSample) * 8;
-
-        unsigned int j;
-        for (j = 0; j < bytesPerSample; j += 1) {
-            assert(j < 8);
-            sample |= (uint64_t)(pIn[j]) << shift;
-            shift += 8;
-        }
-
-        pIn += j;
-        *pOut++ = (int32_t)((int64_t)sample >> 32);
+        break;
+    case 4:
+        memcpy(pOut, pIn, totalSampleCount * sizeof(int32_t));
+        break;
+    case 8:
+        wav_s64_to_s32(pOut, (const int64_t*)pIn, totalSampleCount);
+        break;
+    default:
+        throw std::logic_error("wav_pcm_to_s32 ERROR: not supported bytesPerSample: " + std::to_string(bytesPerSample));
     }
 }
 
 inline void wav_ieee_to_s32(int32_t* pOut, const uint8_t* pIn, size_t totalSampleCount, unsigned int bytesPerSample) {
     if (bytesPerSample == 4) {
         wav_f32_to_s32(pOut, (const float*)pIn, totalSampleCount);
-        return;
     } else if (bytesPerSample == 8) {
         wav_f64_to_s32(pOut, (const double*)pIn, totalSampleCount);
-        return;
     } else {
-        /* Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float. */
-        memset(pOut, 0, totalSampleCount * sizeof(*pOut));
-        return;
+        throw std::logic_error("wav_ieee_to_s32 ERROR: not supported bytesPerSample: " + std::to_string(bytesPerSample));
     }
 }
 
 inline void wav_pcm_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount, unsigned int bytesPerSample) {
-    /* Special case for 8-bit sample data because it's treated as unsigned. */
-    if (bytesPerSample == 1) {
+    switch (bytesPerSample) {
+    case 1:
         wav_u8_to_f32(pOut, pIn, sampleCount);
-        return;
-    }
-
-    /* Slightly more optimal implementation for common formats. */
-    if (bytesPerSample == 2) {
+        break;
+    case 2:
         wav_s16_to_f32(pOut, (const int16_t*)pIn, sampleCount);
-        return;
-    }
-    if (bytesPerSample == 3) {
+        break;
+    case 3:
         wav_s24_to_f32(pOut, pIn, sampleCount);
-        return;
-    }
-    if (bytesPerSample == 4) {
+        break;
+    case 4:
         wav_s32_to_f32(pOut, (const int32_t*)pIn, sampleCount);
-        return;
-    }
-
-    /* Anything more than 64 bits per sample is not supported. */
-    if (bytesPerSample > 8) {
-        memset(pOut, 0, sampleCount * sizeof(*pOut));
-        return;
-    }
-
-    /* Generic, slow converter. */
-    for (unsigned int i = 0; i < sampleCount; ++i) {
-        uint64_t sample = 0;
-        unsigned int shift = (8 - bytesPerSample) * 8;
-
-        unsigned int j;
-        for (j = 0; j < bytesPerSample; j += 1) {
-            assert(j < 8);
-            sample |= (uint64_t)(pIn[j]) << shift;
-            shift += 8;
-        }
-
-        pIn += j;
-        *pOut++ = (float)((int64_t)sample / 9223372036854775807.0);
+        break;
+    case 8:
+        wav_s64_to_f32(pOut, (const int64_t*)pIn, sampleCount);
+        break;
+    default:
+        throw std::logic_error("wav_pcm_to_f32 ERROR: not supported bytesPerSample: " + std::to_string(bytesPerSample));
     }
 }
 
 inline void wav_ieee_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount, unsigned int bytesPerSample) {
-    if (bytesPerSample == 4) {
-        unsigned int i;
-        for (i = 0; i < sampleCount; ++i) {
-            *pOut++ = ((const float*)pIn)[i];
-        }
-        return;
-    } else if (bytesPerSample == 8) {
+    switch (bytesPerSample) {
+    case 4:
+        memcpy(pOut, pIn, sampleCount * sizeof(float));
+        break;
+    case 8:
         wav_f64_to_f32(pOut, (const double*)pIn, sampleCount);
-        return;
-    } else {
-        /* Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float. */
-        memset(pOut, 0, sampleCount * sizeof(*pOut));
-        return;
+        break;
+    default:
+        throw std::logic_error("wav_ieee_to_f32 ERROR: not supported bytesPerSample: " + std::to_string(bytesPerSample));
     }
 }
 
 inline void wav_pcm_to_s16(int16_t* pOut, const uint8_t* pIn, size_t totalSampleCount, unsigned int bytesPerSample) {
-    /* Special case for 8-bit sample data because it's treated as unsigned. */
-    if (bytesPerSample == 1) {
+    switch (bytesPerSample) {
+    case 1:
         wav_u8_to_s16(pOut, pIn, totalSampleCount);
-        return;
-    }
-
-
-    /* Slightly more optimal implementation for common formats. */
-    if (bytesPerSample == 2) {
-        for (unsigned int i = 0; i < totalSampleCount; ++i) {
-            *pOut++ = ((const int16_t*)pIn)[i];
-        }
-        return;
-    }
-    if (bytesPerSample == 3) {
+        break;
+    case 2:
+        memcpy(pOut, pIn, totalSampleCount * sizeof(int16_t));
+        break;
+    case 3:
         wav_s24_to_s16(pOut, pIn, totalSampleCount);
-        return;
-    }
-    if (bytesPerSample == 4) {
+        break;
+    case 4:
         wav_s32_to_s16(pOut, (const int32_t*)pIn, totalSampleCount);
-        return;
-    }
-
-
-    /* Anything more than 64 bits per sample is not supported. */
-    if (bytesPerSample > 8) {
-        memset(pOut, 0, totalSampleCount * sizeof(*pOut));
-        return;
-    }
-
-    /* Generic, slow converter. */
-    for (unsigned int i = 0; i < totalSampleCount; ++i) {
-        uint64_t sample = 0;
-        unsigned int shift = (8 - bytesPerSample) * 8;
-
-        unsigned int j;
-        for (j = 0; j < bytesPerSample; j += 1) {
-            assert(j < 8);
-            sample |= (uint64_t)(pIn[j]) << shift;
-            shift += 8;
-        }
-
-        pIn += j;
-        *pOut++ = (int16_t)((int64_t)sample >> 48);
+        break;
+    case 8:
+        wav_s64_to_s16(pOut, (const int64_t*)pIn, totalSampleCount);
+        break;
+    default:
+        throw std::logic_error("wav_pcm_to_s16 ERROR: not supported bytesPerSample: " + std::to_string(bytesPerSample));
     }
 }
 
 inline void wav_ieee_to_s16(int16_t* pOut, const uint8_t* pIn, size_t totalSampleCount, unsigned int bytesPerSample) {
-    if (bytesPerSample == 4) {
+    switch (bytesPerSample) {
+    case 4:
         wav_f32_to_s16(pOut, (const float*)pIn, totalSampleCount);
-        return;
-    } else if (bytesPerSample == 8) {
+        break;
+    case 8:
         wav_f64_to_s16(pOut, (const double*)pIn, totalSampleCount);
-        return;
-    } else {
-        /* Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float. */
-        memset(pOut, 0, totalSampleCount * sizeof(*pOut));
-        return;
+        break;
+    default:
+        throw std::logic_error("wav_ieee_to_s16 ERROR: not supported bytesPerSample: " + std::to_string(bytesPerSample));
     }
 }
 
