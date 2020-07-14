@@ -28,14 +28,11 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cstdint>
-#include <cstdlib>
 #include <vector>
 #include <cstring>
 #include <memory>
 #include <string>
-#include <cstdio>
 #include <cassert>
-#include <iostream>
 #include <istream>
 #include <ostream>
 #include <fstream>
@@ -252,10 +249,10 @@ namespace detail {
         } else {
             uint8_t sizeInBytes[8];
 
-            is.read((char*)pHeaderOut->id.guid, 16);
-            is.read((char*)sizeInBytes, 8);
-
-            if (!is) {
+            if (!is.read((char*)pHeaderOut->id.guid, 16)) {
+                return -1;
+            }
+            if (!is.read((char*)sizeInBytes, 8)) {
                 return -1;
             }
 
@@ -459,18 +456,17 @@ namespace detail {
 
 inline void wav_u8_to_s16(int16_t* pOut, const uint8_t* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
-        int x = pIn[i];
-        int r = x << 8;
-        r = r - 32768;
-        pOut[i] = (short)r;
+        pOut[i] = int16_t(((int)pIn[i] << 8) - 32768);
     }
 }
 
 inline void wav_s24_to_s16(int16_t* pOut, const uint8_t* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
-        int x = ((int)(((unsigned int)(((const uint8_t*)pIn)[i * 3 + 0]) << 8) | ((unsigned int)(((const uint8_t*)pIn)[i * 3 + 1]) << 16) | ((unsigned int)(((const uint8_t*)pIn)[i * 3 + 2])) << 24)) >> 8;
-        int r = x >> 8;
-        pOut[i] = (short)r;
+        uint32_t s0 = pIn[i * 3 + 0];
+        uint32_t s1 = pIn[i * 3 + 1];
+        uint32_t s2 = pIn[i * 3 + 2];
+        int x = ((int)(((int32_t)((s0 << 8) | (s1 << 16) | (s2 << 24))) >> 8)) >> 8;
+        pOut[i] = int16_t(x >> 8);
     }
 }
 
@@ -488,23 +484,15 @@ inline void wav_s64_to_s16(int16_t* pOut, const int64_t* pIn, size_t sampleCount
 
 inline void wav_f32_to_s16(int16_t* pOut, const float* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
-        float x = pIn[i];
-        float c = ((x < -1) ? -1 : ((x > 1) ? 1 : x));
-        c = c + 1;
-        int r = (int)(c * 32767.5f);
-        r = r - 32768;
-        pOut[i] = (short)r;
+        float x = detail::wav_clamp(pIn[i], -1.f, 1.f);
+        pOut[i] = int16_t(x * 32767.f);
     }
 }
 
 inline void wav_f64_to_s16(int16_t* pOut, const double* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
-        double x = pIn[i];
-        double c = ((x < -1) ? -1 : ((x > 1) ? 1 : x));
-        c = c + 1;
-        int r = (int)(c * 32767.5);
-        r = r - 32768;
-        pOut[i] = (short)r;
+        double x = detail::wav_clamp(pIn[i], -1., 1.);
+        pOut[i] = int16_t(x * 32767.);
     }
 }
 
@@ -521,12 +509,9 @@ inline void wav_mulaw_to_s16(int16_t* pOut, const uint8_t* pIn, size_t sampleCou
 }
 
 inline void wav_u8_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
+    constexpr float q = 2.f / 255.f;
     for (size_t i = 0; i < sampleCount; ++i) {
-        float x = pIn[i];
-        x = x * 0.00784313725490196078f;    /* 0..255 to 0..2 */
-        x = x - 1;                          /* 0..2 to -1..1 */
-
-        *pOut++ = x;
+        *pOut++ = pIn[i] * q - 1.f;
     }
 }
 
@@ -538,7 +523,10 @@ inline void wav_s16_to_f32(float* pOut, const int16_t* pIn, size_t sampleCount) 
 
 inline void wav_s24_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
-        float x = (float)(((int32_t)(((uint32_t)(pIn[i * 3 + 0]) << 8) | ((uint32_t)(pIn[i * 3 + 1]) << 16) | ((uint32_t)(pIn[i * 3 + 2])) << 24)) >> 8);
+        uint32_t s0 = pIn[i * 3 + 0];
+        uint32_t s1 = pIn[i * 3 + 1];
+        uint32_t s2 = pIn[i * 3 + 2];
+        float x = (float)(((int32_t)((s0 << 8) | (s1 << 16) | (s2 << 24))) >> 8);
         *pOut++ = x * 0.00000011920928955078125f;
     }
 }
@@ -591,9 +579,9 @@ inline void wav_s16_to_s32(int32_t* pOut, const int16_t* pIn, size_t sampleCount
 
 inline void wav_s24_to_s32(int32_t* pOut, const uint8_t* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
-        unsigned int s0 = pIn[i * 3 + 0];
-        unsigned int s1 = pIn[i * 3 + 1];
-        unsigned int s2 = pIn[i * 3 + 2];
+        uint32_t s0 = pIn[i * 3 + 0];
+        uint32_t s1 = pIn[i * 3 + 1];
+        uint32_t s2 = pIn[i * 3 + 2];
 
         int32_t sample32 = (int32_t)((s0 << 8) | (s1 << 16) | (s2 << 24));
         *pOut++ = sample32;
@@ -846,10 +834,6 @@ public:
 
         uint8_t sampleData[4096];
 
-        if (pBufferOut == NULL) {
-            return wav_read_pcm_frames(framesToRead, NULL);
-        }
-
         uint32_t bytesPerFrame = get_bytes_per_pcm_frame();
         if (bytesPerFrame == 0) {
             return 0;
@@ -878,10 +862,6 @@ public:
 
         uint8_t sampleData[4096];
 
-        if (pBufferOut == NULL) {
-            return wav_read_pcm_frames(framesToRead, NULL);
-        }
-
         uint32_t bytesPerFrame = get_bytes_per_pcm_frame();
         if (bytesPerFrame == 0) {
             return 0;
@@ -909,10 +889,6 @@ public:
         using namespace detail;
 
         uint8_t sampleData[4096];
-
-        if (pBufferOut == NULL) {
-            return wav_read_pcm_frames(framesToRead, NULL);
-        }
 
         uint32_t bytesPerFrame = get_bytes_per_pcm_frame();
         if (bytesPerFrame == 0) {
