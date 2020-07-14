@@ -163,10 +163,8 @@ struct wav_base {
      wav_smpl smpl = {};
  
      uint32_t get_bytes_per_pcm_frame() const {
-         /*
-         The bytes per frame is a bit ambiguous. It can be either be based on the bits per sample, or the block align. The way I'm doing it here
-         is that if the bits per sample is a multiple of 8, use floor(bitsPerSample*channels/8), otherwise fall back to the block align.
-         */
+         // The bytes per frame is a bit ambiguous. It can be either be based on the bits per sample, or the block align. The way I'm doing it here
+         // is that if the bits per sample is a multiple of 8, use floor(bitsPerSample*channels/8), otherwise fall back to the block align.
          if ((bitsPerSample & 0x7) == 0) {
              /* Bits per sample is a multiple of 8. */
              return (bitsPerSample * fmt.channels) >> 3;
@@ -203,11 +201,6 @@ namespace detail {
         return a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3];
     }
 
-    inline bool wav_is_little_endian() {
-        int n = 1;
-        return (*(char*)&n) == 1;
-    }
-
     inline uint16_t wav_bytes_to_u16(const uint8_t* data) {
         return (data[0] << 0) | (data[1] << 8);
     }
@@ -232,79 +225,6 @@ namespace detail {
 
     inline int64_t wav_bytes_to_s64(const uint8_t* data) {
         return (int64_t)wav_bytes_to_u64(data);
-    }
-
-    inline void wav_bytes_to_guid(const uint8_t* data, uint8_t* guid) {
-        memcpy(guid, data, 16);
-    }
-
-    inline void wav_bswap16(uint8_t* p) {
-        std::swap(p[0], p[1]);
-    }
-
-    inline void wav_bswap24(uint8_t* p) {
-        std::swap(p[0], p[2]);
-    }
-
-    inline void wav_bswap32(uint8_t* p) {
-        std::swap(p[0], p[3]);
-        std::swap(p[1], p[2]);
-    }
-
-    inline void wav_bswap64(uint8_t* p) {
-        std::swap(p[0], p[7]);
-        std::swap(p[1], p[6]);
-        std::swap(p[2], p[5]);
-        std::swap(p[3], p[4]);
-    }
-
-    inline void wav_bswap_samples_16(uint8_t* pSamples, uint64_t sampleCount) {
-        for (uint64_t i = 0; i < sampleCount; i++) {
-            wav_bswap16(pSamples + i * 2);
-        }
-    }
-
-    inline void wav_bswap_samples_24(uint8_t* pSamples, uint64_t sampleCount) {
-        for (uint64_t i = 0; i < sampleCount; i++) {
-            wav_bswap24(pSamples + i * 3);
-        }
-    }
-
-    inline void wav_bswap_samples_32(uint8_t* pSamples, uint64_t sampleCount) {
-        for (uint64_t i = 0; i < sampleCount; i++) {
-            wav_bswap32(pSamples + i * 4);
-        }
-    }
-
-    inline void wav_bswap_samples_64(uint8_t* pSamples, uint64_t sampleCount) {
-        for (uint64_t i = 0; i < sampleCount; i++) {
-            wav_bswap64(pSamples + i * 8);
-        }
-    }
-
-    inline void wav_bswap_samples(void* pSamples, uint64_t sampleCount, uint32_t bytesPerSample, uint16_t format) {
-        /* Assumes integer PCM. Floating point PCM is done in wav_bswap_samples_ieee(). */
-        switch (bytesPerSample) {
-        case 2:
-            wav_bswap_samples_16((uint8_t*)pSamples, sampleCount);
-            break;
-        case 3:
-            wav_bswap_samples_24((uint8_t*)pSamples, sampleCount);
-            break;
-        case 4:
-            wav_bswap_samples_32((uint8_t*)pSamples, sampleCount);
-            break;
-        case 8:
-            wav_bswap_samples_32((uint8_t*)pSamples, sampleCount);
-            break;
-        default:
-            /* Unsupported format. */
-            assert(false);
-        }
-    }
-
-    inline bool wav_is_compressed_format_tag(uint16_t formatTag) {
-        return formatTag == WAVE_FORMAT_ADPCM || formatTag == WAVE_FORMAT_DVI_ADPCM;
     }
 
     inline unsigned int wav_chunk_padding_size_riff(uint64_t chunkSize) {
@@ -401,7 +321,7 @@ namespace detail {
             int bytesReadSoFar = 0;
 
             if (!is.read((char*)fmt_cbSize, sizeof(fmt_cbSize))) {
-                return false;    /* Expecting more data. */
+                return false;
             }
             *pRunningBytesReadOut += sizeof(fmt_cbSize);
 
@@ -409,14 +329,11 @@ namespace detail {
 
             fmtOut->extendedSize = wav_bytes_to_u16(fmt_cbSize);
             if (fmtOut->extendedSize > 0) {
-                /* Simple validation. */
                 if (fmtOut->formatTag == WAVE_FORMAT_EXTENSIBLE) {
                     if (fmtOut->extendedSize != 22) {
                         return false;
                     }
-                }
 
-                if (fmtOut->formatTag == WAVE_FORMAT_EXTENSIBLE) {
                     uint8_t fmtext[22];
 
                     if (!is.read((char*)fmtext, sizeof(fmtOut->extendedSize))) {
@@ -425,7 +342,7 @@ namespace detail {
 
                     fmtOut->validBitsPerSample = wav_bytes_to_u16(fmtext + 0);
                     fmtOut->channelMask = wav_bytes_to_u32(fmtext + 2);
-                    wav_bytes_to_guid(fmtext + 6, fmtOut->subFormat);
+                    memcpy(fmtOut->subFormat, fmtext + 6, 16);
                 } else {
                     if (!is.seekg(fmtOut->extendedSize, std::ios_base::cur)) {
                         return false;
@@ -487,17 +404,12 @@ namespace detail {
         return 24 + dataChunkSize;        /* +24 because W64 includes the size of the GUID and size fields. */
     }
 
-    inline size_t wav_write(std::ostream& out, const void* data, size_t count) {
-        out.write((const char*)data, count);
-        return out ? count : 0;
-    }
-
     inline size_t wav_read(std::istream& in, void* data, size_t count) {
         in.read((char*)data, count);
         return in ? count : 0;
     }
 
-    static unsigned short g_drwavAlawTable[256] = {
+    static unsigned short g_wavAlawTable[256] = {
         0xEA80, 0xEB80, 0xE880, 0xE980, 0xEE80, 0xEF80, 0xEC80, 0xED80, 0xE280, 0xE380, 0xE080, 0xE180, 0xE680, 0xE780, 0xE480, 0xE580,
         0xF540, 0xF5C0, 0xF440, 0xF4C0, 0xF740, 0xF7C0, 0xF640, 0xF6C0, 0xF140, 0xF1C0, 0xF040, 0xF0C0, 0xF340, 0xF3C0, 0xF240, 0xF2C0,
         0xAA00, 0xAE00, 0xA200, 0xA600, 0xBA00, 0xBE00, 0xB200, 0xB600, 0x8A00, 0x8E00, 0x8200, 0x8600, 0x9A00, 0x9E00, 0x9200, 0x9600,
@@ -516,7 +428,7 @@ namespace detail {
         0x02B0, 0x0290, 0x02F0, 0x02D0, 0x0230, 0x0210, 0x0270, 0x0250, 0x03B0, 0x0390, 0x03F0, 0x03D0, 0x0330, 0x0310, 0x0370, 0x0350
     };
 
-    static unsigned short g_drwavMulawTable[256] = {
+    static unsigned short g_wavMulawTable[256] = {
         0x8284, 0x8684, 0x8A84, 0x8E84, 0x9284, 0x9684, 0x9A84, 0x9E84, 0xA284, 0xA684, 0xAA84, 0xAE84, 0xB284, 0xB684, 0xBA84, 0xBE84,
         0xC184, 0xC384, 0xC584, 0xC784, 0xC984, 0xCB84, 0xCD84, 0xCF84, 0xD184, 0xD384, 0xD584, 0xD784, 0xD984, 0xDB84, 0xDD84, 0xDF84,
         0xE104, 0xE204, 0xE304, 0xE404, 0xE504, 0xE604, 0xE704, 0xE804, 0xE904, 0xEA04, 0xEB04, 0xEC04, 0xED04, 0xEE04, 0xEF04, 0xF004,
@@ -536,11 +448,11 @@ namespace detail {
     };
 
     inline int16_t wav_alaw_to_s16(uint8_t sampleIn) {
-        return (int16_t)g_drwavAlawTable[sampleIn];
+        return (int16_t)g_wavAlawTable[sampleIn];
     }
 
     inline int16_t wav_mulaw_to_s16(uint8_t sampleIn) {
-        return (int16_t)g_drwavMulawTable[sampleIn];
+        return (int16_t)g_wavMulawTable[sampleIn];
     }
 
 }; // namespace detail
@@ -577,8 +489,7 @@ inline void wav_s64_to_s16(int16_t* pOut, const int64_t* pIn, size_t sampleCount
 inline void wav_f32_to_s16(int16_t* pOut, const float* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
         float x = pIn[i];
-        float c;
-        c = ((x < -1) ? -1 : ((x > 1) ? 1 : x));
+        float c = ((x < -1) ? -1 : ((x > 1) ? 1 : x));
         c = c + 1;
         int r = (int)(c * 32767.5f);
         r = r - 32768;
@@ -589,8 +500,7 @@ inline void wav_f32_to_s16(int16_t* pOut, const float* pIn, size_t sampleCount) 
 inline void wav_f64_to_s16(int16_t* pOut, const double* pIn, size_t sampleCount) {
     for (size_t i = 0; i < sampleCount; ++i) {
         double x = pIn[i];
-        double c;
-        c = ((x < -1) ? -1 : ((x > 1) ? 1 : x));
+        double c = ((x < -1) ? -1 : ((x > 1) ? 1 : x));
         c = c + 1;
         int r = (int)(c * 32767.5);
         r = r - 32768;
@@ -878,7 +788,7 @@ public:
         return bytesRead;
     }
 
-    uint64_t wav_read_pcm_frames_le(uint64_t framesToRead, void* pBufferOut) {
+    uint64_t wav_read_pcm_frames(uint64_t framesToRead, void* pBufferOut) {
         using namespace detail;
 
         if (framesToRead == 0) {
@@ -886,7 +796,7 @@ public:
         }
 
         /* Cannot use this function for compressed formats. */
-        if (wav_is_compressed_format_tag(translatedFormatTag)) {
+        if (translatedFormatTag == WAVE_FORMAT_ADPCM || translatedFormatTag == WAVE_FORMAT_DVI_ADPCM) {
             return 0;
         }
 
@@ -896,24 +806,6 @@ public:
         }
 
         return wav_read_raw((size_t)(framesToRead * bytesPerFrame), pBufferOut) / bytesPerFrame;
-    }
-
-    uint64_t wav_read_pcm_frames_be(uint64_t framesToRead, void* pBufferOut) {
-        uint64_t framesRead = wav_read_pcm_frames_le(framesToRead, pBufferOut);
-
-        detail::wav_bswap_samples(pBufferOut, framesRead * channels, get_bytes_per_pcm_frame() / channels, translatedFormatTag);
-
-        return framesRead;
-    }
-
-    uint64_t wav_read_pcm_frames(uint64_t framesToRead, void* pBufferOut) {
-        using namespace detail;
-
-        if (wav_is_little_endian()) {
-            return wav_read_pcm_frames_le(framesToRead, pBufferOut);
-        } else {
-            return wav_read_pcm_frames_be(framesToRead, pBufferOut);
-        }
     }
 
     uint64_t wav_read_pcm_frames_s16__pcm(uint64_t framesToRead, int16_t* pBufferOut) {
@@ -1043,28 +935,6 @@ public:
         }
 
         return totalFramesRead;
-    }
-
-    uint64_t wav_read_pcm_frames_s16le(uint64_t framesToRead, int16_t* pBufferOut) {
-        using namespace detail;
-
-        uint64_t framesRead = wav_read_pcm_frames_s16(framesToRead, pBufferOut);
-        if (pBufferOut != NULL && wav_is_little_endian() == false) {
-            wav_bswap_samples_16((uint8_t*)pBufferOut, framesRead * channels);
-        }
-
-        return framesRead;
-    }
-
-    uint64_t wav_read_pcm_frames_s16be(uint64_t framesToRead, int16_t* pBufferOut) {
-        using namespace detail;
-
-        uint64_t framesRead = wav_read_pcm_frames_s16(framesToRead, pBufferOut);
-        if (pBufferOut != NULL && wav_is_little_endian() == true) {
-            wav_bswap_samples_16((uint8_t*)pBufferOut, framesRead * channels);
-        }
-
-        return framesRead;
     }
 
     uint64_t wav_read_pcm_frames_f32__pcm(uint64_t framesToRead, float* pBufferOut) {
@@ -1263,28 +1133,6 @@ public:
         return 0;
     }
 
-    uint64_t wav_read_pcm_frames_f32le(uint64_t framesToRead, float* pBufferOut) {
-        using namespace detail;
-
-        uint64_t framesRead = wav_read_pcm_frames_f32(framesToRead, pBufferOut);
-        if (pBufferOut != NULL && wav_is_little_endian() == false) {
-            wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
-        }
-
-        return framesRead;
-    }
-
-    uint64_t wav_read_pcm_frames_f32be(uint64_t framesToRead, float* pBufferOut) {
-        using namespace detail;
-
-        uint64_t framesRead = wav_read_pcm_frames_f32(framesToRead, pBufferOut);
-        if (pBufferOut != NULL && wav_is_little_endian() == true) {
-            wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
-        }
-
-        return framesRead;
-    }
-
     uint64_t wav_read_pcm_frames_s32__pcm(uint64_t framesToRead, int32_t* pBufferOut) {
         using namespace detail;
 
@@ -1346,10 +1194,8 @@ public:
     uint64_t wav_read_pcm_frames_s32__ima(uint64_t framesToRead, int32_t* pBufferOut) {
         using namespace detail;
 
-        /*
-        We're just going to borrow the implementation from the wav_read_s16() since IMA-ADPCM is a little bit more complicated than other formats and I don't
-        want to duplicate that code.
-        */
+        // We're just going to borrow the implementation from the wav_read_s16() since IMA-ADPCM is a little bit more complicated than other formats and I don't
+        // want to duplicate that code.
         uint64_t totalFramesRead = 0;
         int16_t samples16[2048];
         while (framesToRead > 0) {
@@ -1473,28 +1319,6 @@ public:
         }
 
         return 0;
-    }
-
-    uint64_t wav_read_pcm_frames_s32le(uint64_t framesToRead, int32_t* pBufferOut) {
-        using namespace detail;
-
-        uint64_t framesRead = wav_read_pcm_frames_s32(framesToRead, pBufferOut);
-        if (wav_is_little_endian() == false) {
-            wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
-        }
-
-        return framesRead;
-    }
-
-    uint64_t wav_read_pcm_frames_s32be(uint64_t framesToRead, int32_t* pBufferOut) {
-        using namespace detail;
-
-        uint64_t framesRead = wav_read_pcm_frames_s32(framesToRead, pBufferOut);
-        if (wav_is_little_endian() == true) {
-            wav_bswap_samples_32((uint8_t*)pBufferOut, framesRead * channels);
-        }
-
-        return framesRead;
     }
 
     uint64_t wav_read_pcm_frames_s16__msadpcm(uint64_t framesToRead, int16_t* pBufferOut) {
@@ -1766,10 +1590,8 @@ public:
                 return totalFramesRead;
             }
 
-            /*
-            If there's nothing left in the cache, just go ahead and load more. If there's nothing left to load in the current block we just continue to the next
-            loop iteration which will trigger the loading of a new block.
-            */
+            // If there's nothing left in the cache, just go ahead and load more. If there's nothing left to load in the current block we just continue to the next
+            // loop iteration which will trigger the loading of a new block.
             if (ima.cachedFrameCount == 0) {
                 if (ima.bytesRemainingInBlock == 0) {
                     continue;
@@ -2254,45 +2076,45 @@ public:
         /* "RIFF" chunk. */
         if (format.container == wav_container_riff) {
             uint32_t chunkSizeRIFF = 36 + (uint32_t)initialDataChunkSize;   /* +36 = "RIFF"+[RIFF Chunk Size]+"WAVE" + [sizeof "fmt " chunk] */
-            runningPos += wav_write(out, "RIFF", 4);
-            runningPos += wav_write(out, &chunkSizeRIFF, 4);
-            runningPos += wav_write(out, "WAVE", 4);
+            runningPos += wav_write("RIFF", 4);
+            runningPos += wav_write(&chunkSizeRIFF, 4);
+            runningPos += wav_write("WAVE", 4);
         } else {
             uint64_t chunkSizeRIFF = 80 + 24 + initialDataChunkSize;   /* +24 because W64 includes the size of the GUID and size fields. */
-            runningPos += wav_write(out, drwavGUID_W64_RIFF, 16);
-            runningPos += wav_write(out, &chunkSizeRIFF, 8);
-            runningPos += wav_write(out, drwavGUID_W64_WAVE, 16);
+            runningPos += wav_write(drwavGUID_W64_RIFF, 16);
+            runningPos += wav_write(&chunkSizeRIFF, 8);
+            runningPos += wav_write(drwavGUID_W64_WAVE, 16);
         }
 
         /* "fmt " chunk. */
         if (format.container == wav_container_riff) {
             chunkSizeFMT = 16;
-            runningPos += wav_write(out, "fmt ", 4);
-            runningPos += wav_write(out, &chunkSizeFMT, 4);
+            runningPos += wav_write("fmt ", 4);
+            runningPos += wav_write(&chunkSizeFMT, 4);
         } else {
             chunkSizeFMT = 40;
-            runningPos += wav_write(out, drwavGUID_W64_FMT, 16);
-            runningPos += wav_write(out, &chunkSizeFMT, 8);
+            runningPos += wav_write(drwavGUID_W64_FMT, 16);
+            runningPos += wav_write(&chunkSizeFMT, 8);
         }
 
-        runningPos += wav_write(out, &fmt.formatTag, 2);
-        runningPos += wav_write(out, &fmt.channels, 2);
-        runningPos += wav_write(out, &fmt.sampleRate, 4);
-        runningPos += wav_write(out, &fmt.avgBytesPerSec, 4);
-        runningPos += wav_write(out, &fmt.blockAlign, 2);
-        runningPos += wav_write(out, &fmt.bitsPerSample, 2);
+        runningPos += wav_write(&fmt.formatTag, 2);
+        runningPos += wav_write(&fmt.channels, 2);
+        runningPos += wav_write(&fmt.sampleRate, 4);
+        runningPos += wav_write(&fmt.avgBytesPerSec, 4);
+        runningPos += wav_write(&fmt.blockAlign, 2);
+        runningPos += wav_write(&fmt.bitsPerSample, 2);
 
         dataChunkDataPos = runningPos;
 
         /* "data" chunk. */
         if (format.container == wav_container_riff) {
             uint32_t chunkSizeDATA = (uint32_t)initialDataChunkSize;
-            runningPos += wav_write(out, "data", 4);
-            runningPos += wav_write(out, &chunkSizeDATA, 4);
+            runningPos += wav_write("data", 4);
+            runningPos += wav_write(&chunkSizeDATA, 4);
         } else {
             uint64_t chunkSizeDATA = 24 + initialDataChunkSize; /* +24 because W64 includes the size of the GUID and size fields. */
-            runningPos += wav_write(out, drwavGUID_W64_DATA, 16);
-            runningPos += wav_write(out, &chunkSizeDATA, 8);
+            runningPos += wav_write(drwavGUID_W64_DATA, 16);
+            runningPos += wav_write(&chunkSizeDATA, 8);
         }
 
         /* Set some properties for the client's convenience. */
@@ -2310,13 +2132,13 @@ public:
             return 0;
         }
 
-        size_t bytesWritten = wav_write(out, pData, bytesToWrite);
+        size_t bytesWritten = wav_write(pData, bytesToWrite);
         dataChunkDataSize += bytesWritten;
 
         return bytesWritten;
     }
 
-    uint64_t wav_write_pcm_frames_le(uint64_t framesToWrite, const void* pData) {
+    uint64_t wav_write_pcm_frames(uint64_t framesToWrite, const void* pData) {
         if (framesToWrite == 0 || pData == NULL) {
             return 0;
         }
@@ -2338,64 +2160,6 @@ public:
         }
 
         return (bytesWritten * 8) / bitsPerSample / channels;
-    }
-
-    uint64_t wav_write_pcm_frames_be(uint64_t framesToWrite, const void* pData) {
-        using namespace detail;
-
-        if (framesToWrite == 0 || pData == NULL) {
-            return 0;
-        }
-
-        uint64_t bytesToWrite = ((framesToWrite * channels * bitsPerSample) / 8);
-
-        uint64_t bytesWritten = 0;
-        const uint8_t* pRunningData = (const uint8_t*)pData;
-
-        uint32_t bytesPerSample = get_bytes_per_pcm_frame() / channels;
-
-        while (bytesToWrite > 0) {
-            uint8_t temp[4096];
-            uint32_t sampleCount;
-            size_t bytesJustWritten;
-            uint64_t bytesToWriteThisIteration;
-
-            bytesToWriteThisIteration = bytesToWrite;
-
-            /*
-            WAV files are always little-endian. We need to byte swap on big-endian architectures. Since our input buffer is read-only we need
-            to use an intermediary buffer for the conversion.
-            */
-            sampleCount = sizeof(temp) / bytesPerSample;
-
-            if (bytesToWriteThisIteration > ((uint64_t)sampleCount)*bytesPerSample) {
-                bytesToWriteThisIteration = ((uint64_t)sampleCount)*bytesPerSample;
-            }
-
-            memcpy(temp, pRunningData, (size_t)bytesToWriteThisIteration);
-            wav_bswap_samples(temp, sampleCount, bytesPerSample, translatedFormatTag);
-
-            bytesJustWritten = wav_write_raw((size_t)bytesToWriteThisIteration, temp);
-            if (bytesJustWritten == 0) {
-                break;
-            }
-
-            bytesToWrite -= bytesJustWritten;
-            bytesWritten += bytesJustWritten;
-            pRunningData += bytesJustWritten;
-        }
-
-        return (bytesWritten * 8) / bitsPerSample / channels;
-    }
-
-    uint64_t wav_write_pcm_frames(uint64_t framesToWrite, const void* pData) {
-        using namespace detail;
-
-        if (wav_is_little_endian()) {
-            return wav_write_pcm_frames_le(framesToWrite, pData);
-        } else {
-            return wav_write_pcm_frames_be(framesToWrite, pData);
-        }
     }
 
     bool finalized = false;
@@ -2432,25 +2196,25 @@ public:
             /* The "RIFF" chunk size. */
             if (out.seekp(4, std::ios_base::beg)) {
                 uint32_t riffChunkSize = wav_riff_chunk_size_riff(dataChunkDataSize);
-                wav_write(out, &riffChunkSize, 4);
+                wav_write(&riffChunkSize, 4);
             }
 
             /* the "data" chunk size. */
             if (out.seekp(dataChunkDataPos + 4, std::ios_base::beg)) {
                 uint32_t dataChunkSize = wav_data_chunk_size_riff(dataChunkDataSize);
-                wav_write(out, &dataChunkSize, 4);
+                wav_write(&dataChunkSize, 4);
             }
         } else {
             /* The "RIFF" chunk size. */
             if (out.seekp(16, std::ios_base::beg)) {
                 uint64_t riffChunkSize = wav_riff_chunk_size_w64(dataChunkDataSize);
-                wav_write(out, &riffChunkSize, 8);
+                wav_write(&riffChunkSize, 8);
             }
 
             /* The "data" chunk size. */
             if (out.seekp(dataChunkDataPos + 16, std::ios_base::beg)) {
                 uint64_t dataChunkSize = wav_data_chunk_size_w64(dataChunkDataSize);
-                wav_write(out, &dataChunkSize, 8);
+                wav_write(&dataChunkSize, 8);
             }
         }
 
@@ -2459,6 +2223,12 @@ public:
 
     ~wav_writer() {
         finalize();
+    }
+
+private:
+    inline size_t wav_write(const void* data, size_t count) {
+        out.write((const char*)data, count);
+        return out ? count : 0;
     }
 };
 
