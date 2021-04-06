@@ -108,8 +108,9 @@ namespace c4 {
     }
 
     template<class pixel_t>
-    inline void draw_digit(matrix_ref<pixel_t>& img, int x0, int y0, int d, pixel_t fg_color, pixel_t bg_color){
-        static const std::string digits[10] = {
+    inline void draw_char(matrix_ref<pixel_t>& img, int x0, int y0, char c, pixel_t fg_color, pixel_t bg_color){
+        std::map<char, std::string> chars;
+        chars['0'] =
             "......####"
             "..###..###"
             ".####..###"
@@ -119,8 +120,9 @@ namespace c4 {
             ".####..###"
             ".####..###"
             "..###..###"
-            "......####",
+            "......####";
 
+        chars['1'] =
             "....######"
             "###..#####"
             "###..#####"
@@ -130,8 +132,9 @@ namespace c4 {
             "###.##.###"
             "###.##.###"
             "###..#.###"
-            ".......###",
+            ".......###";
 
+        chars['2'] =
             "#......###"
             "######..##"
             "######..##"
@@ -141,8 +144,9 @@ namespace c4 {
             "#.########"
             "#.########"
             "#.########"
-            "#......###",
+            "#......###";
 
+        chars['3'] =
             "#.......##"
             "######..##"
             "######..##"
@@ -152,8 +156,9 @@ namespace c4 {
             "######..##"
             "######..##"
             "######..##"
-            "#......###",
+            "#......###";
 
+        chars['4'] =
             "##.#######"
             "##.###.###"
             "##.###.###"
@@ -163,8 +168,9 @@ namespace c4 {
             "##......##"
             "######.###"
             "######.###"
-            "######.###",
+            "######.###";
 
+        chars['5'] =
             "###.....##"
             "###..#####"
             "###..#####"
@@ -174,8 +180,9 @@ namespace c4 {
             "#######..#"
             "#######..#"
             "##..###..#"
-            "##......##",
+            "##......##";
 
+        chars['6'] =
             "##..######"
             "##..######"
             "##..######"
@@ -185,8 +192,9 @@ namespace c4 {
             "##.......#"
             "##..###..#"
             "##..###..#"
-            "##.......#",
+            "##.......#";
 
+        chars['7'] =
             "###......#"
             "###.####.#"
             "########.#"
@@ -196,8 +204,9 @@ namespace c4 {
             "#####..###"
             "#####..###"
             "#####..###"
-            "#####..###",
+            "#####..###";
 
+        chars['8'] =
             "####....##"
             "####..#.##"
             "####..#.##"
@@ -207,8 +216,9 @@ namespace c4 {
             "###.####.."
             "###.####.."
             "###..###.."
-            "###......#",
+            "###......#";
 
+        chars['9'] =
             "###......."
             "###..###.."
             "###..####."
@@ -218,21 +228,38 @@ namespace c4 {
             "#########."
             "#########."
             "########.."
-            "########.."
-        };
+            "########..";
 
-        if( d < 0 || d > 9 )
-            THROW_EXCEPTION("Not a digit");
+        chars['-'] =
+            "##########"
+            "##########"
+            "##########"
+            "##########"
+            "##......##"
+            "##########"
+            "##########"
+            "##########"
+            "##########"
+            "##########";
+
+        if( chars[c].empty() )
+            THROW_EXCEPTION(std::string("Char not defined: ") + c);
 
         if (y0 < 0 || y0 + 10 > img.height() || x0 < 0 || x0 + 10 > img.width())
             return;
 
         for(int i : range(10))
             for(int j : range(10))
-                if( digits[d][i * 10 + j] == '.' )
+                if(chars[c][i * 10 + j] == '.' )
                     img[y0 + i][x0 + j] = fg_color;
                 else
                     img[y0 + i][x0 + j] = bg_color;
+    }
+
+    template<class pixel_t>
+    inline void draw_digit(matrix_ref<pixel_t>& img, int x0, int y0, int d, pixel_t fg_color, pixel_t bg_color) {
+        ASSERT_TRUE(0 <= d && d <= 9);
+        draw_char(img, x0, y0, '0' + d, fg_color, bg_color);
     }
 
     template<class pixel_t>
@@ -240,6 +267,6 @@ namespace c4 {
         std::string s = std::to_string(d);
 
         for(int k : range(s))
-            draw_digit(img, x0 + k * 10, y0, int(s[k] - '0'), fg_color, bg_color);
+            draw_char(img, x0 + k * 10, y0, s[k], fg_color, bg_color);
     }
 };

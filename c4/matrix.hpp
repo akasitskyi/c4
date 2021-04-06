@@ -343,7 +343,6 @@ namespace c4 {
         matrix(int height, int width, int stride) : detail::matrix_buffer<T>(height * stride), matrix_ref<T>(height, width, stride, detail::matrix_buffer<T>::v.data()) {}
         matrix(int height, int width, int stride, const T& init) : detail::matrix_buffer<T>(height * stride, init), matrix_ref<T>(height, width, stride, detail::matrix_buffer<T>::v.data()) {}
         matrix(int height, int width) : matrix(height, width, width) {}
-        matrix(int height, int width, const T& init) : matrix(height, width, width, init) {}
         matrix(matrix_dimensions dims, int stride) : matrix(dims.height, dims.width, stride) {}
         matrix(matrix_dimensions dims) : matrix(dims.height, dims.width) {}
         matrix() : matrix(0, 0, 0) {}
