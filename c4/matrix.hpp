@@ -566,7 +566,7 @@ namespace c4 {
     }
 
     template<class T1, class T2, class F>
-    inline void transform(const vector_ref<T1>& src, vector_ref<T2>& dst, F f) {
+    inline void transform(const vector_ref<T1>& src, F f, vector_ref<T2>& dst) {
         assert(src.size() == dst.size());
 
         for (int i : range(src.size()))
@@ -574,20 +574,20 @@ namespace c4 {
     }
 
     template<class T1, class T2, class F>
-    inline void transform(const vector_ref<T1>& src, vector_ref<T2>&& dst, F f) {
-        transform(src, dst, f);
+    inline void transform(const vector_ref<T1>& src, F f, vector_ref<T2>&& dst) {
+        transform(src, f, dst);
     }
 
     template<class T1, class T2, class F>
-    inline void transform(const matrix_ref<T1>& src, matrix_ref<T2>& dst, F f) {
+    inline void transform(const matrix_ref<T1>& src, F f, matrix_ref<T2>& dst) {
         assert(src.height() == dst.height());
 
         for (int i : range(src.height()))
-            transform(src[i], dst[i], f);
+            transform(src[i], f, dst[i]);
     }
 
     template<class T1, class T2, class F>
-    inline void transform(const matrix_ref<T1>& src, matrix_ref<T2>&& dst, F f) {
+    inline void transform(const matrix_ref<T1>& src, F f, matrix_ref<T2>&& dst) {
         transform(src, dst, f);
     }
 
@@ -595,7 +595,7 @@ namespace c4 {
     inline auto transform(const matrix_ref<T>& src, F f) -> matrix<typename std::result_of<F(T)>::type> {
         matrix<typename std::result_of<F(T)>::type> dst(src.dimensions());
 
-        transform(src, dst, f);
+        transform(src, f, dst);
 
         return dst;
     }
@@ -606,7 +606,7 @@ namespace c4 {
     }
 
     template<class T1, class T2, class T3, class F>
-    inline void transform(const vector_ref<T1>& src_a, const vector_ref<T2>& src_b, vector_ref<T2>& dst, F f) {
+    inline void transform(const vector_ref<T1>& src_a, const vector_ref<T2>& src_b, F f, vector_ref<T2>& dst) {
         assert(src_a.size() == src_b.size() && src_a.size() == dst.size());
 
         for (int i : range(dst.size()))
@@ -614,20 +614,20 @@ namespace c4 {
     }
 
     template<class T1, class T2, class T3, class F>
-    inline void transform(const matrix_ref<T1>& src_a, const matrix_ref<T1>& src_b, matrix_ref<T2>& dst, F f) {
+    inline void transform(const matrix_ref<T1>& src_a, const matrix_ref<T1>& src_b, F f, matrix_ref<T2>& dst) {
         assert(src_a.dimensions() == src_b.dimensions() && src_a.dimensions() == dst.dimensions());
 
         for (int i : range(dst.height()))
-            transform(src_a[i], src_b[i], dst[i], f);
+            transform(src_a[i], src_b[i], f, dst[i]);
     }
 
     template<class T1, class T2, class F>
-    inline auto transform(const matrix_ref<T1>& src_a, const matrix_ref<T2>& src_b, F f) -> matrix<typename std::result_of<F(T1(), T2())>::type> {
+    inline auto transform(const matrix_ref<T1>& src_a, const matrix_ref<T2>& src_b, F f) -> matrix<typename std::result_of<F(T1, T2)>::type> {
         assert(src_a.dimensions() == src_b.dimensions());
 
         matrix<typename std::result_of<F(T1(), T2())>::type> dst(src_a.dimensions());
 
-        transform(src_a, src_b, dst, f);
+        transform(src_a, src_b, f, dst);
 
         return dst;
     }
