@@ -27,6 +27,7 @@
 #include "matrix_regression.hpp"
 #include "scaling.hpp"
 #include "serialize.hpp"
+#include "algorithm.hpp"
 
 namespace c4 {
     struct detection {
@@ -97,35 +98,19 @@ namespace c4 {
         std::sort(dets.begin(), dets.end(), [](const detection& a, const detection& b) {  return a.conf > b.conf; });
 
         // Clean up rects with simillar position
-        for (int i = 0; i < isize(dets); i++) {
-            const auto& di = dets[i];
-            for (int j = i + 1; j < isize(dets); j++) {
-                const auto& dj = dets[j];
+        erase_included_sorted(dets, [](const detection& di, const detection& dj) {
+            const auto ir0 = di.rect.scale_around_center(0.8);
+            const rectangle<double> ir1(di.rect.x + di.rect.w / 4, di.rect.y, di.rect.w / 2, di.rect.h);
 
-                const auto ir0 = di.rect.scale_around_center(0.8);
-                const rectangle<double> ir1(di.rect.x + di.rect.w / 4, di.rect.y, di.rect.w / 2, di.rect.h);
+            const auto jr0 = dj.rect.scale_around_center(0.8);
 
-                const auto jr0 = dj.rect.scale_around_center(0.8);
-
-                if (ir0.contains(jr0) || ir1.contains(jr0)) {
-                    dets.erase(dets.begin() + j);
-                    --j;
-                }
-            }
-        }
+            return ir0.contains(jr0) || ir1.contains(jr0);
+        });
 
         // Clean up rects with big confidence difference on the same frame
-        for (int i = 0; i < isize(dets); i++) {
-            const auto& di = dets[i];
-            for (int j = i + 1; j < isize(dets); j++) {
-                const auto& dj = dets[j];
-
-                if (di.conf > dj.conf * 10) {
-                    dets.erase(dets.begin() + j);
-                    --j;
-                }
-            }
-        }
+        erase_included_sorted(dets, [](const detection& di, const detection& dj) {
+            return di.conf > dj.conf * 10;
+        });
     }
 
     template<class TForm, int dim>
