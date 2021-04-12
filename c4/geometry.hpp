@@ -97,8 +97,8 @@ namespace c4 {
         return { -a.x, -a.y };
     }
 
-    template<class T>
-    inline point<T> operator-(const point<T>& a, const point<T>& b) {
+    template<class T1, class T2>
+    inline point<decltype(T1() - T2())> operator-(const point<T1>& a, const point<T2>& b) {
         return { a.x - b.x, a.y - b.y };
     }
 
@@ -160,6 +160,42 @@ namespace c4 {
     inline bool point<T>::inside_triangle(const point<T>& a, const point<T>& b, const point<T>& c) const {
         const auto& p = *this;
         return sign((b - a) ^ (p - a)) != sign((c - a) ^ (p - a)) && sign((b - c) ^ (p - c)) != sign((a - c) ^ (p - c));
+    }
+
+    template<typename T>
+    inline T normalize_angle_0_2pi(T angle) {
+        const auto dpi = 2 * pi<T>();
+        const T beta = std::fmod(angle, dpi);
+        return beta >= 0 ? beta : beta + dpi;
+    }
+
+    template<typename T>
+    inline T normalize_angle_mpi_ppi(T angle) {
+        const auto pi = c4::pi<T>();
+        return normalize_angle_0_2pi(angle + pi) - pi;
+    }
+
+    template<class T1, class T2>
+    inline auto polar_angle_diff_0_2pi(const T1 a, const T2 b) {
+        return normalize_angle_0_2pi(a - b);
+    }
+
+    template<class T1, class T2>
+    inline auto polar_angle_diff_mpi_ppi(const T1 a, const T2 b) {
+        return normalize_angle_mpi_ppi(a - b);
+    }
+
+    template<class T>
+    inline double mean_angle(const std::vector<T>& angles) {
+        double sinSum = 0;
+        double cosSum = 0;
+        for (const auto& a : angles) {
+            sinSum += std::sin(a);
+            cosSum += std::cos(a);
+        }
+        const double mul = 1. / angles.size();
+
+        return std::atan2(sinSum * mul, cosSum * mul);
     }
 
     template<typename Float>
@@ -333,4 +369,25 @@ namespace c4 {
         rectangle<int> rect;
         std::vector<point<float>> landmarks;
     };
+
+    // http://paulbourke.net/geometry/circlesphere/
+    bool circle_intersect(const point<double> p0, const double r0, const point<double> p1, const double r1, point<double>& p2, point<double>& p3) {
+        const double d = dist(p0, p1);
+        if (d > r0 + r1 || d < std::abs(r0 - r1) || d == 0) {
+            return false;
+        }
+
+        const double a = (sqr(r0) - sqr(r1) + sqr(d)) / (2 * d);
+        const double h = std::sqrt(sqr(r0) - sqr(a));
+
+        const point<double> p = p0 + (a / d) * (p1 - p0);
+
+        p2.x = p.x + (h / d) * (p1.y - p0.y);
+        p3.x = p.x - (h / d) * (p1.y - p0.y);
+
+        p2.y = p.y - (h / d) * (p1.x - p0.x);
+        p3.y = p.y + (h / d) * (p1.x - p0.x);
+
+        return true;
+    }
 };

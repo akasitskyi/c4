@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <limits>
 #include <vector>
+#include <algorithm>
 #include <type_traits>
 
 #include "exception.hpp"
@@ -35,6 +36,18 @@ namespace c4 {
     inline T pi() {
         static const T __pi = 2 * acos((T)0);
         return __pi;
+    }
+
+    template<typename T>
+    inline T deg_to_rad(float alpha) {
+        static const T mul = pi<T>() / (T)180;
+        return alpha * mul;
+    }
+
+    template<typename T>
+    inline T rad_to_deg(T alpha) {
+        static const T mul = (T)180 / pi<T>();
+        return alpha * mul;
     }
 
     template<typename T>
@@ -184,6 +197,20 @@ namespace c4 {
         }
 
         return r;
+    }
+
+    template<typename T>
+    auto mean(const std::vector<T>& a) {
+        ASSERT_TRUE(a.size() > 0);
+
+        decltype(T() + T()) sum = a[0];
+        for (size_t i = 1; i < a.size(); i++) {
+            sum = sum + a[i];
+        }
+
+        double mul = 1. / a.size();
+
+        return mul * sum;
     }
 
     template<typename T1, typename T2>
