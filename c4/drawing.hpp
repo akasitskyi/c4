@@ -110,7 +110,7 @@ namespace c4 {
     static const int DRAW_CHAR_DIM = 8;
 
     template<class pixel_t>
-    inline void draw_char(matrix_ref<pixel_t>& img, int x0, int y0, char c, pixel_t fg_color, pixel_t bg_color){
+    inline void draw_char(matrix_ref<pixel_t>& img, int x0, int y0, char c, pixel_t fg_color, pixel_t bg_color, int scale = 1){
         static const int offset = 32;
         static const int cnt = 128 - offset;
 
@@ -135,28 +135,27 @@ namespace c4 {
         if( c < offset || c - offset >= cnt)
             THROW_EXCEPTION(std::string("Char not defined: ") + c);
 
-        if (y0 < 0 || y0 + DRAW_CHAR_DIM > img.height() || x0 < 0 || x0 + DRAW_CHAR_DIM > img.width())
-            return;
+        ASSERT_TRUE(scale >= 1);
 
-        for (int i : range(-1, DRAW_CHAR_DIM + 1)) {
-            for (int j : range(-1, DRAW_CHAR_DIM + 1)) {
-                img[y0 + i][x0 + j] = bg_color;
-            }
-        }
+        const int scaledDim = DRAW_CHAR_DIM * scale;
+
+        if (y0 < 0 || y0 + scaledDim > img.height() || x0 < 0 || x0 + scaledDim > img.width())
+            return;
 
         const auto mask = chars[c - offset];
 
-        for (int i : range(DRAW_CHAR_DIM)) {
-            for (int j : range(DRAW_CHAR_DIM)) {
-                if ((mask >> (63 - (i * DRAW_CHAR_DIM + j))) & 1)
-                    img[y0 + i][x0 + j] = fg_color;
+        for (int i : range(scaledDim)) {
+            for (int j : range(scaledDim)) {
+                img[y0 + i][x0 + j] = ((mask >> (63 - (i / scale * DRAW_CHAR_DIM + j / scale))) & 1) ? fg_color : bg_color;
             }
         }
     }
 
     template<class pixel_t>
-    inline void draw_string(matrix_ref<pixel_t>& img, int x0, int y0, const std::string& s, pixel_t fg_color, pixel_t bg_color){
+    inline void draw_string(matrix_ref<pixel_t>& img, int x0, int y0, const std::string& s, pixel_t fg_color, pixel_t bg_color, int scale = 1){
+        const int scaledDim = DRAW_CHAR_DIM * scale;
+
         for(int k : range(s))
-            draw_char(img, x0 + k * 10, y0, s[k], fg_color, bg_color);
+            draw_char(img, x0 + k * scaledDim, y0, s[k], fg_color, bg_color, scale);
     }
 };
