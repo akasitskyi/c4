@@ -45,7 +45,7 @@ namespace c4 {
         }
     };
 
-    inline void read_ppm(std::istream& in, matrix<pixel<uint8_t>>& out) {
+    static void read_ppm(std::istream& in, matrix<pixel<uint8_t>>& out) {
         using namespace detail;
 
         std::string line;
@@ -66,7 +66,7 @@ namespace c4 {
         }
     }
 
-    inline void read_pgm(std::istream& in, matrix<uint8_t>& out) {
+    static void read_pgm(std::istream& in, matrix<uint8_t>& out) {
         using namespace detail;
 
         std::string line;
@@ -84,6 +84,26 @@ namespace c4 {
         out.resize(h, w);
         for (int i : range(h)) {
             in.read((char*)out[i], w);
+        }
+    }
+
+    static void read_ppm(const std::string& filename, matrix<pixel<uint8_t>>& img) {
+        std::ifstream fin(filename, std::ifstream::binary);
+        try {
+            read_ppm(fin, img);
+        }
+        catch (const std::exception& e) {
+            throw std::runtime_error(std::string(e.what()) + ", while reading " + filename);
+        }
+    }
+
+    static void read_pgm(const std::string& filename, matrix<uint8_t>& img) {
+        std::ifstream fin(filename, std::ifstream::binary);
+        try {
+            read_pgm(fin, img);
+        }
+        catch (const std::exception& e) {
+            throw std::runtime_error(std::string(e.what()) + ", while reading " + filename);
         }
     }
 };

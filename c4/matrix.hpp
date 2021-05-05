@@ -206,9 +206,9 @@ namespace c4 {
 
         public:
             const_iterator & operator++() {
-                if (++i == m.width_) {
-                    ++j;
-                    i = 0;
+                if (++j == m.width_) {
+                    ++i;
+                    j = 0;
                 }
                 return *this;
             }
@@ -236,7 +236,7 @@ namespace c4 {
         }
 
         const_iterator end() const {
-            return const_iterator(*this, height_, width_);
+            return const_iterator(*this, height_, 0);
         }
 
         matrix_dimensions dimensions() const {

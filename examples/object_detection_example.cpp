@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
                     const auto irect = c4::rectangle<int>(d.rect);
                     ifm.objects.push_back({ irect,{} });
                     c4::draw_rect(img, irect, uint8_t(255), 1);
-                    c4::draw_number(img, irect.x, irect.y, int(d.conf * 10), uint8_t(255), uint8_t(0));
+                    c4::draw_string(img, irect.x, irect.y, c4::to_string(d.conf, 2), uint8_t(255), uint8_t(0));
                 }
 
                 for (const auto& g : t.objects) {
