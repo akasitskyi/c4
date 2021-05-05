@@ -214,6 +214,23 @@ namespace c4 {
     }
 
     template<typename T1, typename T2>
+    auto weighted_mean(const std::vector<T1>& a, const std::vector<T2>& w) {
+        ASSERT_TRUE(a.size() > 0);
+        ASSERT_EQUAL(a.size(), w.size());
+
+        decltype(T1() * T2() + T1() * T2()) sum = a[0] * w[0];
+        decltype(T2() + T2()) sumW = w[0];
+        for (size_t i = 1; i < a.size(); i++) {
+            sum = sum + a[i] * w[i];
+            sumW = sumW + w[i];
+        }
+
+        double mul = 1. / sumW;
+
+        return mul * sum;
+    }
+
+    template<typename T1, typename T2>
     double mean_squared_error(const std::vector<T1>& a, const std::vector<T2>& b) {
         ASSERT_EQUAL(a.size(), b.size());
 
