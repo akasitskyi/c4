@@ -36,9 +36,13 @@ namespace c4 {
             int x = int(x0 + t * (x1 - x0) / T);
             int y = int(y0 + t * (y1 - y0) / T);
             
-            for(int dx : range(-thickness / 2, thickness - thickness / 2))
-                for(int dy : range(-thickness / 2, thickness - thickness / 2))
-                    img[y + dy][x + dx] = color;
+            for (int dx : range(-thickness / 2, thickness - thickness / 2)) {
+                for (int dy : range(-thickness / 2, thickness - thickness / 2)) {
+                    if (img.is_inside(y + dy, x + dx)) {
+                        img[y + dy][x + dx] = color;
+                    }
+                }
+            }
         }
     }
 

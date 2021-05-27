@@ -65,4 +65,22 @@ namespace c4 {
         ss >> t;
         return t;
     }
+
+    inline std::vector<std::string> split(const std::string& s, const std::string& d) {
+        std::vector<std::string> v;
+        size_t i = 0;
+        while (i < s.size()) {
+            size_t j = s.find(d, i);
+            if (j == std::string::npos) {
+                j = s.size();
+            }
+
+            if (j > i) {
+                v.push_back(s.substr(i, j - i));
+            }
+            i = j + d.size();
+        }
+
+        return v;
+    }
 }; // namespace c4
