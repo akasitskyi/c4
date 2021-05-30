@@ -54,7 +54,7 @@ namespace c4 {
 
             std::shared_ptr<std::string> ptr;
 
-            cmd_opt() {}
+            cmd_opt() : ptr(std::make_shared<std::string>()) {}
             
             cmd_opt(const T& t) : ptr(std::make_shared<std::string>(to_string(t))) {}
 

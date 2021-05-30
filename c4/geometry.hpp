@@ -88,6 +88,11 @@ namespace c4 {
     }
 
     template<class T>
+    inline bool operator<(const point<T>& a, const point<T>& b) {
+        return a.x != b.x ? a.x < b.x : a.y < b.y;
+    }
+
+    template<class T>
     inline point<T> operator+(const point<T>& a, const point<T>& b) {
         return { a.x + b.x, a.y + b.y };
     }
