@@ -66,7 +66,7 @@ namespace c4 {
                 int prev = 0;
                 for (int i : range(s)) {
                     if (!quoted[i] && s[i] == delimiter) {
-                        r.push_back(s.substr(prev, i));
+                        r.push_back(s.substr(prev, i - prev));
                         prev = i + 1;
                     }
                 }
