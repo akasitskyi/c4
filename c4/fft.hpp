@@ -95,4 +95,37 @@ namespace c4 {
             }
         }
     };
+
+    class STFT {
+        FFT fft;
+        IFFT ifft;
+        std::vector<double> w;
+        std::vector<double> tmp;
+    public:
+        STFT(int dim) : fft(dim), ifft(dim), w(dim), tmp(dim) {
+            for (int i : range(w)) {
+                w[i] = std::sin((i + 0.5) * pi<double>() / dim);
+            }
+        }
+
+        template<typename InputT>
+        void fwd(const vector_ref<InputT>& in, vector_ref<std::complex<double>>& out) {
+            ASSERT_EQUAL(in.size(), w.size());
+            for (int i : range(w)) {
+                tmp[i] = in[i] * w[i];
+            }
+
+            fft(vector_ref(tmp), out);
+        }
+        
+        void bwd(const vector_ref<std::complex<double>>& in, vector_ref<std::complex<double>>& out) {
+            ASSERT_EQUAL(out.size(), w.size());
+
+            ifft(in, out);
+
+            for (int i : range(w)) {
+                out[i] *= w[i];
+            }
+        }
+    };
 }; // namespace c4

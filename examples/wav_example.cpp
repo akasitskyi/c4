@@ -21,11 +21,15 @@
 //SOFTWARE.
 
 #include <c4/wav.hpp>
+#include <c4/fft.hpp>
 
 #include <c4/range.hpp>
 
 #include <cstdio>
 #include <cstring>
+
+using namespace std;
+using namespace c4;
 
 int main(int argc, char* argv[]) {
     try {
@@ -49,11 +53,52 @@ int main(int argc, char* argv[]) {
             THROW_EXCEPTION("Can't read wav file: " + inputFile);
         }
 
-        std::vector<int16_t> result(totalPCMFrameCount * channels);
+        PRINT_DEBUG(sampleRate);
 
-        for (int i : c4::range(result.size())) {
-            data[i] *= gain;
+        ASSERT_EQUAL(channels, 1);
+
+        std::vector<float> processed(data.size(), 0);
+
+        const int frameSize = 16 * 1024;
+        std::vector<float> buffer(frameSize);
+        std::vector<std::complex<double>> F(frameSize);
+
+        c4::STFT stft(frameSize);
+        int phz = 0;
+
+        for (int i = 0; i < data.size(); i += frameSize / 2) {
+            std::fill(buffer.begin(), buffer.end(), 0);
+            std::copy(data.begin() + i, data.begin() + std::min(i + frameSize, c4::isize(data)), buffer.begin());
+            stft.fwd(c4::vector_ref(buffer), c4::vector_ref(F));
+
+            // detect frequency
+            std::vector<double> acc(frameSize / 2 + 1);
+            for (int k = 2; k < isize(acc); k++) {
+                acc[k] = std::abs(F[k]);
+
+                // include harmonics?
+                double hs = 0;
+                int hn = 0;
+                for (int j = k; j < isize(acc); j += k) {
+                    hs += std::abs(F[j]);
+                    hn++;
+                }
+
+                if (hn) {
+                    acc[k] += hs / hn;
+                }
+            }
+
+            int mx = max_element(acc.begin(), acc.end()) - acc.begin();
+
+            int hz = (mx * sampleRate + frameSize / 2) / frameSize;
+            if (hz != phz) {
+                phz = hz;
+                cout << hz << "Hz" << endl;
+            }
         }
+
+        std::vector<int16_t> result(totalPCMFrameCount * channels);
 
         c4::wav_f32_to_s16(result.data(), data.data(), result.size());
 
