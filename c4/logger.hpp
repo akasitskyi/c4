@@ -126,8 +126,30 @@ namespace c4 {
 
 #define PRINT_DEBUG(X) LOGD << #X << " = " << (X) << " "
 
+    class time_printer {
+        friend class scoped_timer;
+#ifndef C4_TIMER_DISABLED
+            std::string name;
+            c4::LogLevel logLevel;
+            std::chrono::high_resolution_clock::duration t;
+#endif
+        public:
+            time_printer(std::string name, c4::LogLevel logLevel = c4::LOG_VERBOSE)
+#ifndef C4_TIMER_DISABLED
+                : name(name), logLevel(logLevel), t(0)
+#endif
+            {}
+
+#ifndef C4_TIMER_DISABLED
+            ~time_printer() {
+                c4::Logger(logLevel) << name << " time: " << std::chrono::duration<double>(t).count() << " seconds.";
+            }
+#endif
+        };
+
     class scoped_timer {
 #ifndef C4_TIMER_DISABLED
+        time_printer* tp;
         std::string name;
         c4::LogLevel logLevel;
         std::chrono::high_resolution_clock::time_point t0;
@@ -135,7 +157,13 @@ namespace c4 {
     public:
         scoped_timer(std::string name, c4::LogLevel logLevel = c4::LOG_VERBOSE)
 #ifndef C4_TIMER_DISABLED
-            : name(name), logLevel(logLevel), t0(std::chrono::high_resolution_clock::now())
+            : tp(nullptr), name(name), logLevel(logLevel), t0(std::chrono::high_resolution_clock::now())
+#endif
+        {}
+
+        scoped_timer(time_printer& tp)
+#ifndef C4_TIMER_DISABLED
+            : tp(&tp), t0(std::chrono::high_resolution_clock::now())
 #endif
         {}
 
@@ -145,7 +173,12 @@ namespace c4 {
         }
 
         ~scoped_timer() {
-            c4::Logger(logLevel) << name << " time: " << elapsed() << " seconds.";
+            if (tp) {
+                tp->t += std::chrono::high_resolution_clock::now() - t0;
+            }
+            else {
+                c4::Logger(logLevel) << name << " time: " << elapsed() << " seconds.";
+            }
         }
 #endif
     };
