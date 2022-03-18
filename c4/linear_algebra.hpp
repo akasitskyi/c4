@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <numeric>
+
 #include "matrix.hpp"
 #include "simd.hpp"
 
