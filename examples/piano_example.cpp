@@ -42,15 +42,19 @@ int main(int argc, char* argv[]) {
 
         Piano piano(sampleRate);
 
-        for (int t : range(toneCount)) {
-            piano.press(startTone + t);
+        {
+            scoped_timer timer("Main loop");
 
-            const int releaseTime = int(rs * sampleRate);
+            for (int t : range(toneCount)) {
+                piano.press(startTone + t);
 
-            for (int i : range(toneDuration)) {
-                data[t * toneDuration + i] = piano();
-                if (i == toneDuration - releaseTime) {
-                    piano.release(startTone + t);
+                const int releaseTime = 2 * int(rs * sampleRate);
+
+                for (int i : range(toneDuration)) {
+                    data[t * toneDuration + i] = piano();
+                    if (i == toneDuration - releaseTime) {
+                        piano.release(startTone + t);
+                    }
                 }
             }
         }

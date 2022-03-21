@@ -25,7 +25,6 @@
 #include <vector>
 #include <deque>
 #include <map>
-#include <mutex>
 
 #include "matrix.hpp"
 #include "linear_algebra.hpp"
@@ -74,6 +73,10 @@ namespace c4 {
             released = true;
 
             return r;
+        }
+
+        bool done() {
+            return released && i >= r;
         }
     };
 
@@ -194,11 +197,13 @@ namespace c4 {
         int release() {
             return adsr.release();
         }
+
+        bool done() {
+            return adsr.done();
+        }
     };
 
     class Piano {
-        std::mutex mu;
-
         int sampleRate;
         std::map<int, PianoTone> playingTones;
 
@@ -207,8 +212,6 @@ namespace c4 {
         Piano(int sampleRate) : sampleRate(sampleRate), add({ 0.f }) {}
 
         int press(int tone) {
-            std::lock_guard<std::mutex> lock(mu);
-
             const float hz = (float)(27.5 * std::pow(2., (double)tone / 12.));
 
             playingTones.emplace(tone, PianoTone(sampleRate, hz));
@@ -217,10 +220,6 @@ namespace c4 {
         }
 
         int release(int tone) {
-            std::lock_guard<std::mutex> lock(mu);
-
-            // TODO: release should be added to add
-
             auto it = playingTones.find(tone);
 
             if (it == playingTones.end()) {
@@ -229,22 +228,20 @@ namespace c4 {
 
             const int rem = it->second.release();
 
-            if (rem > add.size()) {
-                add.resize(rem);
-            }
-            for (int i : range(rem)) {
-                add[i] += it->second();
-            }
-
-            playingTones.erase(tone);
-
             return 0;
         }
 
         float operator()() {
             float res = 0;
-            for (auto& t : playingTones) {
-                res += t.second();
+            for (auto it = playingTones.begin(); it != playingTones.end();) {
+                res += it->second();
+
+                if (it->second.done()) {
+                    it = playingTones.erase(it);
+                }
+                else {
+                    ++it;
+                }
             }
 
             res += add.front();
