@@ -303,7 +303,7 @@ namespace c4 {
         const float c;
         const float k;
     public:
-        fast_rand_float_uniform(float from = 0.f, float to = 1.f, uint32_t seed = 0) : rnd(seed), c(from), k((to - from) / std::numeric_limits<uint32_t>::max()) {}
+        fast_rand_float_uniform(float from = 0.f, float to = 1.f, uint32_t seed = 0) : rnd(seed), c(from), k((to - from) / (float)std::numeric_limits<uint32_t>::max()) {}
 
         inline float operator()() {
             return rnd() * k + c;

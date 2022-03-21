@@ -32,6 +32,7 @@
 namespace c4 {
     inline void increment(float* pa, const float* pb, const int n) {
         int i = 0;
+#ifdef __C4_SIMD__
         for (; i + 4 <= n; i += 4) {
             simd::float32x4 a = simd::load(pa + i);
             simd::float32x4 b = simd::load(pb + i);
@@ -40,7 +41,7 @@ namespace c4 {
 
             simd::store(pa + i, a);
         }
-
+#endif
         for (; i < n; i++) {
             pa[i] += pb[i];
         }
@@ -48,6 +49,7 @@ namespace c4 {
 
     inline void decrement(float* pa, const float* pb, const int n) {
         int i = 0;
+#ifdef __C4_SIMD__
         for (; i + 4 <= n; i += 4) {
             simd::float32x4 a = simd::load(pa + i);
             simd::float32x4 b = simd::load(pb + i);
@@ -56,16 +58,18 @@ namespace c4 {
 
             simd::store(pa + i, a);
         }
-
+#endif
         for (; i < n; i++) {
             pa[i] -= pb[i];
         }
     }
 
     inline float dot_product(const float* pa, const float* pb, const int n) {
-        simd::float32x4 s = simd::set_zero<simd::float32x4>();
 
         int i = 0;
+        float r = 0;
+#ifdef __C4_SIMD__
+		simd::float32x4 s = simd::set_zero<simd::float32x4>();
         for (; i + 4 <= n; i += 4) {
             simd::float32x4 a = simd::load(pa + i);
             simd::float32x4 b = simd::load(pb + i);
@@ -76,8 +80,8 @@ namespace c4 {
         float sv[4];
         simd::store(sv, s);
         
-        float r = std::accumulate(sv, sv + 4, 0.f);
-
+        r = std::accumulate(sv, sv + 4, 0.f);
+#endif
         for (; i < n; i++) {
             r += pa[i] * pb[i];
         }
