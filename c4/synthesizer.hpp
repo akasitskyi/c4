@@ -111,6 +111,50 @@ namespace c4 {
         }
     };
 
+    class GeneratedWaves {
+        std::vector<std::vector<float>> notes;
+    public:
+        GeneratedWaves(int rate, double f0) : notes(12) {
+            for (int i : range(notes)) {
+                const float hz = float(f0 * std::pow(2, double(i) / 12.));
+
+                const size_t period = lround((float)rate / hz);
+                notes[i].resize(period);
+
+                SawWaveGenerator saw(rate, hz);
+                float sw = 1;
+                std::vector<SineWaveGenerator> swgs;
+                std::vector<float> w;
+                for (int m = 1; m < 10 && m * hz * 2 < rate; m++) {
+                    swgs.emplace_back(rate, m * hz);
+                    w.push_back(6.f / float(std::pow(m, 1) + 5));
+                    sw += w.back();;
+                }
+
+                for (auto& x : notes[i]) {
+                    float res = saw();
+
+                    for (int m : range(swgs)) {
+                        res += swgs[m]() * w[m];
+                    }
+
+                    x = res / sw;
+                }
+            }
+        }
+
+        float get(int note, int i) {
+            const int div = note / isize(notes);
+            const int mod = note % isize(notes);
+            
+            const auto& note0 = notes[mod];
+
+            const int mul = (1 << div);
+
+            return note0[(i * mul) % isize(note0)];
+        }
+    };
+
     class LowPassFilter {
         double a1 = 0;
         double a2 = 0;
@@ -150,46 +194,35 @@ namespace c4 {
     static constexpr float rs = 0.1f;
 
     class PianoTone {
+        std::shared_ptr<GeneratedWaves> waves;
         int rate;
+        int note;
         float hz;
-        SawWaveGenerator saw;
-        std::vector<SineWaveGenerator> swgs;
         ADSR adsr;
         std::vector<LowPassFilter> lpfs;
+        int i = 0;
     public:
-        PianoTone(int rate, float hz, int a, int d, float s, int r) :
-        rate(rate), hz(hz), saw(rate, hz), adsr(a, d, s, r) {
-            for (int m = 1; m < 10 && m * hz * 2 < rate; m++) {
-                swgs.emplace_back(rate, m * hz);
-            }
-
+        PianoTone(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz, int a, int d, float s, int r) :
+        waves(waves), rate(rate), note(note), hz(hz), adsr(a, d, s, r) {
             for (int k = 0; k < 4; k++) {
-                lpfs.emplace_back(hz * 6, rate);
+                const float f = hz * 6;
+                if (2.1f * f < rate) {
+                    lpfs.emplace_back(f, rate);
+                }
             }
-            lpfs.emplace_back(4000, rate);
-            lpfs.emplace_back(8000, rate);
         }
         
-        PianoTone(int rate, float hz) : PianoTone(rate, hz, int(as* rate), int(ds* rate), s, int(rs* rate)) {
-        }
+        PianoTone(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz) :
+            PianoTone(waves, rate, note, hz, int(as* rate), int(ds* rate), s, int(rs* rate)) {}
 
         float operator()() {
-            float res = saw();
+            float res = waves->get(note, i++);
 
-            float sw = 1;
-            for (int m : range(swgs)) {
-                float w = 6.f / float(std::pow(m + 1, 1) + 5);
-                res += swgs[m]() * w;
-                sw += w;
-            }
-
-            res = res / sw;
+            res = adsr(res);
 
             for (auto& f : lpfs) {
                 res = f(res);
             }
-
-            res = adsr(res);
 
             return res;
         }
@@ -205,16 +238,24 @@ namespace c4 {
 
     class Piano {
         int sampleRate;
+        double f0;
+        std::shared_ptr<GeneratedWaves> waves;
         std::map<int, PianoTone> playingTones;
-
         std::deque<float> add;
+        std::vector<LowPassFilter> lpfs;
     public:
-        Piano(int sampleRate) : sampleRate(sampleRate), add({ 0.f }) {}
+        Piano(int sampleRate) :
+            sampleRate(sampleRate), f0(27.5),
+            waves(new GeneratedWaves(sampleRate, f0)), add({ 0.f })
+        {
+            lpfs.emplace_back(4000, sampleRate);
+            lpfs.emplace_back(8000, sampleRate);
+        }
 
-        int press(int tone) {
-            const float hz = (float)(27.5 * std::pow(2., (double)tone / 12.));
+        int press(int note) {
+            const float hz = (float)(27.5 * std::pow(2., (double)note / 12.));
 
-            playingTones.emplace(tone, PianoTone(sampleRate, hz));
+            playingTones.emplace(note, PianoTone(waves, sampleRate, note, hz));
 
             return 0;
         }
@@ -242,6 +283,10 @@ namespace c4 {
                 else {
                     ++it;
                 }
+            }
+
+            for (auto& lpf : lpfs) {
+                res = lpf(res);
             }
 
             res += add.front();

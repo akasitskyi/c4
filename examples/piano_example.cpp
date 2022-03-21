@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
         const int toneCount = 12 * 3 + 1;
         const int toneDuration = sampleRate; // 1s
         
-        std::vector<float> data(toneCount * sampleRate);
+        std::vector<float> data(toneCount * toneDuration);
 
         Piano piano(sampleRate);
 
