@@ -23,12 +23,18 @@
 #pragma once
 
 #include <vector>
+#include <deque>
+#include <map>
+#include <mutex>
+
 #include "matrix.hpp"
 #include "linear_algebra.hpp"
 
 namespace c4 {
 
     class ADSR {
+        int i = 0;
+        bool released = false;
         int a;
         int d;
         float s;
@@ -36,71 +42,69 @@ namespace c4 {
     public:
         ADSR(int a, int d, float s, int r) : a(a), d(d), s(s), r(r) {}
 
-        void operator()(vector_ref<float>& v) {
-            int sl = isize(v) - a - d - r;
-            ASSERT_TRUE(sl >= 0);
-
-            // Attack
-            for (int i : range(a)) {
-                v[i] *= i * 1. / a;
+        float operator()(float x) {
+            // Release
+            if (released) {
+                float ret = x * s * (r - i) / r;
+                i++;
+                return ret;
             }
 
+            // Attack
+            if (i < a) {
+                float ret = x * i / a;
+                i++;
+                return ret;
+            }
+            
             // Decay
-            for (int i : range(d)) {
-                v[a + i] *= (s * i + 1.f * (d - i)) / d;
+            if (i < a + d) {
+                float ret = x * (s * i + 1.f * (d - i)) / d;
+                i++;
+                return ret;
             }
 
             //Sustain
-            for (int i : range(sl)) {
-                v[a + d + i] *= s;
-            }
-
-            // Release
-            for (int i : range(r)) {
-                v[a + d + sl + i] *= s * (r - i) / r;
-            }
+            i++;
+            return x * s;
         }
 
-        int adjustLength(int pressed) {
-            return std::max(pressed, a + d) + r;
+        int release() {
+            i = 0;
+            released = true;
+
+            return r;
         }
     };
 
-    class WaveGenerator {
+    class SineWaveGenerator {
         int rate;
+        float hz;
+        int i = 0;
     public:
-        WaveGenerator(int rate) : rate(rate) {}
+        SineWaveGenerator(int rate, float hz) : rate(rate), hz(hz) {}
 
-        std::vector<float> sine(float hz, int length) {
-            std::vector<float> v(length);
-            for (int i : range(v)) {
-                float err = std::sin(5 * i * 2 * pi<float>() / rate) * 0.0001f;
-                v[i] = std::sin(hz * (1.f + err) * i * 2 * pi<float>() / rate);
-            }
-
-            return v;
+        float operator()() {
+            const float err = std::sin(5 * i * 2 * pi<float>() / rate) * 0.0001f;
+            const float r = std::sin(hz * (1.f + err) * i * 2 * pi<float>() / rate);
+            i++;
+            return r;
         }
+    };
 
-        std::vector<float> saw(float hz, int length) {
-            int period = rate / hz;
+    class SawWaveGenerator {
+        int rate;
+        float hz;
+        int i = 0;
+    public:
+        SawWaveGenerator(int rate, float hz) : rate(rate), hz(hz) {}
 
-            std::vector<float> v(length);
-            for (int i : range(v)) {
-                v[i] = (i % period - period * 0.5f) / period;
-            }
+        float operator()() {
+            int period = int(rate / hz);
 
-            return v;
-        }
-
-        std::vector<float> square(float hz, int length) {
-            int period = rate / hz;
-
-            std::vector<float> v(length);
-            for (int i : range(v)) {
-                v[i] = i % period < period / 2 ? -1.f : 1.f;
-            }
-
-            return v;
+            float r = (i % period - period * 0.5f) / period;
+            i++;
+            return r;
         }
     };
 
@@ -132,61 +136,131 @@ namespace c4 {
             px = x;
             ppy = py;
             py = y;
-            return y;
+            return (float)y;
         }
     };
 
-static constexpr float as = 0.01f;
-static constexpr float ds = 0.5f;
-static constexpr float s = 0.5f;
-static constexpr float rs = 0.1f;
+    //FIXME: !!!
+    static constexpr float as = 0.01f;
+    static constexpr float ds = 0.5f;
+    static constexpr float s = 0.5f;
+    static constexpr float rs = 0.1f;
 
-    class Piano {
+    class PianoTone {
         int rate;
+        float hz;
+        SawWaveGenerator saw;
+        std::vector<SineWaveGenerator> swgs;
         ADSR adsr;
-        WaveGenerator wg;
+        std::vector<LowPassFilter> lpfs;
     public:
-        Piano(int rate, int a, int d, float s, int r) : rate(rate), adsr(a, d, s, r), wg(rate) {}
-        Piano(int rate) : Piano(rate, as* rate, ds* rate, s, rs* rate) {}
-
-        std::vector<float> operator()(float hz, float pressedSec) {
-            const int pressedSamples = pressedSec * rate;
-            const int length = adsr.adjustLength(pressedSamples);
-
-            std::vector<float> res = wg.saw(hz, length);
-
-            float sw = 1;
+        PianoTone(int rate, float hz, int a, int d, float s, int r) :
+        rate(rate), hz(hz), saw(rate, hz), adsr(a, d, s, r) {
             for (int m = 1; m < 10 && m * hz * 2 < rate; m++) {
-                float w = 6.f / (std::pow(m, 1) + 5);
-                res += wg.sine(m * hz, length) * w;
-                sw += w;
+                swgs.emplace_back(rate, m * hz);
             }
 
-            res = res / sw;
-
-            const int reflectDelay[] = { rate / 201, rate / 321, rate / 455 };
-            const float reflectRate = 0.25f;
-
-            for (auto rd : reflectDelay) {
-                for (int i = 0; i + rd < isize(res); i++) {
-                    res[i + rd] += res[i] * reflectRate;
-                }
-            }
-
-            std::vector<LowPassFilter> lpfs;
             for (int k = 0; k < 4; k++) {
                 lpfs.emplace_back(hz * 6, rate);
             }
             lpfs.emplace_back(4000, rate);
             lpfs.emplace_back(8000, rate);
+        }
+        
+        PianoTone(int rate, float hz) : PianoTone(rate, hz, int(as* rate), int(ds* rate), s, int(rs* rate)) {
+        }
 
-            for (auto& x : res) {
-                for (auto& f : lpfs) {
-                    x = f(x);
-                }
+        float operator()() {
+            float res = saw();
+
+            float sw = 1;
+            for (int m : range(swgs)) {
+                float w = 6.f / float(std::pow(m + 1, 1) + 5);
+                res += swgs[m]() * w;
+                sw += w;
             }
 
-            adsr(vector_ref(res));
+            res = res / sw;
+
+            for (auto& f : lpfs) {
+                res = f(res);
+            }
+
+            res = adsr(res);
+
+            return res;
+        }
+
+        int release() {
+            return adsr.release();
+        }
+    };
+
+    class Piano {
+        std::mutex mu;
+
+        int sampleRate;
+        std::map<int, PianoTone> playingTones;
+
+        std::deque<float> add;
+    public:
+        Piano(int sampleRate) : sampleRate(sampleRate), add({ 0.f }) {}
+
+        int press(int tone) {
+            std::lock_guard<std::mutex> lock(mu);
+
+            const float hz = (float)(27.5 * std::pow(2., (double)tone / 12.));
+
+            playingTones.emplace(tone, PianoTone(sampleRate, hz));
+
+            return 0;
+        }
+
+        int release(int tone) {
+            std::lock_guard<std::mutex> lock(mu);
+
+            // TODO: release should be added to add
+
+            auto it = playingTones.find(tone);
+
+            if (it == playingTones.end()) {
+                return -1;
+            }
+
+            const int rem = it->second.release();
+
+            if (rem > add.size()) {
+                add.resize(rem);
+            }
+            for (int i : range(rem)) {
+                add[i] += it->second();
+            }
+
+            playingTones.erase(tone);
+
+            return 0;
+        }
+
+        float operator()() {
+            float res = 0;
+            for (auto& t : playingTones) {
+                res += t.second();
+            }
+
+            res += add.front();
+            add.pop_front();
+            add.push_back(0.f);
+
+            const int reflectDelay[] = { sampleRate / 201, sampleRate / 321, sampleRate / 455 };
+            const float reflectRate = 0.25f;
+
+            for (auto rd : reflectDelay) {
+                if (rd >= add.size()) {
+                    add.resize(rd + 1);
+                }
+
+                add[rd] += res * reflectRate;
+            }
 
             return res;
         }

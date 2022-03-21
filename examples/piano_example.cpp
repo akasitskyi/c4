@@ -32,19 +32,27 @@ using namespace c4;
 
 int main(int argc, char* argv[]) {
     try {
-        unsigned int channels = 1;
-        unsigned int sampleRate = 48000;
-        std::vector<float> data;
+        const unsigned int channels = 1;
+        const unsigned int sampleRate = 48000;
+        const int startTone = 3 + 12;
+        const int toneCount = 12 * 3 + 1;
+        const int toneDuration = sampleRate; // 1s
+        
+        std::vector<float> data(toneCount * sampleRate);
 
         Piano piano(sampleRate);
 
-        float note = 65.5;
-        const float semitone = std::pow(2, 1. / 12);
+        for (int t : range(toneCount)) {
+            piano.press(startTone + t);
 
-        for (int i = 0; i <= 12 * 3 + 1; i++) {
-            auto v = piano(note, 1.f);
-            note *= semitone;
-            data.insert(data.end(), v.begin(), v.end());
+            const int releaseTime = int(rs * sampleRate);
+
+            for (int i : range(toneDuration)) {
+                data[t * toneDuration + i] = piano();
+                if (i == toneDuration - releaseTime) {
+                    piano.release(startTone + t);
+                }
+            }
         }
 
         std::vector<int16_t> result(data.size());
