@@ -42,6 +42,8 @@ int main(int argc, char* argv[]) {
 
         Piano piano(sampleRate);
 
+        piano.enableMetronome(1.f, 120, 4);
+
         {
             scoped_timer timer("Main loop");
 
@@ -58,6 +60,11 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
+
+        //ClickSoundGenerator clickGen(sampleRate, { 1.21e3f, 3.03e3f }, { 0.8f, 0.2f });
+
+        //auto click = clickGen();
+        //data.insert(data.begin(), click.begin(), click.end());
 
         std::vector<int16_t> result(data.size());
 

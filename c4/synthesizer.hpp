@@ -236,17 +236,82 @@ namespace c4 {
         }
     };
 
+    class ClickSoundGenerator {
+        std::vector<float> data;
+    public:
+        ClickSoundGenerator(int rate, std::vector<float> f, std::vector<float> w) {
+            ASSERT_EQUAL(isize(f), isize(w));
+
+            const int a = int(rate * 0.002);
+            const int d = int(rate * 0.01);
+            const float s = 0.15f;
+            const int st = int(rate * 0.05);
+            const int r = int(rate * 0.05);
+
+            data.resize(a + d + st + r);
+
+            for (int k : range(f)) {
+                SineWaveGenerator swg(rate, f[k]);
+
+                for (int i : range(data)) {
+                    data[i] +=  swg() * w[k];
+                }
+            }
+
+            ADSR adsr(a, d, s, r);
+            for (int i : range(data)) {
+                data[i] = adsr(data[i]);
+                if (i == a + d + st) {
+                    adsr.release();
+                }
+            }
+        }
+
+        const auto& operator()() {
+            return data;
+        }
+    };
+
+    class Metronome {
+        size_t i = 0;
+        std::vector<float> loop;
+    public:
+        Metronome(float volume, int rate, float bpm, int K) {
+            const int dt = int(rate * 60 / bpm);
+            auto strong = ClickSoundGenerator(rate, { 1.5e3f, 3.91e3f },
+                { volume * 0.8f, volume * 0.2f })();
+            auto weak = ClickSoundGenerator(rate, { 1.21e3f, 3.03e3f },
+                { volume * 0.4f, volume * 0.1f })();
+
+            ASSERT_TRUE(weak.size() <= dt);
+            ASSERT_TRUE(strong.size() <= dt);
+
+            loop = strong;
+            loop.resize(dt * K);
+
+            for (int k = 1; k < K; k++) {
+                std::copy(weak.begin(), weak.end(), loop.begin() + dt * k);
+            }
+        }
+
+        float operator()() {
+            return loop[i++ % loop.size()];
+        }
+    };
+
     class Piano {
         int sampleRate;
         double f0;
         std::shared_ptr<GeneratedWaves> waves;
         std::map<int, PianoTone> playingTones;
+        std::shared_ptr<Metronome> metronome;
         std::deque<float> add;
         std::vector<LowPassFilter> lpfs;
     public:
         Piano(int sampleRate) :
             sampleRate(sampleRate), f0(27.5),
-            waves(new GeneratedWaves(sampleRate, f0)), add({ 0.f })
+            waves(new GeneratedWaves(sampleRate, f0)),
+            add({ 0.f })
         {
             lpfs.emplace_back(4000, sampleRate);
             lpfs.emplace_back(8000, sampleRate);
@@ -293,6 +358,10 @@ namespace c4 {
             add.pop_front();
             add.push_back(0.f);
 
+            if (metronome) {
+                res += (*metronome)();
+            }
+
             const int reflectDelay[] = { sampleRate / 201, sampleRate / 321, sampleRate / 455 };
             const float reflectRate = 0.25f;
 
@@ -305,6 +374,14 @@ namespace c4 {
             }
 
             return res;
+        }
+
+        void enableMetronome(float volume, float bpm, int K) {
+            metronome.reset(new Metronome(volume, sampleRate, bpm, K));
+        }
+
+        void disableMetronome() {
+            metronome.reset();
         }
     };
 };
