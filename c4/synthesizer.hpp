@@ -193,7 +193,7 @@ namespace c4 {
     static constexpr float s = 0.5f;
     static constexpr float rs = 0.1f;
 
-    class PianoTone {
+    class PianoNote {
         std::shared_ptr<GeneratedWaves> waves;
         int rate;
         int note;
@@ -202,7 +202,7 @@ namespace c4 {
         std::vector<LowPassFilter> lpfs;
         int i = 0;
     public:
-        PianoTone(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz, int a, int d, float s, int r) :
+        PianoNote(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz, int a, int d, float s, int r) :
         waves(waves), rate(rate), note(note), hz(hz), adsr(a, d, s, r) {
             for (int k = 0; k < 4; k++) {
                 const float f = hz * 6;
@@ -212,8 +212,8 @@ namespace c4 {
             }
         }
         
-        PianoTone(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz) :
-            PianoTone(waves, rate, note, hz, int(as* rate), int(ds* rate), s, int(rs* rate)) {}
+        PianoNote(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz) :
+				PianoNote(waves, rate, note, hz, int(as * rate), int(ds * rate), s, int(rs * rate)) {}
 
         float operator()() {
             float res = waves->get(note, i++);
@@ -276,12 +276,12 @@ namespace c4 {
         size_t i = 0;
         std::vector<float> loop;
     public:
-        Metronome(float volume, int rate, float bpm, int K) {
+        Metronome(int rate, float bpm, int K) {
             const int dt = int(rate * 60 / bpm);
             auto strong = ClickSoundGenerator(rate, { 1.5e3f, 3.91e3f },
-                { volume * 0.8f, volume * 0.2f })();
+                { 0.8f, 0.2f })();
             auto weak = ClickSoundGenerator(rate, { 1.21e3f, 3.03e3f },
-                { volume * 0.4f, volume * 0.1f })();
+                { 0.4f, 0.1f })();
 
             ASSERT_TRUE(weak.size() <= dt);
             ASSERT_TRUE(strong.size() <= dt);
@@ -301,9 +301,10 @@ namespace c4 {
 
     class Piano {
         int sampleRate;
+		float metronomeVolume;
         double f0;
         std::shared_ptr<GeneratedWaves> waves;
-        std::map<int, PianoTone> playingTones;
+        std::map<int, PianoNote> playingNotes;
         std::shared_ptr<Metronome> metronome;
         std::deque<float> add;
         std::vector<LowPassFilter> lpfs;
@@ -317,18 +318,20 @@ namespace c4 {
             lpfs.emplace_back(8000, sampleRate);
         }
 
-        int press(int note) {
-            const float hz = (float)(27.5 * std::pow(2., (double)note / 12.));
+        static int inline hz(int note) {
+        	return (float)(27.5 * std::pow(2., (double)note / 12.));
+        }
 
-            playingTones.emplace(note, PianoTone(waves, sampleRate, note, hz));
+        int press(int note) {
+            playingNotes.emplace(note, PianoNote(waves, sampleRate, note, hz(note)));
 
             return 0;
         }
 
         int release(int tone) {
-            auto it = playingTones.find(tone);
+            auto it = playingNotes.find(tone);
 
-            if (it == playingTones.end()) {
+            if (it == playingNotes.end()) {
                 return -1;
             }
 
@@ -339,11 +342,11 @@ namespace c4 {
 
         float operator()() {
             float res = 0;
-            for (auto it = playingTones.begin(); it != playingTones.end();) {
+            for (auto it = playingNotes.begin(); it != playingNotes.end();) {
                 res += it->second();
 
                 if (it->second.done()) {
-                    it = playingTones.erase(it);
+                    it = playingNotes.erase(it);
                 }
                 else {
                     ++it;
@@ -359,7 +362,7 @@ namespace c4 {
             add.push_back(0.f);
 
             if (metronome) {
-                res += (*metronome)();
+                res += metronomeVolume * (*metronome)();
             }
 
             const int reflectDelay[] = { sampleRate / 201, sampleRate / 321, sampleRate / 455 };
@@ -376,12 +379,20 @@ namespace c4 {
             return res;
         }
 
-        void enableMetronome(float volume, float bpm, int K) {
-            metronome.reset(new Metronome(volume, sampleRate, bpm, K));
+        void enableMetronome(float bpm, int K) {
+            metronome.reset(new Metronome(sampleRate, bpm, K));
+        }
+
+        void setMetronomeVolume(float volume){
+        	metronomeVolume = volume;
         }
 
         void disableMetronome() {
             metronome.reset();
         }
-    };
+
+		bool metronomeActive() {
+			return (bool)metronome;
+		}
+	};
 };
