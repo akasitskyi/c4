@@ -187,11 +187,16 @@ namespace c4 {
         }
     };
 
-    //FIXME: !!!
-    static constexpr float as = 0.01f;
-    static constexpr float ds = 0.5f;
-    static constexpr float s = 0.5f;
-    static constexpr float rs = 0.1f;
+    struct AdsrParams {
+        float a = 0.01f;
+        float d = 0.5f;
+        float s = 0.5f;
+        float r = 0.1f;
+
+        static AdsrParams piano() {
+            return { 0.01f, 0.5f, 0.5f, 0.1f };
+        }
+    };
 
     class PianoNote {
         std::shared_ptr<GeneratedWaves> waves;
@@ -202,8 +207,10 @@ namespace c4 {
         std::vector<LowPassFilter> lpfs;
         int i = 0;
     public:
-        PianoNote(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz, int a, int d, float s, int r) :
-        waves(waves), rate(rate), note(note), hz(hz), adsr(a, d, s, r) {
+        PianoNote(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz,
+                                                    AdsrParams p = AdsrParams::piano()) :
+        waves(waves), rate(rate), note(note), hz(hz),
+            adsr(int(p.a* rate), int(p.d* rate), p.s, int(p.r* rate)) {
             for (int k = 0; k < 4; k++) {
                 const float f = hz * 6;
                 if (2.1f * f < rate) {
@@ -212,9 +219,6 @@ namespace c4 {
             }
         }
         
-        PianoNote(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz) :
-				PianoNote(waves, rate, note, hz, int(as * rate), int(ds * rate), s, int(rs * rate)) {}
-
         float operator()() {
             float res = waves->get(note, i++);
 
@@ -301,7 +305,7 @@ namespace c4 {
 
     class Piano {
         int sampleRate;
-		float metronomeVolume;
+		float metronomeVolume = 1.f;
         double f0;
         std::shared_ptr<GeneratedWaves> waves;
         std::map<int, PianoNote> playingNotes;
@@ -318,7 +322,7 @@ namespace c4 {
             lpfs.emplace_back(8000, sampleRate);
         }
 
-        static int inline hz(int note) {
+        static float inline hz(int note) {
         	return (float)(27.5 * std::pow(2., (double)note / 12.));
         }
 
