@@ -36,7 +36,8 @@ int main(int argc, char* argv[]) {
         const unsigned int sampleRate = 48000;
         const int startTone = 3 + 12;
         const int toneCount = 12 * 3 + 1;
-        const int toneDuration = sampleRate; // 1s
+        const float durationSec = 1.f;
+        const int toneDuration = int(durationSec * sampleRate);
         
         std::vector<float> data(toneCount * toneDuration);
 
@@ -48,7 +49,7 @@ int main(int argc, char* argv[]) {
         {
             scoped_timer timer("Main loop");
 
-            for (int t : range(toneCount)) {
+            for (int t : range(toneCount / 2)) {
                 piano.press(startTone + t);
 
                 const int releaseTime = 2 * int(AdsrParams::piano().r * sampleRate);
@@ -58,6 +59,14 @@ int main(int argc, char* argv[]) {
                     if (i == toneDuration - releaseTime) {
                         piano.release(startTone + t);
                     }
+                }
+            }
+
+            for (int t : range(toneCount / 2, toneCount)) {
+                piano.playFor(startTone + t, durationSec - AdsrParams::piano().r);
+
+                for (int i : range(toneDuration)) {
+                    data[t * toneDuration + i] = piano();
                 }
             }
         }

@@ -206,6 +206,7 @@ namespace c4 {
         ADSR adsr;
         std::vector<LowPassFilter> lpfs;
         int i = 0;
+        int releaseTime = -1;
     public:
         PianoNote(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz,
                                                     AdsrParams p = AdsrParams::piano()) :
@@ -220,6 +221,10 @@ namespace c4 {
         }
         
         float operator()() {
+        	if (i == releaseTime) {
+        		release();
+        	}
+
             float res = waves->get(note, i++);
 
             res = adsr(res);
@@ -233,6 +238,10 @@ namespace c4 {
 
         int release() {
             return adsr.release();
+        }
+
+        void setReleaseTime(float s) {
+        	releaseTime = (int)lround(s * rate);
         }
 
         bool done() {
@@ -332,6 +341,15 @@ namespace c4 {
             return 0;
         }
 
+		int playFor(int note, float duration) {
+            AdsrParams p = AdsrParams::piano();
+			PianoNote pn(waves, sampleRate, note, hz(note), p);
+			pn.setReleaseTime(std::max(duration - p.r, 0.f));
+			playingNotes.emplace(note, pn);
+
+			return 0;
+		}
+
         int release(int tone) {
             auto it = playingNotes.find(tone);
 
@@ -397,6 +415,12 @@ namespace c4 {
 
 		bool metronomeActive() {
 			return (bool)metronome;
+		}
+
+		void clearQueue() {
+			playingNotes.clear();
+			add.clear();
+			disableMetronome();
 		}
 	};
 };
