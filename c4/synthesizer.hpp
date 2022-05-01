@@ -23,11 +23,12 @@
 #pragma once
 
 #include <vector>
-#include <deque>
+#include <algorithm>
 #include <map>
 
 #include "matrix.hpp"
 #include "linear_algebra.hpp"
+#include "ring_buffer.hpp"
 
 namespace c4 {
 
@@ -202,7 +203,6 @@ namespace c4 {
         std::shared_ptr<GeneratedWaves> waves;
         int rate;
         int note;
-        float hz;
         ADSR adsr;
         std::vector<LowPassFilter> lpfs;
         int i = 0;
@@ -210,7 +210,7 @@ namespace c4 {
     public:
         PianoNote(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz,
                                                     AdsrParams p = AdsrParams::piano()) :
-        waves(waves), rate(rate), note(note), hz(hz),
+        waves(waves), rate(rate), note(note),
             adsr(int(p.a* rate), int(p.d* rate), p.s, int(p.r* rate)) {
             for (int k = 0; k < 4; k++) {
                 const float f = hz * 6;
@@ -314,18 +314,22 @@ namespace c4 {
 
     class Piano {
         int sampleRate;
-		float metronomeVolume = 1.f;
+        // After the sampleRate!
+        const int reflectDelay[3]{ sampleRate / 201, sampleRate / 321, sampleRate / 455 };
+        const float reflectRate = 0.25f;
+
+        float metronomeVolume = 1.f;
         double f0;
         std::shared_ptr<GeneratedWaves> waves;
         std::map<int, PianoNote> playingNotes;
         std::shared_ptr<Metronome> metronome;
-        std::deque<float> add;
+        ring_buffer<float> add;
         std::vector<LowPassFilter> lpfs;
     public:
         Piano(int sampleRate) :
             sampleRate(sampleRate), f0(27.5),
             waves(new GeneratedWaves(sampleRate, f0)),
-            add({ 0.f })
+            add(*std::max_element(std::begin(reflectDelay), std::end(reflectDelay)) + 1)
         {
             lpfs.emplace_back(4000, sampleRate);
             lpfs.emplace_back(8000, sampleRate);
@@ -380,21 +384,14 @@ namespace c4 {
             }
 
             res += add.front();
-            add.pop_front();
-            add.push_back(0.f);
+            add.pop();
+            add.push(0.f);
 
             if (metronome) {
                 res += metronomeVolume * (*metronome)();
             }
 
-            const int reflectDelay[] = { sampleRate / 201, sampleRate / 321, sampleRate / 455 };
-            const float reflectRate = 0.25f;
-
             for (auto rd : reflectDelay) {
-                if (rd >= add.size()) {
-                    add.resize(rd + 1);
-                }
-
                 add[rd] += res * reflectRate;
             }
 
@@ -419,7 +416,7 @@ namespace c4 {
 
 		void clearQueue() {
 			playingNotes.clear();
-			add.clear();
+			add.fill(0);
 			disableMetronome();
 		}
 	};
