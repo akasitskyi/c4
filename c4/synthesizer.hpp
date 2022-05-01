@@ -383,9 +383,7 @@ namespace c4 {
                 res = lpf(res);
             }
 
-            res += add.front();
-            add.pop();
-            add.push(0.f);
+            res += add.push(0.f);
 
             if (metronome) {
                 res += metronomeVolume * (*metronome)();

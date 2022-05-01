@@ -28,26 +28,19 @@ namespace c4 {
     template<class T>
     class ring_buffer {
         std::vector<T> v;
-        size_t start;
-        size_t end;
-
-        size_t next(size_t i) {
-            return (i + 1) % v.size();
-        }
-
-        size_t prev(size_t i) {
-            return (i + v.size() - 1) % v.size();
-        }
+        size_t start = 0;
 
     public:
-        ring_buffer(size_t capacity) : v(capacity), start(0), end(0) {}
+        ring_buffer(size_t size) : v(size) {}
 
-        void push(const T& t) {
-            v[end] = t;
-            end = next(end);
+        T push(T t) {
+            std::swap(v[start], t);
+            start = (start + 1) % v.size();
+
+            return t;
         }
 
-        const T& front() const {
+        const T& peek() const {
             return v[start];
         }
 
@@ -55,18 +48,8 @@ namespace c4 {
             return v[(start + i) % v.size()];
         }
 
-        void pop() {
-            start = next(start);
-        }
-
         void fill(const T& t) {
-            if (start < end) {
-                std::fill(v.begin() + start, v.begin() + end, t);
-            }
-            else {
-                std::fill(v.begin() + start, v.end(), t);
-                std::fill(v.begin(), v.begin() + end, t);
-            }
+            std::fill(v.begin(), v.end(), t);
         }
     };
 };
