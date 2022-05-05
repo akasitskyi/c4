@@ -35,8 +35,8 @@ int main(int argc, char* argv[]) {
         const unsigned int channels = 1;
         const unsigned int sampleRate = 48000;
         const int startTone = 3 + 12;
-        const int toneCount = 12 * 3 + 1;
-        const float durationSec = 1.f;
+        const int toneCount = 12 * 6 + 1;
+        const float durationSec = 0.5f;
         const int toneDuration = int(durationSec * sampleRate);
         
         std::vector<float> data(toneCount * toneDuration);

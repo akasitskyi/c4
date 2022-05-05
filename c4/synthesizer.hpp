@@ -157,34 +157,35 @@ namespace c4 {
     };
 
     class LowPassFilter {
-        double a1 = 0;
-        double a2 = 0;
-        double b0 = 0;
-        double b1 = 0;
-        double b2 = 0;
+        float a1 = 0;
+        float a2 = 0;
+        float b0 = 0;
+        //float b1 = 0;
+        //float b2 = 0;
 
-        double px = 0;
-        double ppx = 0;
-        double py = 0;
-        double ppy = 0;
+        float px = 0;
+        float ppx = 0;
+        float py = 0;
+        float ppy = 0;
     public:
         LowPassFilter(double hz, int sampleRate) {
             const double ita = 1.0 / std::tan(pi<double>() * hz / sampleRate);
             const double q = sqrt(2.0);
-            b0 = 1.0 / (1.0 + q * ita + ita * ita);
-            b1 = 2 * b0;
-            b2 = b0;
-            a1 = 2.0 * (ita * ita - 1.0) * b0;
-            a2 = -(1.0 - q * ita + ita * ita) * b0;
+            b0 = float(1.0 / (1.0 + q * ita + ita * ita));
+            //b1 = float(2 * b0);
+            //b2 = float(b0);
+            a1 = float(2.0 * (ita * ita - 1.0) * b0);
+            a2 = float(-(1.0 - q * ita + ita * ita) * b0);
         }
 
         float operator()(float x) {
-            double y = b0 * x + b1 * px + b2 * ppx + a1 * py + a2 * ppy;
+//            float y = b0 * x + b1 * px + b2 * ppx + a1 * py + a2 * ppy;
+            float y = b0 * (x + px + px + ppx) + a1 * py + a2 * ppy;
             ppx = px;
             px = x;
             ppy = py;
             py = y;
-            return (float)y;
+            return y;
         }
     };
 
@@ -204,21 +205,17 @@ namespace c4 {
         int rate;
         int note;
         ADSR adsr;
-        std::vector<LowPassFilter> lpfs;
+        LowPassFilter lpfs[4];
         int i = 0;
         int releaseTime = -1;
     public:
         PianoNote(std::shared_ptr<GeneratedWaves> waves, int rate, int note, float hz,
                                                     AdsrParams p = AdsrParams::piano()) :
         waves(waves), rate(rate), note(note),
-            adsr(int(p.a* rate), int(p.d* rate), p.s, int(p.r* rate)) {
-            for (int k = 0; k < 4; k++) {
-                const float f = hz * 6;
-                if (2.1f * f < rate) {
-                    lpfs.emplace_back(f, rate);
-                }
-            }
-        }
+            adsr(int(p.a* rate), int(p.d* rate), p.s, int(p.r* rate)),
+            lpfs{ {std::min(hz * 6, rate * 0.4f), rate}, {std::min(hz * 6, rate * 0.4f), rate},
+                  {std::min(hz * 6, rate * 0.4f), rate}, {std::min(hz * 6, rate * 0.4f), rate} }
+        {}
         
         float operator()() {
         	if (i == releaseTime) {
