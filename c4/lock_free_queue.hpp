@@ -54,7 +54,7 @@ namespace c4 {
         }
 
         T& front() {
-            return buffer[mask(wc)];
+            return buffer[mask(rc)];
         }
 
         void pop() {
