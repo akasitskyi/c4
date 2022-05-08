@@ -29,7 +29,7 @@ namespace c4 {
     // Lock-free queue for single producer -> single consumer.
     template <typename T, uint32_t capacity>
     class lock_free_queue {
-        T buffer[capacity];
+        T buffer[capacity] = { 0 };
         std::atomic<uint32_t> wc = 0;
         std::atomic<uint32_t> rc = 0;
 
@@ -48,9 +48,12 @@ namespace c4 {
             return rc == wc;
         }
 
+        bool full() const {
+            return rc + capacity == wc;
+        }
+
         void push(const T& t) {
-            buffer[mask(wc)] = t;
-            ++wc;
+            buffer[mask(wc.fetch_add(1))] = t;
         }
 
         T& front() {
@@ -58,7 +61,11 @@ namespace c4 {
         }
 
         void pop() {
-            ++rc;
+            rc.fetch_add(1);
+        }
+
+        T pop_it() {
+            return buffer[mask(rc.fetch_add(1))];
         }
     };
 };
