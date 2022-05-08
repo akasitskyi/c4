@@ -53,7 +53,8 @@ namespace c4 {
         }
 
         void push(const T& t) {
-            buffer[mask(wc.fetch_add(1))] = t;
+            buffer[mask(wc)] = t;
+            ++wc;
         }
 
         T& front() {
@@ -61,11 +62,13 @@ namespace c4 {
         }
 
         void pop() {
-            rc.fetch_add(1);
+            ++rc;
         }
 
         T pop_it() {
-            return buffer[mask(rc.fetch_add(1))];
+        	T r = buffer[mask(rc)];
+        	++rc;
+            return r;
         }
     };
 };
