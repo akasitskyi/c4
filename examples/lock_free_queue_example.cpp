@@ -30,33 +30,44 @@ lock_free_queue<uint64_t, 1 << 20> q;
 
 int main(int argc, char* argv[]) {
     try {
-        const int readStep = 100;
-        const int writeStep = 10000;
-        const uint64_t iterations = 1000000000ll;
+        const int readStep = 10;
+        const int writeStep = 1000;
+        const uint64_t writeIterations = 1000000000ll;
+        const uint64_t readIterations = 2 * writeIterations;
 
-        auto Producer = [writeStep, iterations] {
+        uint64_t eta = 0;
+
+        auto Producer = [writeStep, writeIterations, &eta] {
             scoped_timer t("Producer");
-            for (uint64_t i = 0; i < iterations; i++) {
+            for (uint64_t i = 0; i < writeIterations; i++) {
                 if (i % writeStep == 0) {
-                    q.push(i);
+                    uint64_t x = i / writeStep;
+                    q.push(x);
+                    eta = eta * 13 + x;
                 }
             }
         };
 
-        auto Consumer = [readStep, iterations] {
+        uint64_t test = 0;
+
+        auto Consumer = [readStep, readIterations, &test] {
             scoped_timer t("Consumer");
-            uint64_t res = 0;
-            for (uint64_t i = 0; i < iterations; i++) {
+            for (uint64_t i = 0; i < readIterations; i++) {
                 if (i % readStep == 0 && !q.empty()) {
-                    res += q.pop_it();
+                    test = test * 13 + q.pop_it();
                 }
             }
-
-            PRINT_DEBUG(res);
         };
 
         scoped_timer t("total");
         parallel_invoke(Producer, Consumer);
+
+        PRINT_DEBUG(eta);
+        PRINT_DEBUG(test);
+
+        if (eta != test) {
+            THROW_EXCEPTION("ETA != TEST");
+        }
     }
     catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
