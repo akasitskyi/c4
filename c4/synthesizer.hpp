@@ -183,7 +183,7 @@ namespace c4 {
     class GeneratedWaves {
         std::vector<std::vector<float>> notes;
     public:
-        GeneratedWaves(int rate, double f0) : notes(12) {
+        GeneratedWaves(int rate, double f0) : notes(88) {
             for (int i : range(notes)) {
                 const float hz = float(f0 * std::pow(2, double(i) / 12.));
 
@@ -213,14 +213,12 @@ namespace c4 {
         }
 
         float get(int note, int i) {
-            const int div = note / isize(notes);
-            const int mod = note % isize(notes);
-            
-            const auto& note0 = notes[mod];
+            ASSERT_LESS(0, note);
+            ASSERT_LESS(note, isize(notes));
 
-            const int mul = (1 << div);
+            const auto& note0 = notes[note];
 
-            return note0[(i * mul) % isize(note0)];
+            return note0[i % isize(note0)];
         }
     };
 

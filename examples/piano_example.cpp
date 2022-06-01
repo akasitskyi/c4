@@ -34,39 +34,43 @@ int main(int argc, char* argv[]) {
     try {
         const unsigned int channels = 1;
         const unsigned int sampleRate = 48000;
-        const int startTone = 3 + 12;
-        const int toneCount = 12 * 6 + 1;
+        const int startTone = 3;
+        const int toneCount = 12 * 7 + 1;
         const float durationSec = 0.5f;
         const int toneDuration = int(durationSec * sampleRate);
         
         std::vector<float> data(toneCount * toneDuration);
 
-        Piano piano(sampleRate);
-
-        //piano.setMetronomeVolume(0.5f);
-        //piano.enableMetronome(120, 4);
-
         {
-            scoped_timer timer("Main loop");
+            scoped_timer timer("Constructor + main loop");
 
-            for (int t : range(toneCount / 2)) {
-                piano.press(startTone + t);
+            Piano piano(sampleRate);
 
-                const int releaseTime = 2 * int(AdsrParams::piano().r * sampleRate);
+            //piano.setMetronomeVolume(0.5f);
+            //piano.enableMetronome(120, 4);
 
-                for (int i : range(toneDuration)) {
-                    data[t * toneDuration + i] = piano();
-                    if (i == toneDuration - releaseTime) {
-                        piano.release(startTone + t);
+            {
+                scoped_timer timer("Main loop");
+
+                for (int t : range(toneCount / 2)) {
+                    piano.press(startTone + t);
+
+                    const int releaseTime = 2 * int(AdsrParams::piano().r * sampleRate);
+
+                    for (int i : range(toneDuration)) {
+                        data[t * toneDuration + i] = piano();
+                        if (i == toneDuration - releaseTime) {
+                            piano.release(startTone + t);
+                        }
                     }
                 }
-            }
 
-            for (int t : range(toneCount / 2, toneCount)) {
-                piano.playFor(startTone + t, durationSec - AdsrParams::piano().r);
+                for (int t : range(toneCount / 2, toneCount)) {
+                    piano.playFor(startTone + t, durationSec - AdsrParams::piano().r);
 
-                for (int i : range(toneDuration)) {
-                    data[t * toneDuration + i] = piano();
+                    for (int i : range(toneDuration)) {
+                        data[t * toneDuration + i] = piano();
+                    }
                 }
             }
         }

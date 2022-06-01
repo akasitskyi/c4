@@ -84,5 +84,6 @@ namespace c4 {
 
 #define ASSERT_TRUE(C) if( C ) {} else THROW_EXCEPTION("Runtime assertion failed: " #C)
 #define ASSERT_EQUAL(A, B) { auto __a = (A); auto __b = (B); if( !(__a == __b) ) THROW_EXCEPTION("Runtime assertion failed: " #A " == " #B ", " + c4::to_string(__a) + " != " + c4::to_string(__b)); }
+#define ASSERT_LESS(A, B) { auto __a = (A); auto __b = (B); if( !(__a < __b) ) THROW_EXCEPTION("Runtime assertion failed: " #A " < " #B ", " + c4::to_string(__a) + " !< " + c4::to_string(__b)); }
 
 };
