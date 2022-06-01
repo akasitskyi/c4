@@ -32,6 +32,74 @@
 
 namespace c4 {
 
+    class LowPassFilter {
+        float a1 = 0;
+        float a2 = 0;
+        float b0 = 0;
+        //float b1 = 0;
+        //float b2 = 0;
+
+        float px = 0;
+        float ppx = 0;
+        float py = 0;
+        float ppy = 0;
+    public:
+        LowPassFilter(double hz, int sampleRate) {
+            const double ita = 1.0 / std::tan(pi<double>() * hz / sampleRate);
+            const double q = sqrt(2.0);
+            b0 = float(1.0 / (1.0 + q * ita + ita * ita));
+            //b1 = float(2 * b0);
+            //b2 = float(b0);
+            a1 = float(2.0 * (ita * ita - 1.0) * b0);
+            a2 = float(-(1.0 - q * ita + ita * ita) * b0);
+        }
+
+        float operator()(float x) {
+            //            float y = b0 * x + b1 * px + b2 * ppx + a1 * py + a2 * ppy;
+            float y = b0 * (x + px + px + ppx) + a1 * py + a2 * ppy;
+            ppx = px;
+            px = x;
+            ppy = py;
+            py = y;
+            return y;
+        }
+    };
+
+    class HighPassFilter {
+        float a1 = 0;
+        float a2 = 0;
+        float b0 = 0;
+        //float b1 = 0;
+        //float b2 = 0;
+
+        float px = 0;
+        float ppx = 0;
+        float py = 0;
+        float ppy = 0;
+    public:
+        HighPassFilter(double hz, int sampleRate) {
+            const double ita = 1.0 / std::tan(pi<double>() * hz / sampleRate);
+            const double q = sqrt(2.0);
+            b0 = float(1.0 / (1.0 + q * ita + ita * ita));
+            a1 = float(2.0 * (ita * ita - 1.0) * b0);
+            a2 = float(-(1.0 - q * ita + ita * ita) * b0);
+
+            b0 = float(b0 * ita * ita);
+            //b1 = -float(2 * b0);
+            //b2 = float(b0);
+        }
+
+        float operator()(float x) {
+            //            float y = b0 * x + b1 * px + b2 * ppx + a1 * py + a2 * ppy;
+            float y = b0 * (x - px - px + ppx) + a1 * py + a2 * ppy;
+            ppx = px;
+            px = x;
+            ppy = py;
+            py = y;
+            return y;
+        }
+    };
+
     class ADSR {
         int i = 0;
         bool released = false;
@@ -106,7 +174,7 @@ namespace c4 {
         float operator()() {
             int period = int(rate / hz);
 
-            float r = (i % period - period * 0.5f) / period;
+            float r = ((i + period / 2) % period - period * 0.5f) / period;
             i++;
             return r;
         }
@@ -153,39 +221,6 @@ namespace c4 {
             const int mul = (1 << div);
 
             return note0[(i * mul) % isize(note0)];
-        }
-    };
-
-    class LowPassFilter {
-        float a1 = 0;
-        float a2 = 0;
-        float b0 = 0;
-        //float b1 = 0;
-        //float b2 = 0;
-
-        float px = 0;
-        float ppx = 0;
-        float py = 0;
-        float ppy = 0;
-    public:
-        LowPassFilter(double hz, int sampleRate) {
-            const double ita = 1.0 / std::tan(pi<double>() * hz / sampleRate);
-            const double q = sqrt(2.0);
-            b0 = float(1.0 / (1.0 + q * ita + ita * ita));
-            //b1 = float(2 * b0);
-            //b2 = float(b0);
-            a1 = float(2.0 * (ita * ita - 1.0) * b0);
-            a2 = float(-(1.0 - q * ita + ita * ita) * b0);
-        }
-
-        float operator()(float x) {
-//            float y = b0 * x + b1 * px + b2 * ppx + a1 * py + a2 * ppy;
-            float y = b0 * (x + px + px + ppx) + a1 * py + a2 * ppy;
-            ppx = px;
-            px = x;
-            ppy = py;
-            py = y;
-            return y;
         }
     };
 
@@ -312,8 +347,8 @@ namespace c4 {
     class Piano {
         int sampleRate;
         // After the sampleRate!
-        const int reflectDelay[3]{ sampleRate / 201, sampleRate / 321, sampleRate / 455 };
-        const float reflectRate = 0.25f;
+        const int reflectDelay[5]{ sampleRate / 95, sampleRate / 123, sampleRate / 144, sampleRate / 166, sampleRate / 189 };
+        const float reflectRate = 0.05f;
 
         float metronomeVolume = 1.f;
         double f0;

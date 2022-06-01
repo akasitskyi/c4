@@ -43,8 +43,8 @@ int main(int argc, char* argv[]) {
 
         Piano piano(sampleRate);
 
-        piano.setMetronomeVolume(0.5f);
-        piano.enableMetronome(120, 4);
+        //piano.setMetronomeVolume(0.5f);
+        //piano.enableMetronome(120, 4);
 
         {
             scoped_timer timer("Main loop");
