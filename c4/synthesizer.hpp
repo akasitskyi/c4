@@ -107,34 +107,32 @@ namespace c4 {
         int d;
         float s;
         int r;
+        float preReleaseQ = 0;
     public:
         ADSR(int a, int d, float s, int r) : a(a), d(d), s(s), r(r) {}
 
         float operator()(float x) {
             // Release
             if (released) {
-                float ret = x * s * (r - i) / r;
+                float ret = x * preReleaseQ * (r - i) / r;
                 i++;
                 return ret;
             }
 
             // Attack
             if (i < a) {
-                float ret = x * i / a;
-                i++;
-                return ret;
-            }
-            
+                preReleaseQ = i / a;
+            } else
             // Decay
             if (i < a + d) {
-                float ret = x * (s * i + 1.f * (d - i)) / d;
-                i++;
-                return ret;
-            }
-
+                preReleaseQ = (s * i + 1.f * (d - i)) / d;
+            } else
             //Sustain
+            preReleaseQ = s;
+
             i++;
-            return x * s;
+
+            return x * preReleaseQ;
         }
 
         int release() {
