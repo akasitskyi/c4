@@ -189,23 +189,34 @@ namespace c4 {
                 notes[i].resize(period);
 
                 SawWaveGenerator saw(rate, hz);
-                float sw = 1;
+                LowPassFilter lpf(hz * 2, rate);
+                const float sawWeight = 1.f;
+                
+                float weightsSum = sawWeight;
+                
                 std::vector<SineWaveGenerator> swgs;
                 std::vector<float> w;
-                for (int m = 1; m < 10 && m * hz * 2 < rate; m++) {
+
+                for (int m = 1; m < 16 && m * hz * 2 < rate; m++) {
                     swgs.emplace_back(rate, m * hz);
-                    w.push_back(6.f / float(std::pow(m, 1) + 5));
-                    sw += w.back();;
+                    w.push_back(3.f / float(std::pow(m, 1.6) + 4));
+                    weightsSum += w.back();;
+                }
+
+                for (int m = 16; m < 20 && m * hz * 2 < rate; m++) {
+                    swgs.emplace_back(rate, m * hz);
+                    w.push_back(1.f / float(std::pow(m, 1.6) + 4));
+                    weightsSum += w.back();;
                 }
 
                 for (auto& x : notes[i]) {
-                    float res = saw();
+                    float res = sawWeight * lpf(saw());
 
                     for (int m : range(swgs)) {
                         res += swgs[m]() * w[m];
                     }
 
-                    x = res / sw;
+                    x = res / weightsSum;
                 }
             }
         }
@@ -236,7 +247,7 @@ namespace c4 {
         int rate;
         int note;
         ADSR adsr;
-        LowPassFilter lpfs[4];
+        LowPassFilter lpfs[2];
         int i = 0;
         int releaseTime = -1;
     public:
@@ -244,8 +255,9 @@ namespace c4 {
                                                     AdsrParams p = AdsrParams::piano()) :
         waves(waves), rate(rate), note(note),
             adsr(int(p.a* rate), int(p.d* rate), p.s, int(p.r* rate)),
-            lpfs{ {std::min(hz * 6, rate * 0.4f), rate}, {std::min(hz * 6, rate * 0.4f), rate},
-                  {std::min(hz * 6, rate * 0.4f), rate}, {std::min(hz * 6, rate * 0.4f), rate} }
+            lpfs{ {std::min(hz * 30, rate * 0.45f), rate}
+                , {std::min(hz * 40, rate * 0.45f), rate}
+            }
         {}
         
         float operator()() {
@@ -359,7 +371,6 @@ namespace c4 {
             waves(new GeneratedWaves(sampleRate, f0)),
             add(*std::max_element(std::begin(reflectDelay), std::end(reflectDelay)) + 1)
         {
-            lpfs.emplace_back(4000, sampleRate);
             lpfs.emplace_back(8000, sampleRate);
         }
 
