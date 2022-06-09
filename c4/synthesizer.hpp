@@ -121,7 +121,7 @@ namespace c4 {
 
             // Attack
             if (i < a) {
-                preReleaseQ = i / a;
+                preReleaseQ = (float)i / a;
             } else
             // Decay
             if (i < a + d) {

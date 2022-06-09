@@ -151,7 +151,7 @@ namespace c4 {
 #ifndef C4_TIMER_DISABLED
         time_printer* tp;
         std::string name;
-        c4::LogLevel logLevel;
+        c4::LogLevel logLevel = c4::LOG_VERBOSE;
         std::chrono::high_resolution_clock::time_point t0;
 #endif
     public:
