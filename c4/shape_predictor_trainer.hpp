@@ -103,7 +103,7 @@ namespace c4 {
 
             std::vector<std::string> stats;
 
-            auto loss_str = [&](shape_predictor& sp) {
+            auto loss_str = [&](const shape_predictor& sp) {
                 double scoreTrain = test_shape_predictor(sp, images, objects);
                 double scoreTest = test_shape_predictor(sp, testImages, testObjects);
 

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8.2)
+cmake_minimum_required(VERSION 3.28)
 project( tests )
 
 add_executable( fft_tests fft_tests.cpp )

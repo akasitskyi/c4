@@ -74,7 +74,7 @@ namespace c4 {
         FFT(int dim) : FFT(dim, false) {}
 
         template<typename InputT>
-        void operator()(const vector_ref<InputT>& in, vector_ref< std::complex<double>>& out) {
+        void operator()(const vector_ref<InputT>& in, vector_ref<std::complex<double>> out) {
             ASSERT_EQUAL(in.size(), dim);
             ASSERT_EQUAL(out.size(), dim);
 
@@ -87,7 +87,7 @@ namespace c4 {
 
         IFFT(const int dim) : FFT(dim, true) {}
 
-        void operator()(const vector_ref<std::complex<double>>& in, vector_ref<std::complex<double>>& out) {
+        void operator()(const vector_ref<std::complex<double>>& in, vector_ref<std::complex<double>> out) {
             FFT::operator()(in, out);
 
             for (int k : range(out.size())) {
@@ -109,7 +109,7 @@ namespace c4 {
         }
 
         template<typename InputT>
-        void fwd(const vector_ref<InputT>& in, vector_ref<std::complex<double>>& out) {
+        void fwd(const vector_ref<InputT>& in, vector_ref<std::complex<double>> out) {
             ASSERT_EQUAL(in.size(), w.size());
             for (int i : range(w)) {
                 tmp[i] = in[i] * w[i];
@@ -118,7 +118,7 @@ namespace c4 {
             fft(vector_ref(tmp), out);
         }
         
-        void bwd(const vector_ref<std::complex<double>>& in, vector_ref<std::complex<double>>& out) {
+        void bwd(const vector_ref<std::complex<double>>& in, vector_ref<std::complex<double>> out) {
             ASSERT_EQUAL(out.size(), w.size());
 
             ifft(in, out);

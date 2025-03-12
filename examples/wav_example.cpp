@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
         int phz = 0;
 
         for (int i = 0; i < data.size(); i += frameSize / 2) {
-            std::fill(buffer.begin(), buffer.end(), 0);
+            std::fill(buffer.begin(), buffer.end(), 0.f);
             std::copy(data.begin() + i, data.begin() + std::min(i + frameSize, c4::isize(data)), buffer.begin());
             stft.fwd(c4::vector_ref(buffer), c4::vector_ref(F));
 

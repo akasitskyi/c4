@@ -36,9 +36,7 @@ namespace c4 {
     class vector_ref {
         friend class matrix_ref<T>;
     private:
-        vector_ref(const vector_ref& o) : size_(o.size_), ptr_(o.ptr_) {}
         vector_ref& operator=(const vector_ref&) = delete;
-
         bool is_inside(int x) const {
             return 0 <= x && x < size_;
         }
@@ -50,6 +48,7 @@ namespace c4 {
         vector_ref() : size_(0), ptr_(nullptr) {}
 
     public:
+        vector_ref(const vector_ref& o) : size_(o.size_), ptr_(o.ptr_) {}
         vector_ref(int length, T* ptr) : size_(length), ptr_(ptr) {}
         vector_ref(std::vector<T>& v) : size_((int)v.size()), ptr_(v.data()) {
             assert(v.size() == (size_t)size_);
