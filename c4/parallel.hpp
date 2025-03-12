@@ -26,7 +26,6 @@
 #include <thread>
 #include <future>
 #include <cstdlib>
-
 #include <queue>
 #include <array>
 #include <vector>
@@ -97,8 +96,8 @@ namespace c4 {
         }
 
         template<class F>
-        auto enqueue(F&& f) -> std::future<typename std::result_of<F()>::type> {
-            using return_type = typename std::result_of<F()>::type;
+        auto enqueue(F&& f) -> std::future<typename std::invoke_result_t<F>> {
+            using return_type = typename std::invoke_result_t<F>;
 
             auto task = std::make_shared<std::packaged_task<return_type()>>((f));
 
@@ -143,7 +142,6 @@ namespace c4 {
         }
 
     private:
-
         void parallel_invoke() {}
     };
 
@@ -227,7 +225,6 @@ namespace c4 {
     inline T parallel_reduce(iterator first, iterator last, size_t grain_size, T init, Reduction reduction, F f, thread_pool& tp = thread_pool::get_default_pool()) {
         if (first >= last)
             return init;
-
 
         if (tp.get_thread_index() != -1) { // we are called from the very same pool!
             init = reduction(init, f(first, last));

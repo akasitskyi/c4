@@ -592,8 +592,8 @@ namespace c4 {
     }
 
     template<class T, class F>
-    inline auto transform(const matrix_ref<T>& src, F f) -> matrix<typename std::result_of<F(T)>::type> {
-        matrix<typename std::result_of<F(T)>::type> dst(src.dimensions());
+    inline auto transform(const matrix_ref<T>& src, F f) -> matrix<typename std::invoke_result_t<F, T>> {
+        matrix<typename std::invoke_result_t<F, T>> dst(src.dimensions());
 
         transform(src, f, dst);
 
@@ -622,10 +622,10 @@ namespace c4 {
     }
 
     template<class T1, class T2, class F>
-    inline auto transform(const matrix_ref<T1>& src_a, const matrix_ref<T2>& src_b, F f) -> matrix<typename std::result_of<F(T1, T2)>::type> {
+    inline auto transform(const matrix_ref<T1>& src_a, const matrix_ref<T2>& src_b, F f) -> matrix<typename std::invoke_result_t<F, T1, T2>> {
         assert(src_a.dimensions() == src_b.dimensions());
 
-        matrix<typename std::result_of<F(T1(), T2())>::type> dst(src_a.dimensions());
+        matrix<typename std::invoke_result_t<F, T1, T2>> dst(src_a.dimensions());
 
         transform(src_a, src_b, f, dst);
 
