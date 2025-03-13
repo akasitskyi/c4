@@ -47,6 +47,9 @@
 #include <climits>
 #include <cassert>
 
+#pragma warning(push)
+#pragma warning(disable: 26495)
+
 namespace c4 {
     namespace detail {
         inline uint32_t lrot(uint32_t x, int y) {
@@ -170,7 +173,7 @@ namespace c4 {
             int img_mcu_w, img_mcu_h;
 
             // definition of jpeg image component
-            struct img_comp {
+            struct {
                 int id;
                 int h, v;
                 int tq;
@@ -182,8 +185,6 @@ namespace c4 {
                 std::vector<uint8_t> linebuf;
                 std::vector<short>   coeff;   // progressive only
                 int      coeff_w, coeff_h; // number of 8x8 coefficient blocks
-
-                img_comp() : id(0), h(0), v(0), tq(0), hd(0), ha(0), dc_pred(0), x(0), y(0), w2(0), h2(0), coeff_w(0), coeff_h(0) {}
             } img_comp[4];
 
             uint32_t   code_buffer; // jpeg entropy-coded buffer
@@ -1718,3 +1719,4 @@ namespace c4 {
         write_jpeg(fout, img, quality, flip_vertically);
     }
 }; // namespace c4
+#pragma warning(pop)
