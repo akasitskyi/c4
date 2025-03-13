@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
 			c4::point<double> mid(images[i].width() / 2, images[i].height() / 2);
 
 			c4::draw_line(images[i+1], mid, mid + motion.shift, uint8_t(255), 2);
-			c4::draw_string(images[i + 1], 10, 10, "shift: " + c4::to_string(motion.shift.x) + ", " + c4::to_string(motion.shift.y)
+			c4::draw_string(images[i + 1], 10, 10, "shift: " + c4::to_string(motion.shift.x, 2) + ", " + c4::to_string(motion.shift.y, 2)
                 + ", scale: " + c4::to_string(motion.scale, 2)
                 + ", alpha: " + c4::to_string(motion.alpha, 2), uint8_t(255), uint8_t(0), 2);
 			c4::dump_image(images[i+1], "out-" + c4::to_string(i) + ".jpg");

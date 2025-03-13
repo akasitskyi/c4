@@ -28,8 +28,8 @@
 
 namespace c4 {
     template<class F>
-    static std::vector<double> minimize(const std::vector<double> l, const std::vector<double> h, std::vector<double> v0, F&& f, const int iterations = 10) {
-		std::vector<double> d = h - l;
+    static std::vector<double> minimize(const std::vector<double> l, const std::vector<double> h, std::vector<double> v0, F&& f, const int iterations = 50) {
+		std::vector<double> d = (h - l) * 0.25;
 
 		double sum0 = f(v0);
 
@@ -46,6 +46,7 @@ namespace c4 {
 						adjust = 1.;
 					}
 				}
+				d[i] *= adjust;
 			}
         }
 

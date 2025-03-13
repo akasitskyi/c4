@@ -22,9 +22,10 @@
 
 #pragma once
 
+#include "simd.hpp"
+#include "pixel.hpp"
 #include "range.hpp"
 #include "matrix.hpp"
-#include "pixel.hpp"
 #include "optimization.hpp"
 
 #include <numeric>
@@ -45,7 +46,7 @@ namespace c4 {
 		struct Params {
 			float dxMax = 0.1f;
 			float dyMax = 0.1f;
-			float scaleMax = 1.5f;
+			float scaleMax = 1.1f;
 			float alphaMax = float(std::numbers::pi / 10);
 		};
 
@@ -63,14 +64,13 @@ namespace c4 {
 			const int block = 16;
 			const int halfBlock = block / 2;
 			std::vector<point<double>> src, dst;
-			std::vector<double> diffs;
-			std::vector<double> diffs0;
+			std::vector<double> weights;
 
 			for (int y = halfBlock; y + block + halfBlock <= frame.height(); y += block) {
 				for (int x = halfBlock; x + block + halfBlock <= frame.width(); x += block) {
 					point<int> shift(0, 0);
-					const double diff0 = calcDiff(frame.submatrix(y, x, block, block), prev.submatrix(y, x, block, block));
-					double minDiff = diff0;
+					const int diff0 = calcDiff(frame.submatrix(y, x, block, block), prev.submatrix(y, x, block, block));
+					int minDiff = diff0;
 
 					for (int dy = -halfBlock; dy <= halfBlock; dy++) {
 						for (int dx = -halfBlock; dx <= halfBlock; dx++) {
@@ -88,31 +88,17 @@ namespace c4 {
 					}
 					src.emplace_back(x + halfBlock, y + halfBlock);
 					dst.emplace_back(x + halfBlock + shift.x, y + halfBlock + shift.y);
-					diffs.push_back(minDiff);
-					diffs0.push_back(diff0);
+					
+					const double eps = 1E-5;
+					weights.push_back(1. - (minDiff + eps) / (diff0 + eps));
 				}
 			}
 
-			const double eps = 1E-5;
-			std::vector<double> weights(diffs.size());
-			for (int i : range(diffs)) {
-				weights[i] = 1. - (diffs[i] + eps) / (diffs0[i] + eps);
-			}
-
-			const double sumWeights = std::accumulate(weights.begin(), weights.end(), 0.);
-
-			std::transform(weights.begin(), weights.end(), weights.begin(), [&](double w) { return w / (sumWeights + eps); });
-
-			point<double> sumShift(0, 0);
-			for (int i : range(diffs)) {
-				sumShift += (dst[i] - src[i]) * weights[i];
-			}
-
-			std::vector<double> v0{sumShift.x, sumShift.y, 1., 0.};
+			std::vector<double> v0{0., 0., 1., 0.};
 			std::vector<double> l{-frame.width() * params.dxMax, -frame.height() * params.dyMax, 1. / params.scaleMax, -params.alphaMax};
 			std::vector<double> h{frame.width() * params.dxMax, frame.height() * params.dyMax, params.scaleMax, params.alphaMax};
 
-			auto m = minimize(l, h, v0, [&](const std::vector<double>& v) {
+			auto errorF = [&](const std::vector<double>& v) {
 				Motion motion{ {v[0], v[1]}, v[2], v[3] };
 
 				double sum = 0;
@@ -121,20 +107,32 @@ namespace c4 {
 					sum += weights[i] * dist_squared(dst[i], dst1);
 				}
 				return sum;
-			});
+			};
+
+			auto m = minimize(l, h, v0, errorF);
+
+			PRINT_DEBUG(errorF(m));
 
 			return { {m[0], m[1]}, m[2], m[3] };
 		}
 
 	private:
-		double calcDiff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
-			double sum = 0;
+		int calcDiff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+			ASSERT_EQUAL(A.width(), 16);
+
+			simd::uint32x4 sum(0);
+
 			for (int i : range(A.height())) {
-				for (int j : range(A.width())) {
-					sum += std::abs(A[i][j] - B[i][j]);
-				}
+				simd::uint8x16 a = simd::load(A[i].data());
+				simd::uint8x16 b = simd::load(B[i].data());
+				simd::uint32x4 diff = simd::sad(a, b);
+				sum = simd::add(sum, diff);
 			}
-			return sum;
+
+			uint32_t arr[4];
+			simd::store(arr, sum);
+
+			return arr[0] + arr[2];
 		}
 	};
 };

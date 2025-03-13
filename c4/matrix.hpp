@@ -601,11 +601,11 @@ namespace c4 {
 
     template<class T, class F>
     inline void transform_inplace(matrix_ref<T>& src, F f) {
-        transform(src, src, f);
+        transform(src, f, src);
     }
 
     template<class T1, class T2, class T3, class F>
-    inline void transform(const vector_ref<T1>& src_a, const vector_ref<T2>& src_b, F f, vector_ref<T2>& dst) {
+    inline void transform(const vector_ref<T1>& src_a, const vector_ref<T2>& src_b, F f, vector_ref<T3>&& dst) {
         assert(src_a.size() == src_b.size() && src_a.size() == dst.size());
 
         for (int i : range(dst.size()))
@@ -613,7 +613,7 @@ namespace c4 {
     }
 
     template<class T1, class T2, class T3, class F>
-    inline void transform(const matrix_ref<T1>& src_a, const matrix_ref<T1>& src_b, F f, matrix_ref<T2>& dst) {
+    inline void transform(const matrix_ref<T1>& src_a, const matrix_ref<T2>& src_b, F f, matrix_ref<T3>& dst) {
         assert(src_a.dimensions() == src_b.dimensions() && src_a.dimensions() == dst.dimensions());
 
         for (int i : range(dst.height()))
