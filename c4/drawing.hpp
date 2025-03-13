@@ -30,7 +30,7 @@
 namespace c4 {
     template<class pixel_t, class coord_t>
     inline void draw_line(matrix_ref<pixel_t>& img, coord_t x0, coord_t y0, coord_t x1, coord_t y1, pixel_t color, int thickness = 1){
-        int T = (int)max(abs(x0 - x1), abs(y0 - y1));
+        int T = (int)std::max(abs(x0 - x1), abs(y0 - y1));
 
         for(int t : range(T)){
             int x = int(x0 + t * (x1 - x0) / T);
@@ -73,9 +73,9 @@ namespace c4 {
         double alpha1 = (p1 - center).polar_angle();
 
         if( alpha1 < alpha0 )
-            alpha1 += 2 * c4::pi<double>();
+            alpha1 += 2 * std::numbers::pi_v<double>;
 
-        if( alpha1 < alpha0 || alpha1 - alpha0 > 2 * c4::pi<double>() )
+        if( alpha1 < alpha0 || alpha1 - alpha0 > 2 * std::numbers::pi_v<double> )
             THROW_EXCEPTION("Something's wrong with arc drawing");
 
         draw_arc(img, center, (float)R, (float)alpha0, (float)alpha1, color, thickness);
