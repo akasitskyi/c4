@@ -45,7 +45,7 @@ namespace c4 {
         float ppy = 0;
     public:
         LowPassFilter(double hz, int sampleRate) {
-            const double ita = 1.0 / std::tan(pi<double>() * hz / sampleRate);
+            const double ita = 1.0 / std::tan(std::numbers::pi_v<double> * hz / sampleRate);
             const double q = sqrt(2.0);
             b0 = float(1.0 / (1.0 + q * ita + ita * ita));
             //b1 = float(2 * b0);
@@ -78,7 +78,7 @@ namespace c4 {
         float ppy = 0;
     public:
         HighPassFilter(double hz, int sampleRate) {
-            const double ita = 1.0 / std::tan(pi<double>() * hz / sampleRate);
+            const double ita = 1.0 / std::tan(std::numbers::pi_v<double> * hz / sampleRate);
             const double q = sqrt(2.0);
             b0 = float(1.0 / (1.0 + q * ita + ita * ita));
             a1 = float(2.0 * (ita * ita - 1.0) * b0);
@@ -155,8 +155,8 @@ namespace c4 {
         SineWaveGenerator(int rate, float hz) : rate(rate), hz(hz) {}
 
         float operator()() {
-            const float err = std::sin(5 * i * 2 * pi<float>() / rate) * 0.0001f;
-            const float r = std::sin(hz * (1.f + err) * i * 2 * pi<float>() / rate);
+            const float err = std::sin(5 * i * 2 * std::numbers::pi_v<float> / rate) * 0.0001f;
+            const float r = std::sin(hz * (1.f + err) * i * 2 * std::numbers::pi_v<float> / rate);
             i++;
             return r;
         }

@@ -42,7 +42,7 @@ public:
     FftTest(int dim) : dim(dim), fft(dim), ifft(dim), a(dim), A(dim), iA(dim) {}
 
     void testFftSingleSine(int period, int shift) {
-        const double q = 2. * pi<double>() / period;
+        const double q = 2. * std::numbers::pi_v<double> / period;
         for (int i : range(period)) {
             a[i] = std::sin((i + shift) * q);
         }

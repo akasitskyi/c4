@@ -27,26 +27,21 @@
 #include <limits>
 #include <vector>
 #include <algorithm>
+#include <numbers>
 #include <type_traits>
 
 #include "exception.hpp"
 
 namespace c4 {
     template<typename T>
-    inline T pi() {
-        static const T __pi = 2 * acos((T)0);
-        return __pi;
-    }
-
-    template<typename T>
     inline T deg_to_rad(float alpha) {
-        static const T mul = pi<T>() / (T)180;
+        static const T mul = std::numbers::pi_v<T> / (T)180;
         return alpha * mul;
     }
 
     template<typename T>
     inline T rad_to_deg(T alpha) {
-        static const T mul = (T)180 / pi<T>();
+        static const T mul = (T)180 / std::numbers::pi_v<T>;
         return alpha * mul;
     }
 
