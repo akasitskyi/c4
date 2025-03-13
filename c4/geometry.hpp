@@ -169,14 +169,14 @@ namespace c4 {
 
     template<typename T>
     inline T normalize_angle_0_2pi(T angle) {
-        const auto dpi = 2 * pi<T>();
+        const auto dpi = 2 * std::numbers::pi_v<T>;
         const T beta = std::fmod(angle, dpi);
         return beta >= 0 ? beta : beta + dpi;
     }
 
     template<typename T>
     inline T normalize_angle_mpi_ppi(T angle) {
-        const auto pi = c4::pi<T>();
+        const auto pi = std::numbers::pi_v<T>;
         return normalize_angle_0_2pi(angle + pi) - pi;
     }
 

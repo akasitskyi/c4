@@ -62,7 +62,7 @@ namespace c4 {
             ASSERT_TRUE((dim & (dim - 1)) == 0);
 
             std::complex<double> w = 1.;
-            std::complex<double> w0 = std::exp((inv ? 2 : -2) * pi<double>() / dim * std::complex<double>(0, 1));
+            std::complex<double> w0 = std::exp((inv ? 2 : -2) * std::numbers::pi_v<double> / dim * std::complex<double>(0, 1));
 
             for (auto& wi : wt) {
                 wi = w;
@@ -104,7 +104,7 @@ namespace c4 {
     public:
         STFT(int dim) : fft(dim), ifft(dim), w(dim), tmp(dim) {
             for (int i : range(w)) {
-                w[i] = std::sin((i + 0.5) * pi<double>() / dim);
+                w[i] = std::sin((i + 0.5) * std::numbers::pi_v<double> / dim);
             }
         }
 
