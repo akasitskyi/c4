@@ -289,17 +289,33 @@ namespace c4 {
         }
 
         const T& clamp_get(int i, int j) const {
-            i = std::max(i, 0);
-            i = std::min(i, height_ - 1);
-
-            j = std::max(j, 0);
-            j = std::min(j, width_ - 1);
+            i = std::clamp(i, 0, height_ - 1);
+			j = std::clamp(j, 0, width_ - 1);
 
             return operator[](i)[j];
         }
 
         const T& clamp_get(const point<float>& p) const {
             return clamp_get(int(p.y + 0.5f), int(p.x + 0.5f));
+        }
+
+        auto get_interpolate(point<float> p) const {
+			p.x = std::clamp(p.x, 0.f, width_ - 1.f);
+			p.y = std::clamp(p.y, 0.f, height_ - 1.f);
+			const int i0 = int(p.y);
+			const int j0 = int(p.x);
+			const double di = p.y - i0;
+			const double dj = p.x - j0;
+			const int i1 = std::min(i0 + 1, height_ - 1);
+			const int j1 = std::min(j0 + 1, width_ - 1);
+
+			auto p0 = operator[](i0).data();
+			auto p1 = operator[](i1).data();
+
+			auto v = p0[j0] * (1.f - di) * (1.f - dj) + p0[j1] * (1.f - di) * dj +
+				      p1[j0] *     di     * (1.f - dj) + p1[j1] *    di      * dj;
+
+            return v;
         }
 
         matrix_ref<T> submatrix(const rectangle<int>& r) {
