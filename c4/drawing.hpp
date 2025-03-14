@@ -111,6 +111,11 @@ namespace c4 {
         }
     }
 
+    template<class pixel_t>
+	inline void draw_point(matrix_ref<pixel_t>& img, point<int> p0, pixel_t color, int thickness = 1) {
+		draw_point(img, p0.y, p0.x, color, thickness);
+    }
+
     static const int DRAW_CHAR_DIM = 8;
 
     template<class pixel_t>

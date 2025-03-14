@@ -26,12 +26,15 @@
 #include "pixel.hpp"
 #include "range.hpp"
 #include "matrix.hpp"
+#include "drawing.hpp"
+#include "image_dumper.hpp"
 #include "optimization.hpp"
 
 #include <numeric>
 
 namespace c4 {
 	class MotionDetector {
+		static constexpr int block = 32;
 	public:
 		struct Motion {
 			point<double> shift;
@@ -44,10 +47,11 @@ namespace c4 {
 		};
 
 		struct Params {
-			float dxMax = 0.1f;
-			float dyMax = 0.1f;
-			float scaleMax = 1.1f;
-			float alphaMax = float(std::numbers::pi / 10);
+			double dxMax = 0.1;
+			double dyMax = 0.1;
+			double scaleMax = 1.;
+			double alphaMax = std::numbers::pi * 0.1;
+			double noise = 0.5;
 		};
 
 		Params params;
@@ -55,44 +59,44 @@ namespace c4 {
 		MotionDetector() {
 		}
 		
-		Motion detect(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame) {
+		Motion detect(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, const std::vector<rectangle<int>> ignore = {}) {
 			c4::scoped_timer timer("MotionDetector::detect time");
 
 			ASSERT_EQUAL(prev.height(), frame.height());
 			ASSERT_EQUAL(prev.width(), frame.width());
 
-			const int block = 16;
-			const int halfBlock = block / 2;
-			std::vector<point<double>> src, dst;
-			std::vector<double> weights;
+			matrix<point<int>> shifts;
+			matrix<double> weights;
 
-			for (int y = halfBlock; y + block + halfBlock <= frame.height(); y += block) {
-				for (int x = halfBlock; x + block + halfBlock <= frame.width(); x += block) {
-					point<int> shift(0, 0);
-					const int diff0 = calcDiff(frame.submatrix(y, x, block, block), prev.submatrix(y, x, block, block));
-					int minDiff = diff0;
+			detect_local(prev, frame, shifts, weights);
 
-					for (int dy = -halfBlock; dy <= halfBlock; dy++) {
-						for (int dx = -halfBlock; dx <= halfBlock; dx++) {
-							if (dx == 0 && dy == 0) {
-								continue;
-							}
+			matrix<point<double>> src(shifts.dimensions());
+			matrix<point<double>> dst(shifts.dimensions());
 
-							const double diff = calcDiff(frame.submatrix(y + dy, x + dx, block, block), prev.submatrix(y, x, block, block));
+			matrix<uint8_t> image = frame;
 
-							if (diff < minDiff) {
-								minDiff = diff;
-								shift = { dx, dy };
-							}
+			for (int i : range(shifts.height())) {
+				for (int j : range(shifts.width())) {
+					src[i][j] = point<double>((j + 1) * block, (i + 1) * block);
+					dst[i][j] = src[i][j] + point<double>(shifts[i][j]);
+
+					for (const rectangle<int>& r : ignore) {
+						if (r.contains(src[i][j])) {
+							weights[i][j] = 0;
+							break;
 						}
 					}
-					src.emplace_back(x + halfBlock, y + halfBlock);
-					dst.emplace_back(x + halfBlock + shift.x, y + halfBlock + shift.y);
-					
-					const double eps = 1E-5;
-					weights.push_back(1. - (minDiff + eps) / (diff0 + eps));
+
+					if (weights[i][j] > 0) {
+						//draw_rect(image, rectangle<int>(j * block + block/2, i * block + block/2, block, block), uint8_t(255), 1);
+						uint8_t color = 127 + 128 * weights[i][j];
+						draw_line(image, src[i][j], src[i][j] + point<double>(shifts[i][j]), color, 1);
+						draw_point(image, src[i][j] + point<double>(shifts[i][j]), color, 5);
+					}
 				}
 			}
+
+			dump_image(image, "local");
 
 			std::vector<double> v0{0., 0., 1., 0.};
 			std::vector<double> l{-frame.width() * params.dxMax, -frame.height() * params.dyMax, 1. / params.scaleMax, -params.alphaMax};
@@ -102,10 +106,13 @@ namespace c4 {
 				Motion motion{ {v[0], v[1]}, v[2], v[3] };
 
 				double sum = 0;
-				for (int i : range(src)) {
-					const point<double> dst1 = motion.apply(src[i]);
-					sum += weights[i] * dist_squared(dst[i], dst1);
+				for (int i : range(src.height())) {
+					for (int j : range(src.width())) {
+						const point<double> dst1 = motion.apply(src[i][j]);
+						sum += weights[i][j] * dist_squared(dst[i][j], dst1);
+					}
 				}
+
 				return sum;
 			};
 
@@ -116,8 +123,66 @@ namespace c4 {
 			return { {m[0], m[1]}, m[2], m[3] };
 		}
 
+		void detect_local(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights) {
+			ASSERT_EQUAL(prev.height(), frame.height());
+			ASSERT_EQUAL(prev.width(), frame.width());
+
+			const int halfBlock = block / 2;
+
+			ASSERT_LESS(block + 2 * halfBlock, frame.height());
+			ASSERT_LESS(block + 2 * halfBlock, frame.width());
+
+			const int bh = (frame.height() - 2 * halfBlock) / block;
+			const int bw = (frame.width() - 2 * halfBlock) / block;
+
+			shifts = matrix<point<int>>(bh, bw);
+			weights.resize(bh, bw);
+			
+			for (int i : range(shifts.height())) {
+				for (int j : range(shifts.width())) {
+					point<int>& shift = shifts[i][j];
+					const int dx0 = shift.x;
+					const int dy0 = shift.y;
+
+					const int x = j * block + halfBlock;
+					const int y = i * block + halfBlock;
+
+					const int diff0 = calcDiff<block>(frame.submatrix(y + dy0, x + dx0, block, block), prev.submatrix(y, x, block, block));
+					int minDiff = diff0;
+					int sumDiff = diff0;
+					int cntDiff = 1;
+
+					for (int dy = dy0 - halfBlock; dy <= dy0 + halfBlock; dy++) {
+						for (int dx = dx0 - halfBlock; dx <= dx0 + halfBlock; dx++) {
+							if (dx == dx0 && dy == dy0) {
+								continue;
+							}
+							const int randomOffset = (((y * 3 + dy) * 5 + x) * 7 + dx) * 13 % 32;
+							const int diff = calcDiff<block>(frame.submatrix(y + dy, x + dx, block, block), prev.submatrix(y, x, block, block)) + randomOffset;
+
+							sumDiff += diff;
+							cntDiff++;
+
+							if (diff < minDiff) {
+								minDiff = diff;
+								shift = { dx, dy };
+							}
+						}
+					}
+					const double avgDiff = double(sumDiff) / cntDiff;
+
+					const double noiseOffset = params.noise * block * block;
+					weights[i][j] = 1. - (minDiff + noiseOffset) / (avgDiff + noiseOffset);
+				}
+			}
+		}
+
 	private:
-		int calcDiff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+		template<int dim>
+		static int inline calcDiff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) = delete;
+
+		template<>
+		static int inline calcDiff<16>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
 			ASSERT_EQUAL(A.width(), 16);
 
 			simd::uint32x4 sum(0);
@@ -127,6 +192,26 @@ namespace c4 {
 				simd::uint8x16 b = simd::load(B[i].data());
 				simd::uint32x4 diff = simd::sad(a, b);
 				sum = simd::add(sum, diff);
+			}
+
+			uint32_t arr[4];
+			simd::store(arr, sum);
+
+			return arr[0] + arr[2];
+		}
+		template<>
+		static int inline calcDiff<32>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+			ASSERT_EQUAL(A.width(), 32);
+
+			simd::uint32x4 sum(0);
+
+			for (int i : range(A.height())) {
+				simd::uint8x16 a1 = simd::load(A[i].data());
+				simd::uint8x16 a2 = simd::load(A[i].data() + 16);
+				simd::uint8x16 b1 = simd::load(B[i].data());
+				simd::uint8x16 b2 = simd::load(B[i].data() + 16);
+				sum = simd::add(sum, simd::sad(a1, b1));
+				sum = simd::add(sum, simd::sad(a2, b2));
 			}
 
 			uint32_t arr[4];
