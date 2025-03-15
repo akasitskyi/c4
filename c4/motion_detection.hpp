@@ -48,20 +48,17 @@ namespace c4 {
 		};
 
 		struct Params {
-			double dxMax = 0.1;
-			double dyMax = 0.1;
 			double scaleMax = 1.;
 			double alphaMax = std::numbers::pi * 0.1;
-			double noise = 0.5;
+			int downscale = 2;
+			int blockSize = 32;
 		};
 
-		Params params;
-		
 		MotionDetector() {
 		}
 		
-		Motion detect(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, const std::vector<rectangle<int>> ignore = {}) {
-			c4::scoped_timer timer("MotionDetector::detect time");
+		Motion detect(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, const Params& params, const std::vector<rectangle<int>> ignore = {}) {
+			c4::scoped_timer timer("MotionDetector::detect");
 
 			ASSERT_EQUAL(prev.height(), frame.height());
 			ASSERT_EQUAL(prev.width(), frame.width());
@@ -69,24 +66,37 @@ namespace c4 {
 			matrix<point<int>> shifts;
 			matrix<double> weights;
 
-			constexpr int block = 64;
-
-			const bool downscale = true;
-
-			if (downscale){
-				matrix<uint8_t> halfFrame, halfPrev;
-				downscale_bilinear_2x(prev, halfPrev);
-				downscale_bilinear_2x(frame, halfFrame);
-				detect_local<block/2>(halfPrev, halfFrame, shifts, weights);
-				transform_inplace(shifts, [](const point<int>& p) { return p * 2; });
-			} else {
-				detect_local<block>(prev, frame, shifts, weights);
+			switch (params.downscale) {
+			case 1:
+				detect_local(prev, frame, shifts, weights, params.blockSize);
+				break;
+			case 2:
+				downscale_bilinear_2x(prev, downPrev);
+				downscale_bilinear_2x(frame, downFrame);
+				detect_local(downPrev, downFrame, shifts, weights, params.blockSize);
+				break;
+			case 3:
+				downscale_bilinear_3x(prev, downPrev);
+				downscale_bilinear_3x(frame, downFrame);
+				detect_local(downPrev, downFrame, shifts, weights, params.blockSize);
+				break;
+			case 4:
+				downscale_bilinear_4x(prev, downPrev);
+				downscale_bilinear_4x(frame, downFrame);
+				detect_local(downPrev, downFrame, shifts, weights, params.blockSize);
+				break;
+			default:
+				INVALID_VALUE(params.downscale);
 			}
 
-			matrix<point<double>> src(shifts.dimensions());
-			matrix<point<double>> dst(shifts.dimensions());
+			if (params.downscale > 1){
+				transform_inplace(shifts, [&params](const point<int>& p) { return p * params.downscale; });
+			}
 
-			matrix<uint8_t> image = frame;
+			const int block = params.blockSize * params.downscale;
+
+			src.resize(shifts.dimensions());
+			dst.resize(shifts.dimensions());
 
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
@@ -99,21 +109,26 @@ namespace c4 {
 							break;
 						}
 					}
-
-					if (weights[i][j] > 0) {
-						//draw_rect(image, rectangle<int>(j * block + block/2, i * block + block/2, block, block), uint8_t(255), 1);
-						uint8_t color = 127 + 128 * weights[i][j];
-						draw_line(image, src[i][j], src[i][j] + point<double>(shifts[i][j]), color, 1);
-						draw_point(image, src[i][j] + point<double>(shifts[i][j]), color, 5);
-					}
 				}
 			}
 
-			dump_image(image, "local");
+			if (image_dumper::getInstance().isEnabled()) {
+				image4dump = frame;
+				for (int i : range(shifts.height())) {
+					for (int j : range(shifts.width())) {
+						if (weights[i][j] > 0) {
+							uint8_t color = 127 + 128 * weights[i][j];
+							draw_line(image4dump, src[i][j], src[i][j] + point<double>(shifts[i][j]), color, 1);
+							draw_point(image4dump, src[i][j] + point<double>(shifts[i][j]), color, 5);
+						}
+					}
+				}
+				dump_image(image4dump, "local");
+			}
 
 			std::vector<double> v0{0., 0., 1., 0.};
-			std::vector<double> l{-frame.width() * params.dxMax, -frame.height() * params.dyMax, 1. / params.scaleMax, -params.alphaMax};
-			std::vector<double> h{frame.width() * params.dxMax, frame.height() * params.dyMax, params.scaleMax, params.alphaMax};
+			std::vector<double> l{-1. * block, -1. * block, 1. / params.scaleMax, -params.alphaMax};
+			std::vector<double> h{ 1. * block, 1. * block, params.scaleMax, params.alphaMax};
 
 			auto errorF = [&](const std::vector<double>& v) {
 				Motion motion{ {v[0], v[1]}, v[2], v[3] };
@@ -129,6 +144,8 @@ namespace c4 {
 				return sum;
 			};
 
+			c4::scoped_timer timer1("MotionDetector::detect minimize");
+
 			auto m = minimize(l, h, v0, errorF);
 
 			PRINT_DEBUG(errorF(m));
@@ -136,8 +153,29 @@ namespace c4 {
 			return { {m[0], m[1]}, m[2], m[3] };
 		}
 
+		static void detect_local(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights, int blockSize) {
+			switch (blockSize) {
+			case 8:
+				return detect_local_impl<8>(prev, frame, shifts, weights);
+			case 16:
+				return detect_local_impl<16>(prev, frame, shifts, weights);
+			case 24:
+				return detect_local_impl<24>(prev, frame, shifts, weights);
+			case 32:
+				return detect_local_impl<32>(prev, frame, shifts, weights);
+			case 48:
+				return detect_local_impl<48>(prev, frame, shifts, weights);
+			case 64:
+				return detect_local_impl<64>(prev, frame, shifts, weights);
+			default:
+				INVALID_VALUE(blockSize);
+			}
+		}
+		
 		template<int block>
-		void detect_local(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights) {
+		static void detect_local_impl(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights) {
+			c4::scoped_timer timer("MotionDetector::detect_local_impl");
+
 			ASSERT_EQUAL(prev.height(), frame.height());
 			ASSERT_EQUAL(prev.width(), frame.width());
 
@@ -180,13 +218,21 @@ namespace c4 {
 					}
 					const double avgDiff = double(sumDiff) / cntDiff;
 
-					const double noiseOffset = params.noise * block * block;
+					const double noiseOffset = 0.5 * block * block;
 					weights[i][j] = 1. - (minDiff + noiseOffset) / (avgDiff + noiseOffset);
 				}
 			}
 		}
 
 	private:
+		matrix<uint8_t> downFrame;
+		matrix<uint8_t> downPrev;
+		
+		matrix<point<double>> src;
+		matrix<point<double>> dst;
+
+		matrix<uint8_t> image4dump;
+
 		template<int dim>
 		static int inline calcDiff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) = delete;
 

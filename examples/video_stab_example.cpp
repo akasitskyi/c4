@@ -30,7 +30,7 @@
 int main(int argc, char* argv[]) {
 	std::cout << argv[0] << std::endl;
     try{
-        c4::scoped_timer timer("main time");
+        c4::scoped_timer timer("main");
 
         c4::image_dumper::getInstance().init("", true);
 
@@ -44,19 +44,22 @@ int main(int argc, char* argv[]) {
   //      }
 
         c4::MotionDetector md;
+		c4::MotionDetector::Params params;
+		params.downscale = 4;
+		params.blockSize = 16;
 
 		std::vector<c4::rectangle<int>> ignore{{400, 900, 1120, 180}};
 
         for (int i : c4::range(ssize(images) - 1)) {
-			auto motion = md.detect(images[i], images[i + 1], ignore);
+			auto motion = md.detect(images[i], images[i + 1], params, ignore);
 			c4::point<double> mid(images[i].width() / 2, images[i].height() / 2);
 
 			for (auto& r : ignore) {
 				c4::draw_rect(images[i+1], r, uint8_t(255), 1);
 			}
 
-			c4::draw_line(images[i+1], mid, mid + motion.shift * 10, uint8_t(255), 2);
-			c4::draw_point(images[i + 1], mid + motion.shift * 10, uint8_t(255), 6);
+			c4::draw_line(images[i+1], mid, mid + motion.shift, uint8_t(255), 1);
+			c4::draw_point(images[i + 1], mid + motion.shift, uint8_t(255), 5);
 			c4::draw_string(images[i + 1], 20, 20, "shift: " + c4::to_string(motion.shift.x, 2) + ", " + c4::to_string(motion.shift.y, 2)
                 + ", scale: " + c4::to_string(motion.scale, 4)
                 + ", alpha: " + c4::to_string(motion.alpha, 4), uint8_t(255), uint8_t(0), 2);
