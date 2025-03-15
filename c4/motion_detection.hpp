@@ -159,16 +159,13 @@ namespace c4 {
 					const int x = j * block + halfBlock;
 					const int y = i * block + halfBlock;
 
-					const int diff0 = calcDiff<block>(frame.submatrix(y, x, block, block), prev.submatrix(y, x, block, block));
-					int minDiff = diff0;
-					int sumDiff = diff0;
-					int cntDiff = 1;
+					int minDiff = std::numeric_limits<int>::max();
+					int sumDiff = 0;
+					int cntDiff = 0;
 
 					for (int dy = -halfBlock; dy <= halfBlock; dy++) {
 						for (int dx = -halfBlock; dx <= halfBlock; dx++) {
-							if (dx == 0 && dy == 0) {
-								continue;
-							}
+							// random offset to break ties, so that the scan order doesn't matter
 							const int randomOffset = (((y * 3 + dy) * 5 + x) * 7 + dx) * 13 % 32;
 							const int diff = calcDiff<block>(frame.submatrix(y + dy, x + dx, block, block), prev.submatrix(y, x, block, block)) + randomOffset;
 
