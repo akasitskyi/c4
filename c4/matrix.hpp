@@ -603,7 +603,7 @@ namespace c4 {
 
     template<class T1, class T2, class F>
     inline void transform(const matrix_ref<T1>& src, F f, matrix_ref<T2>&& dst) {
-        transform(src, dst, f);
+        transform(src, f, dst);
     }
 
     template<class T, class F>

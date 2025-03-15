@@ -27,6 +27,7 @@
 #include "range.hpp"
 #include "matrix.hpp"
 #include "drawing.hpp"
+#include "scaling.hpp"
 #include "image_dumper.hpp"
 #include "optimization.hpp"
 
@@ -34,7 +35,7 @@
 
 namespace c4 {
 	class MotionDetector {
-		static constexpr int block = 32;
+		//static constexpr int block = 32;
 	public:
 		struct Motion {
 			point<double> shift;
@@ -68,7 +69,19 @@ namespace c4 {
 			matrix<point<int>> shifts;
 			matrix<double> weights;
 
-			detect_local(prev, frame, shifts, weights);
+			constexpr int block = 64;
+
+			const bool downscale = true;
+
+			if (downscale){
+				matrix<uint8_t> halfFrame, halfPrev;
+				downscale_bilinear_2x(prev, halfPrev);
+				downscale_bilinear_2x(frame, halfFrame);
+				detect_local<block/2>(halfPrev, halfFrame, shifts, weights);
+				transform_inplace(shifts, [](const point<int>& p) { return p * 2; });
+			} else {
+				detect_local<block>(prev, frame, shifts, weights);
+			}
 
 			matrix<point<double>> src(shifts.dimensions());
 			matrix<point<double>> dst(shifts.dimensions());
@@ -123,6 +136,7 @@ namespace c4 {
 			return { {m[0], m[1]}, m[2], m[3] };
 		}
 
+		template<int block>
 		void detect_local(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights) {
 			ASSERT_EQUAL(prev.height(), frame.height());
 			ASSERT_EQUAL(prev.width(), frame.width());
@@ -141,20 +155,18 @@ namespace c4 {
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
 					point<int>& shift = shifts[i][j];
-					const int dx0 = shift.x;
-					const int dy0 = shift.y;
 
 					const int x = j * block + halfBlock;
 					const int y = i * block + halfBlock;
 
-					const int diff0 = calcDiff<block>(frame.submatrix(y + dy0, x + dx0, block, block), prev.submatrix(y, x, block, block));
+					const int diff0 = calcDiff<block>(frame.submatrix(y, x, block, block), prev.submatrix(y, x, block, block));
 					int minDiff = diff0;
 					int sumDiff = diff0;
 					int cntDiff = 1;
 
-					for (int dy = dy0 - halfBlock; dy <= dy0 + halfBlock; dy++) {
-						for (int dx = dx0 - halfBlock; dx <= dx0 + halfBlock; dx++) {
-							if (dx == dx0 && dy == dy0) {
+					for (int dy = -halfBlock; dy <= halfBlock; dy++) {
+						for (int dx = -halfBlock; dx <= halfBlock; dx++) {
+							if (dx == 0 && dy == 0) {
 								continue;
 							}
 							const int randomOffset = (((y * 3 + dy) * 5 + x) * 7 + dx) * 13 % 32;
@@ -182,16 +194,15 @@ namespace c4 {
 		static int inline calcDiff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) = delete;
 
 		template<>
-		static int inline calcDiff<16>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
-			ASSERT_EQUAL(A.width(), 16);
+		static int inline calcDiff<8>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+			ASSERT_EQUAL(A.width(), 8);
 
 			simd::uint32x4 sum(0);
 
 			for (int i : range(A.height())) {
-				simd::uint8x16 a = simd::load(A[i].data());
-				simd::uint8x16 b = simd::load(B[i].data());
-				simd::uint32x4 diff = simd::sad(a, b);
-				sum = simd::add(sum, diff);
+				simd::uint8x16 a1 = simd::load_half(A[i].data());
+				simd::uint8x16 b1 = simd::load_half(B[i].data());
+				sum = simd::add(sum, simd::sad(a1, b1));
 			}
 
 			uint32_t arr[4];
@@ -199,6 +210,45 @@ namespace c4 {
 
 			return arr[0] + arr[2];
 		}
+
+		template<>
+		static int inline calcDiff<16>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+			ASSERT_EQUAL(A.width(), 16);
+
+			simd::uint32x4 sum(0);
+
+			for (int i : range(A.height())) {
+				simd::uint8x16 a1 = simd::load(A[i].data());
+				simd::uint8x16 b1 = simd::load(B[i].data());
+				sum = simd::add(sum, simd::sad(a1, b1));
+			}
+
+			uint32_t arr[4];
+			simd::store(arr, sum);
+
+			return arr[0] + arr[2];
+		}
+		
+		template<>
+		static int inline calcDiff<24>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+			ASSERT_EQUAL(A.width(), 24);
+
+			simd::uint32x4 sum(0);
+
+			for (int i : range(A.height())) {
+				simd::uint8x16 a1 = simd::load(A[i].data());
+				simd::uint8x16 a2 = simd::load_half(A[i].data() + 16);
+				simd::uint8x16 b1 = simd::load(B[i].data());
+				simd::uint8x16 b2 = simd::load_half(B[i].data() + 16);
+				sum = simd::add(sum, simd::add(simd::sad(a1, b1), simd::sad(a2, b2)));
+			}
+
+			uint32_t arr[4];
+			simd::store(arr, sum);
+
+			return arr[0] + arr[2];
+		}
+
 		template<>
 		static int inline calcDiff<32>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
 			ASSERT_EQUAL(A.width(), 32);
@@ -210,8 +260,55 @@ namespace c4 {
 				simd::uint8x16 a2 = simd::load(A[i].data() + 16);
 				simd::uint8x16 b1 = simd::load(B[i].data());
 				simd::uint8x16 b2 = simd::load(B[i].data() + 16);
-				sum = simd::add(sum, simd::sad(a1, b1));
-				sum = simd::add(sum, simd::sad(a2, b2));
+				sum = simd::add(sum, simd::add(simd::sad(a1, b1), simd::sad(a2, b2)));
+			}
+
+			uint32_t arr[4];
+			simd::store(arr, sum);
+
+			return arr[0] + arr[2];
+		}
+
+		template<>
+		static int inline calcDiff<48>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+			ASSERT_EQUAL(A.width(), 48);
+
+			simd::uint32x4 sum(0);
+
+			for (int i : range(A.height())) {
+				simd::uint8x16 a1 = simd::load(A[i].data());
+				simd::uint8x16 a2 = simd::load(A[i].data() + 16);
+				simd::uint8x16 a3 = simd::load(A[i].data() + 32);
+				simd::uint8x16 b1 = simd::load(B[i].data());
+				simd::uint8x16 b2 = simd::load(B[i].data() + 16);
+				simd::uint8x16 b3 = simd::load(B[i].data() + 32);
+				sum = simd::add(sum, simd::add(simd::sad(a1, b1), simd::sad(a2, b2)));
+				sum = simd::add(sum, simd::sad(a3, b3));
+			}
+
+			uint32_t arr[4];
+			simd::store(arr, sum);
+
+			return arr[0] + arr[2];
+		}
+
+		template<>
+		static int inline calcDiff<64>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+			ASSERT_EQUAL(A.width(), 64);
+
+			simd::uint32x4 sum(0);
+
+			for (int i : range(A.height())) {
+				simd::uint8x16 a1 = simd::load(A[i].data());
+				simd::uint8x16 a2 = simd::load(A[i].data() + 16);
+				simd::uint8x16 a3 = simd::load(A[i].data() + 32);
+				simd::uint8x16 a4 = simd::load(A[i].data() + 48);
+				simd::uint8x16 b1 = simd::load(B[i].data());
+				simd::uint8x16 b2 = simd::load(B[i].data() + 16);
+				simd::uint8x16 b3 = simd::load(B[i].data() + 32);
+				simd::uint8x16 b4 = simd::load(B[i].data() + 48);
+				sum = simd::add(sum, simd::add(simd::sad(a1, b1), simd::sad(a2, b2)));
+				sum = simd::add(sum, simd::add(simd::sad(a3, b3), simd::sad(a4, b4)));
 			}
 
 			uint32_t arr[4];
