@@ -183,6 +183,12 @@ namespace c4 {
         }
     }
 
+    namespace detail {
+		inline int avg4scale(int a, int b) {
+			return (a + b + 1) / 2;
+		}
+    };
+
     inline void downscale_bilinear_2x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
         int height2 = src.height() / 2;
         int width2 = src.width() / 2;
@@ -210,8 +216,103 @@ namespace c4 {
                 c4::simd::store(pdst + j, d);
             }
 #endif
+        using namespace detail;
             for(; j < width2; j++)
-                pdst[j] = ((psrc0[2 * j + 0] + psrc0[2 * j + 1] + 1) / 2 + (psrc1[2 * j + 0] + psrc1[2 * j + 1] + 1) / 2 + 1) / 2;
+                pdst[j] = avg4scale(avg4scale(psrc0[2 * j + 0], psrc0[2 * j + 1]), avg4scale(psrc1[2 * j + 0], psrc1[2 * j + 1]));
+        }
+    }
+
+    inline void downscale_bilinear_3x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
+        int height2 = src.height() / 3;
+        int width2 = src.width() / 3;
+
+        dst.resize(height2, width2);
+
+        for(int i : range(height2)) {
+            const uint8_t* psrc0 = src[3 * i + 0];
+            const uint8_t* psrc1 = src[3 * i + 1];
+            const uint8_t* psrc2 = src[3 * i + 2];
+
+            uint8_t* pdst = dst[i];
+
+            int j = 0;
+
+#ifdef __C4_SIMD__
+            using namespace c4::simd;
+            for(; j + 16 < width2; j += 16){
+                uint8x16x3 s0x3 = load_3_interleaved(psrc0 + 3 * j);
+                uint8x16x3 s1x3 = load_3_interleaved(psrc1 + 3 * j);
+                uint8x16x3 s2x3 = load_3_interleaved(psrc2 + 3 * j);
+                
+                uint8x16 s01a = avg(avg(s0x3.val[0], s0x3.val[1]), avg(s0x3.val[2], s1x3.val[0]));
+                uint8x16 s21a = avg(avg(s2x3.val[0], s2x3.val[1]), avg(s2x3.val[2], s1x3.val[2]));
+				uint8x16 sa = avg(s01a, s21a); // avg of all except the center
+
+				uint8x16 r = avg(s1x3.val[1], sa); // now center has 4x weight
+				r = avg(r, sa); // now it's 1/4 to 3/32
+				r = avg(r, sa); // now it's 1/8 to 7/64
+
+                c4::simd::store(pdst + j, r);
+            }
+#endif
+        using namespace detail;
+            for(; j < width2; j++){
+                const int s01a = avg4scale(avg4scale(psrc0[3 * j + 0], psrc0[3 * j + 1]), avg4scale(psrc0[3 * j + 2], psrc1[3 * j + 0]));
+				const int s21a = avg4scale(avg4scale(psrc2[3 * j + 0], psrc2[3 * j + 1]), avg4scale(psrc2[3 * j + 2], psrc1[3 * j + 2]));
+				const int sa = avg4scale(s01a, s21a);
+				int r = avg4scale(psrc1[3 * j + 1], sa);
+                r = avg4scale(r, sa);
+                r = avg4scale(r, sa);
+                pdst[j] = r;
+            }
+        }
+    }
+
+    inline void downscale_bilinear_4x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
+
+        int height2 = src.height() / 4;
+        int width2 = src.width() / 4;
+
+        dst.resize(height2, width2);
+
+        for(int i : range(height2)) {
+            const uint8_t* psrc0 = src[4 * i + 0];
+            const uint8_t* psrc1 = src[4 * i + 1];
+            const uint8_t* psrc2 = src[4 * i + 2];
+            const uint8_t* psrc3 = src[4 * i + 3];
+
+            uint8_t* pdst = dst[i];
+
+            int j = 0;
+
+#ifdef __C4_SIMD__
+            using namespace c4::simd;
+            for(; j + 16 < width2; j += 16){
+                uint8x16x4 s0x4 = load_4_interleaved(psrc0 + 4 * j);
+                uint8x16x4 s1x4 = load_4_interleaved(psrc1 + 4 * j);
+                uint8x16x4 s2x4 = load_4_interleaved(psrc2 + 4 * j);
+                uint8x16x4 s3x4 = load_4_interleaved(psrc3 + 4 * j);
+                
+                uint8x16 s0 = avg(avg(s0x4.val[0], s0x4.val[1]), avg(s0x4.val[2], s0x4.val[3]));
+				uint8x16 s1 = avg(avg(s1x4.val[0], s1x4.val[1]), avg(s1x4.val[2], s1x4.val[3]));
+				uint8x16 s2 = avg(avg(s2x4.val[0], s2x4.val[1]), avg(s2x4.val[2], s2x4.val[3]));
+				uint8x16 s3 = avg(avg(s3x4.val[0], s3x4.val[1]), avg(s3x4.val[2], s3x4.val[3]));
+
+				uint8x16 r = avg(avg(s0, s1), avg(s2, s3));
+				store(pdst + j, r);
+            }
+#endif
+        using namespace detail;
+            for(; j < width2; j++){
+				const int s0 = avg4scale(avg4scale(psrc0[4 * j + 0], psrc0[4 * j + 1]), avg4scale(psrc0[4 * j + 2], psrc1[4 * j + 3]));
+				const int s1 = avg4scale(avg4scale(psrc1[4 * j + 0], psrc1[4 * j + 1]), avg4scale(psrc1[4 * j + 2], psrc1[4 * j + 3]));
+				const int s2 = avg4scale(avg4scale(psrc2[4 * j + 0], psrc2[4 * j + 1]), avg4scale(psrc2[4 * j + 2], psrc2[4 * j + 3]));
+				const int s3 = avg4scale(avg4scale(psrc3[4 * j + 0], psrc3[4 * j + 1]), avg4scale(psrc3[4 * j + 2], psrc3[4 * j + 3]));
+
+				const int r = avg4scale(avg4scale(s0, s1), avg4scale(s2, s3));
+
+                pdst[j] = r;
+            }
         }
     }
 
