@@ -20,6 +20,8 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+#include <memory>
+
 #include <c4/jpeg.hpp>
 #include <c4/drawing.hpp>
 #include <c4/string.hpp>
@@ -34,48 +36,43 @@ int main(int argc, char* argv[]) {
 
         c4::image_dumper::getInstance().init("", true);
 
-		std::vector<c4::matrix<uint8_t>> images(2);
-        for (int i : c4::range(images)) {
-            c4::read_jpeg("img" + c4::to_string(i) + ".jpg", images[i]);
-        }
-		//std::vector<c4::matrix<uint8_t>> images(750);
-  //      for (int i : c4::range(images)) {
-  //          c4::read_jpeg("imgs/" + c4::to_string(i+1, 3) + ".jpg", images[i]);
-  //      }
+		c4::matrix<uint8_t> prev, cur;
+        c4::read_jpeg("img0.jpg", prev);
+        c4::read_jpeg("img1.jpg", cur);
+        //c4::read_jpeg("imgs/001.jpg", prev);
+        //c4::read_jpeg("imgs/002.jpg", cur);
 
         c4::MotionDetector md;
 		c4::MotionDetector::Params params;
-		params.downscale = 4;
-		params.blockSize = 16;
+		params.downscale = 2;
+		params.blockSize = 32;
 
 		std::vector<c4::rectangle<int>> ignore{{400, 900, 1120, 180}};
 
-        for (int i : c4::range(ssize(images) - 1)) {
-			auto motion = md.detect(images[i], images[i + 1], params, ignore);
-			c4::point<double> mid(images[i].width() / 2, images[i].height() / 2);
+		auto motion = md.detect(prev, cur, params, ignore);
+		c4::point<double> mid(cur.width() / 2, cur.height() / 2);
 
-			for (auto& r : ignore) {
-				c4::draw_rect(images[i+1], r, uint8_t(255), 1);
+		c4::matrix<uint8_t> cura(cur.dimensions());
+		for (int y : c4::range(cura.height())) {
+			for (int x : c4::range(cura.width())) {
+				c4::point<double> p(x, y);
+				cura[y][x] = cur.get_interpolate(motion.apply(p));
 			}
+		}
 
-			c4::draw_line(images[i+1], mid, mid + motion.shift, uint8_t(255), 1);
-			c4::draw_point(images[i + 1], mid + motion.shift, uint8_t(255), 5);
-			c4::draw_string(images[i + 1], 20, 20, "shift: " + c4::to_string(motion.shift.x, 2) + ", " + c4::to_string(motion.shift.y, 2)
-                + ", scale: " + c4::to_string(motion.scale, 4)
-                + ", alpha: " + c4::to_string(motion.alpha, 4), uint8_t(255), uint8_t(0), 2);
-			c4::dump_image(images[i+1], "cur");
-			c4::dump_image(images[i], "prev");
+		for (auto& r : ignore) {
+			c4::draw_rect(cur, r, uint8_t(255), 1);
+		}
 
-			c4::matrix<uint8_t> cura(images[i].height(), images[i].width());
-			for (int y : c4::range(cura.height())) {
-				for (int x : c4::range(cura.width())) {
-					c4::point<double> p(x, y);
-					cura[y][x] = images[i+1].get_interpolate(motion.apply(p));
-				}
-			}
+		c4::draw_line(cur, mid, mid + motion.shift, uint8_t(255), 1);
+		c4::draw_point(cur, mid + motion.shift, uint8_t(255), 5);
+		c4::draw_string(cur, 20, 20, "shift: " + c4::to_string(motion.shift.x, 2) + ", " + c4::to_string(motion.shift.y, 2)
+            + ", scale: " + c4::to_string(motion.scale, 4)
+            + ", alpha: " + c4::to_string(motion.alpha, 4), uint8_t(255), uint8_t(0), 2);
+		c4::dump_image(cur, "cur");
+		c4::dump_image(prev, "prev");
 
-			c4::dump_image(cura, "cura");
-        }
+		c4::dump_image(cura, "cura");
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
     }

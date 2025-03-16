@@ -126,6 +126,11 @@ namespace c4 {
 
 #define PRINT_DEBUG(X) LOGD << #X << " = " << (X) << " "
 
+#define LOG_EXCEPTION(LOG, E) LOG << (E).what() << " caught at " << __FILE__ << ":" << __LINE__
+#define LOGE_EXCEPTION(E) LOG_EXCEPTION(LOGE, E)
+#define LOGW_EXCEPTION(E) LOG_EXCEPTION(LOGW, E)
+#define LOGD_EXCEPTION(E) LOG_EXCEPTION(LOGD, E)
+
     class time_printer {
         friend class scoped_timer;
 #ifndef C4_TIMER_DISABLED

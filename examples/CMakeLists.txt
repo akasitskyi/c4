@@ -17,4 +17,6 @@ add_executable( shape_predictor_trainer_example shape_predictor_trainer_example.
 
 add_executable( lock_free_queue_example lock_free_queue_example.cpp )
 
-add_executable( video_stab_example video_stab_example.cpp )
+add_executable( motion_detection_example motion_detection_example.cpp )
+
+add_executable( video_stabilization_example video_stabilization_example.cpp )
