@@ -32,10 +32,10 @@
 #include "optimization.hpp"
 
 #include <numeric>
+#include <algorithm>
 
 namespace c4 {
 	class MotionDetector {
-		//static constexpr int block = 32;
 	public:
 		struct Motion {
 			point<double> shift;
@@ -189,6 +189,14 @@ namespace c4 {
 
 			shifts = matrix<point<int>>(bh, bw);
 			weights.resize(bh, bw);
+
+			ASSERT_EQUAL(block & (block - 1), 0);
+			ASSERT_TRUE(block <= 64); // our 32-bit diff calculation can handle up to 64x64 blocks
+
+			const uint32_t diffMul = 64 * 64;
+			const uint32_t randMask = diffMul - 1;
+
+			std::vector<int> diffs;
 			
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
@@ -197,18 +205,17 @@ namespace c4 {
 					const int x = j * block + halfBlock;
 					const int y = i * block + halfBlock;
 
-					int minDiff = std::numeric_limits<int>::max();
-					int sumDiff = 0;
-					int cntDiff = 0;
+					uint32_t minDiff = std::numeric_limits<uint32_t>::max();
+					diffs.clear();
 
 					for (int dy = -halfBlock; dy <= halfBlock; dy++) {
 						for (int dx = -halfBlock; dx <= halfBlock; dx++) {
 							// random offset to break ties, so that the scan order doesn't matter
-							const int randomOffset = (((y * 3 + dy) * 5 + x) * 7 + dx) * 13 % 32;
-							const int diff = calcDiff<block>(frame.submatrix(y + dy, x + dx, block, block), prev.submatrix(y, x, block, block)) + randomOffset;
+							const uint32_t randomOffset = ((((y + 10007) * 10009 + dy) * 10037 + x) * 10039 + dx) * 10061 & randMask;
+							uint32_t diff = calcDiff<block>(frame.submatrix(y + dy, x + dx, block, block), prev.submatrix(y, x, block, block)) * diffMul;
+							diff += randomOffset;
 
-							sumDiff += diff;
-							cntDiff++;
+							diffs.push_back(diff);
 
 							if (diff < minDiff) {
 								minDiff = diff;
@@ -216,10 +223,13 @@ namespace c4 {
 							}
 						}
 					}
-					const double avgDiff = double(sumDiff) / cntDiff;
+					auto it = diffs.begin() + diffs.size() / 3;
+					std::nth_element(diffs.begin(), it, diffs.end());
+					const double avgDiff = *it;
 
-					const double noiseOffset = 0.5 * block * block;
-					weights[i][j] = 1. - (minDiff + noiseOffset) / (avgDiff + noiseOffset);
+					const double noiseOffset = block * block;
+					double w = 1. - (minDiff / diffMul + noiseOffset) / (avgDiff / diffMul + noiseOffset);
+					weights[i][j] = w;
 				}
 			}
 		}
@@ -234,10 +244,10 @@ namespace c4 {
 		matrix<uint8_t> image4dump;
 
 		template<int dim>
-		static int inline calcDiff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) = delete;
+		static uint32_t inline calcDiff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) = delete;
 
 		template<>
-		static int inline calcDiff<8>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+		static uint32_t inline calcDiff<8>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
 			ASSERT_EQUAL(A.width(), 8);
 
 			simd::uint32x4 sum(0);
@@ -255,7 +265,7 @@ namespace c4 {
 		}
 
 		template<>
-		static int inline calcDiff<16>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+		static uint32_t inline calcDiff<16>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
 			ASSERT_EQUAL(A.width(), 16);
 
 			simd::uint32x4 sum(0);
@@ -273,7 +283,7 @@ namespace c4 {
 		}
 		
 		template<>
-		static int inline calcDiff<24>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+		static uint32_t inline calcDiff<24>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
 			ASSERT_EQUAL(A.width(), 24);
 
 			simd::uint32x4 sum(0);
@@ -293,7 +303,7 @@ namespace c4 {
 		}
 
 		template<>
-		static int inline calcDiff<32>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+		static uint32_t inline calcDiff<32>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
 			ASSERT_EQUAL(A.width(), 32);
 
 			simd::uint32x4 sum(0);
@@ -313,7 +323,7 @@ namespace c4 {
 		}
 
 		template<>
-		static int inline calcDiff<48>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+		static uint32_t inline calcDiff<48>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
 			ASSERT_EQUAL(A.width(), 48);
 
 			simd::uint32x4 sum(0);
@@ -336,7 +346,7 @@ namespace c4 {
 		}
 
 		template<>
-		static int inline calcDiff<64>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
+		static uint32_t inline calcDiff<64>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
 			ASSERT_EQUAL(A.width(), 64);
 
 			simd::uint32x4 sum(0);
