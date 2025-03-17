@@ -42,8 +42,9 @@ namespace c4 {
 			double scale;
 			double alpha;
 
-			point<double> apply(const point<double>& p) const {
-				return p.rotate(alpha) * scale + shift;
+			point<double> apply(const matrix_ref<uint8_t>& frame, const point<double>& p) const {
+				point<double> center(frame.width() * 0.5, frame.height() * 0.5);
+				return center + (p-center).rotate(alpha) * scale + shift;
 			}
 		};
 
@@ -136,7 +137,7 @@ namespace c4 {
 				double sum = 0;
 				for (int i : range(src.height())) {
 					for (int j : range(src.width())) {
-						const point<double> dst1 = motion.apply(src[i][j]);
+						const point<double> dst1 = motion.apply(frame, src[i][j]);
 						sum += weights[i][j] * dist_squared(dst[i][j], dst1);
 					}
 				}

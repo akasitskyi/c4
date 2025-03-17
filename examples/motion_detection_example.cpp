@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
 		for (int y : c4::range(cura.height())) {
 			for (int x : c4::range(cura.width())) {
 				c4::point<double> p(x, y);
-				cura[y][x] = cur.get_interpolate(motion.apply(p));
+				cura[y][x] = cur.get_interpolate(motion.apply(cura, p));
 			}
 		}
 
