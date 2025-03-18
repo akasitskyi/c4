@@ -73,7 +73,7 @@ namespace c4 {
 					for (int i : range(stabilized.height())) {
 						for (int j : range(stabilized.width())) {
 							point<double> p(j, i);
-							point<double> p1 = motion.apply(p);
+							point<double> p1 = motion.apply(cur, p);
 							stabilized[i][j] = cur.get_interpolate(p1);
 						}
 					}

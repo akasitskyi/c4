@@ -37,14 +37,23 @@
 namespace c4 {
 	class MotionDetector {
 	public:
+		static inline point<double> center(const matrix_ref<uint8_t>& frame) {
+			return point<double>((frame.width() - 1) * 0.5, (frame.height() - 1) * 0.5);
+		}
+
 		struct Motion {
 			point<double> shift;
 			double scale;
 			double alpha;
 
 			point<double> apply(const matrix_ref<uint8_t>& frame, const point<double>& p) const {
-				point<double> center(frame.width() * 0.5, frame.height() * 0.5);
-				return center + (p-center).rotate(alpha) * scale + shift;
+				point<double> C = center(frame);
+				return C + (p-C).rotate(alpha) * scale + shift;
+			}
+
+			// combine two motions: first apply this motion, then apply other motion
+			Motion combine(const Motion& other) const {
+				return { shift.rotate(other.alpha) * other.scale + other.shift, scale * other.scale, alpha + other.alpha };
 			}
 		};
 
@@ -149,15 +158,15 @@ namespace c4 {
 			matrix<point<double>> dst(shifts.dimensions());
 			transform(src, shifts, [rshift](const point<double>& s, const point<int>& shift) { return s + point<double>(shift) - rshift; }, dst);
 
-			const point<double> center(frame.width() * 0.5, frame.height() * 0.5);
+			const point<double> C = center(frame);
 
 			double sumScale = 0;
 			sumWeight = 0;
 			
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
-					const double d0 = dist(center, src[i][j]);
-					const double d1 = dist(center, dst[i][j]);
+					const double d0 = dist(C, src[i][j]);
+					const double d1 = dist(C, dst[i][j]);
 					if (d0 < EPS){
 						continue;
 					}
@@ -177,8 +186,8 @@ namespace c4 {
 
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
-					const point<double> A = src[i][j] - center;
-					const point<double> B = dst[i][j] - center;
+					const point<double> A = src[i][j] - C;
+					const point<double> B = dst[i][j] - C;
 
 					const double lA = A.length();
 					const double lB = A.length();
