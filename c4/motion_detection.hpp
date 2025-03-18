@@ -49,7 +49,7 @@ namespace c4 {
 		};
 
 		struct Params {
-			double scaleMax = 1.;
+			double scaleMax = 1.05;
 			double alphaMax = std::numbers::pi * 0.1;
 			int downscale = 2;
 			int blockSize = 32;
@@ -91,18 +91,16 @@ namespace c4 {
 			}
 
 			if (params.downscale > 1){
-				transform_inplace(shifts, [&params](const point<int>& p) { return p * params.downscale; });
+				transform_inplace(shifts, [&params](const point<double>& p) { return p * params.downscale; });
 			}
 
 			const int block = params.blockSize * params.downscale;
 
-			src.resize(shifts.dimensions());
-			dst.resize(shifts.dimensions());
+			matrix<point<double>> src(shifts.dimensions());
 
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
 					src[i][j] = point<double>((j + 1) * block, (i + 1) * block);
-					dst[i][j] = src[i][j] + point<double>(shifts[i][j]);
 
 					for (const rectangle<int>& r : ignore) {
 						if (r.contains(src[i][j])) {
@@ -127,6 +125,82 @@ namespace c4 {
 				dump_image(image4dump, "local");
 			}
 
+			return motion_from_local_mat(frame, src, shifts, weights, params);
+			//return motion_from_local_opt(frame, src, shifts, weights, block, params);
+		}
+
+		Motion motion_from_local_mat(const matrix_ref<uint8_t>& frame, const matrix<point<double>>& src, const matrix<point<int>>& shifts, const matrix<double>& weights, const Params& params) {
+			point<double> sumShift(0, 0);
+			double sumWeight = 0;
+
+			for (int i : range(shifts.height())) {
+				for (int j : range(shifts.width())) {
+					sumShift += shifts[i][j] * weights[i][j];
+					sumWeight += weights[i][j];
+				}
+			}
+			const double EPS = 1E-6;
+			if(sumWeight < EPS){
+				return Motion{{0, 0}, 0, 0};
+			}
+
+			const point<double> rshift = sumShift * (1. / sumWeight);
+
+			matrix<point<double>> dst(shifts.dimensions());
+			transform(src, shifts, [rshift](const point<double>& s, const point<int>& shift) { return s + point<double>(shift) - rshift; }, dst);
+
+			const point<double> center(frame.width() * 0.5, frame.height() * 0.5);
+
+			double sumScale = 0;
+			sumWeight = 0;
+			
+			for (int i : range(shifts.height())) {
+				for (int j : range(shifts.width())) {
+					const double d0 = dist(center, src[i][j]);
+					const double d1 = dist(center, dst[i][j]);
+					if (d0 < EPS){
+						continue;
+					}
+					const double scale = d1 / d0;
+					const double weight = weights[i][j] * d0;
+					sumScale += scale * weight;
+					sumWeight += weight;
+				}
+			}
+
+			const double rscale = sumScale / sumWeight;
+
+			transform_inplace(dst, [rscale](const point<double>& p) { return p * rscale; });
+
+			double sumSinAlpha = 0;
+			sumWeight = 0;
+
+			for (int i : range(shifts.height())) {
+				for (int j : range(shifts.width())) {
+					const point<double> A = src[i][j] - center;
+					const point<double> B = dst[i][j] - center;
+
+					const double lA = A.length();
+					const double lB = A.length();
+					if (lA < EPS || lB < EPS) {
+						continue;
+					}
+
+					const double xp = A ^ B;
+					const double sinAlpha = xp / (lA * lB);
+					const double weight = weights[i][j] * lA;
+
+					sumSinAlpha += sinAlpha * weight;
+					sumWeight += weight;
+				}
+			}
+
+			const double alpha = std::asin(sumSinAlpha / sumWeight);
+
+			return { rshift, rscale, alpha };
+		}
+
+		Motion motion_from_local_opt(const matrix_ref<uint8_t>& frame, const matrix<point<double>>& src, matrix<point<int>>& shifts, const matrix<double>& weights, int block, const Params& params) {
 			std::vector<double> v0{0., 0., 1., 0.};
 			std::vector<double> l{-1. * block, -1. * block, 1. / params.scaleMax, -params.alphaMax};
 			std::vector<double> h{ 1. * block, 1. * block, params.scaleMax, params.alphaMax};
@@ -137,8 +211,9 @@ namespace c4 {
 				double sum = 0;
 				for (int i : range(src.height())) {
 					for (int j : range(src.width())) {
+						const point<double> dst0 = src[i][j] + point<double>(shifts[i][j]);
 						const point<double> dst1 = motion.apply(frame, src[i][j]);
-						sum += weights[i][j] * dist_squared(dst[i][j], dst1);
+						sum += weights[i][j] * dist_squared(dst0, dst1);
 					}
 				}
 
@@ -188,7 +263,7 @@ namespace c4 {
 			const int bh = (frame.height() - 2 * halfBlock) / block;
 			const int bw = (frame.width() - 2 * halfBlock) / block;
 
-			shifts = matrix<point<int>>(bh, bw);
+			shifts.resize(bh, bw);
 			weights.resize(bh, bw);
 
 			ASSERT_EQUAL(block & (block - 1), 0);
@@ -201,7 +276,7 @@ namespace c4 {
 			
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
-					point<int>& shift = shifts[i][j];
+					point<int> shift(0, 0);
 
 					const int x = j * block + halfBlock;
 					const int y = i * block + halfBlock;
@@ -224,12 +299,15 @@ namespace c4 {
 							}
 						}
 					}
+
 					auto it = diffs.begin() + diffs.size() / 3;
 					std::nth_element(diffs.begin(), it, diffs.end());
 					const double avgDiff = *it;
 
 					const double noiseOffset = block * block;
 					double w = 1. - (minDiff / diffMul + noiseOffset) / (avgDiff / diffMul + noiseOffset);
+
+					shifts[i][j] = shift;
 					weights[i][j] = w;
 				}
 			}
@@ -238,10 +316,6 @@ namespace c4 {
 	private:
 		matrix<uint8_t> downFrame;
 		matrix<uint8_t> downPrev;
-		
-		matrix<point<double>> src;
-		matrix<point<double>> dst;
-
 		matrix<uint8_t> image4dump;
 
 		template<int dim>
