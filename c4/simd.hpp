@@ -430,6 +430,15 @@ namespace c4 {
             half(T t) : T(t) {}
         };
 
+		typedef half<int8x16> int8x8;
+		typedef half<int16x8> int16x4;
+		typedef half<int32x4> int32x2;
+		typedef half<uint8x16> uint8x8;
+		typedef half<uint16x8> uint16x4;
+		typedef half<uint32x4> uint32x2;
+		typedef half<float32x4> float32x2;
+
+
         // helpers
 
 #ifdef USE_SSE
@@ -1289,7 +1298,7 @@ namespace c4 {
             return { r0.val[0], r0.val[1], r1.val[0], r1.val[1] };
         }
 
-        inline int16x8 long_move(half<int8x16> a) {
+        inline int16x8 long_move(int8x8 a) {
 #ifdef USE_ARM_NEON
             return vmovl_s8(vget_low_s8(a.v));
 #else
@@ -1298,7 +1307,7 @@ namespace c4 {
 #endif
         }
 
-        inline int32x4 long_move(half<int16x8> a) {
+        inline int32x4 long_move(int16x4 a) {
 #ifdef USE_ARM_NEON
             return vmovl_s16(vget_low_s16(a.v));
 #else
@@ -1307,7 +1316,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint16x8 long_move(half<uint8x16> a) {
+        inline uint16x8 long_move(uint8x8 a) {
 #ifdef USE_ARM_NEON
             return vmovl_u8(vget_low_u8(a.v));
 #else
@@ -1315,7 +1324,7 @@ namespace c4 {
 #endif
         }
 
-        inline uint32x4 long_move(half<uint16x8> a) {
+        inline uint32x4 long_move(uint16x4 a) {
 #ifdef USE_ARM_NEON
             return vmovl_u16(vget_low_u16(a.v));
 #else
@@ -1325,7 +1334,7 @@ namespace c4 {
 
         // Narrow
 
-        inline half<int8x16> narrow(int16x8 a) {
+        inline int8x8 narrow(int16x8 a) {
 #ifdef USE_ARM_NEON
             int8x8_t t = vmovn_s16(a.v);
             return int8x16(vcombine_s8(t, t));
@@ -1334,7 +1343,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<uint8x16> narrow(uint16x8 a) {
+        inline uint8x8 narrow(uint16x8 a) {
 #ifdef USE_ARM_NEON
             uint8x8_t t = vmovn_u16(a.v);
             return uint8x16(vcombine_u8(t, t));
@@ -1343,7 +1352,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<int16x8> narrow(int32x4 a) {
+        inline int16x4 narrow(int32x4 a) {
 #ifdef USE_ARM_NEON
             int16x4_t t = vmovn_s32(a.v);
             return int16x8(vcombine_s16(t, t));
@@ -1352,7 +1361,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<uint16x8> narrow(uint32x4 a) {
+        inline uint16x4 narrow(uint32x4 a) {
 #ifdef USE_ARM_NEON
             uint16x4_t t = vmovn_u32(a.v);
             return uint16x8(vcombine_u16(t, t));
@@ -1361,7 +1370,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<int8x16> narrow_saturate(int16x8 a) {
+        inline int8x8 narrow_saturate(int16x8 a) {
 #ifdef USE_ARM_NEON
             int8x8_t t = vqmovn_s16(a.v);
             return int8x16(vcombine_s8(t, t));
@@ -1370,7 +1379,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<uint8x16> narrow_unsigned_saturate(int16x8 a) {
+        inline uint8x8 narrow_unsigned_saturate(int16x8 a) {
 #ifdef USE_ARM_NEON
             uint8x8_t t = vqmovun_s16(a.v);
             return uint8x16(vcombine_u8(t, t));
@@ -1379,7 +1388,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<int16x8> narrow_saturate(int32x4 a) {
+        inline int16x4 narrow_saturate(int32x4 a) {
 #ifdef USE_ARM_NEON
             int16x4_t t = vqmovn_s32(a.v);
             return int16x8(vcombine_s16(t, t));
@@ -1388,7 +1397,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<uint16x8> narrow_unsigned_saturate(int32x4 a) {
+        inline uint16x4 narrow_unsigned_saturate(int32x4 a) {
 #ifdef USE_ARM_NEON
             uint16x4_t t = vqmovun_s32(a.v);
             return uint16x8(vcombine_u16(t, t));
@@ -1609,7 +1618,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<int8x16> load_half(const int8_t* ptr) {
+        inline int8x8 load_half(const int8_t* ptr) {
 #ifdef USE_ARM_NEON
             int8x8_t t = vld1_s8(ptr);
             return int8x16(vcombine_s8(t, t));
@@ -1618,7 +1627,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<uint8x16> load_half(const uint8_t* ptr) {
+        inline uint8x8 load_half(const uint8_t* ptr) {
 #ifdef USE_ARM_NEON
             uint8x8_t t = vld1_u8(ptr);
             return uint8x16(vcombine_u8(t, t));
@@ -1627,7 +1636,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<int16x8> load_half(const int16_t* ptr) {
+        inline int16x4 load_half(const int16_t* ptr) {
 #ifdef USE_ARM_NEON
             int16x4_t t = vld1_s16(ptr);
             return int16x8(vcombine_s16(t, t));
@@ -1636,7 +1645,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<uint16x8> load_half(const uint16_t* ptr) {
+        inline uint16x4 load_half(const uint16_t* ptr) {
 #ifdef USE_ARM_NEON
             uint16x4_t t = vld1_u16(ptr);
             return uint16x8(vcombine_u16(t, t));
@@ -1645,7 +1654,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<int32x4> load_half(const int32_t* ptr) {
+        inline int32x2 load_half(const int32_t* ptr) {
 #ifdef USE_ARM_NEON
             int32x2_t t = vld1_s32(ptr);
             return int32x4(vcombine_s32(t, t));
@@ -1654,7 +1663,7 @@ namespace c4 {
 #endif
         }
 
-        inline half<uint32x4> load_half(const uint32_t* ptr) {
+        inline uint32x2 load_half(const uint32_t* ptr) {
 #ifdef USE_ARM_NEON
             uint32x2_t t = vld1_u32(ptr);
             return uint32x4(vcombine_u32(t, t));
@@ -2463,7 +2472,7 @@ namespace c4 {
         }
 
 
-        inline void store(int8_t* ptr, half<int8x16> a) {
+        inline void store(int8_t* ptr, int8x8 a) {
 #ifdef USE_ARM_NEON
             vst1_s8(ptr, vget_low_s8(a.v));
 #else
@@ -2471,7 +2480,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(uint8_t* ptr, half<uint8x16> a) {
+        inline void store(uint8_t* ptr, uint8x8 a) {
 #ifdef USE_ARM_NEON
             vst1_u8(ptr, vget_low_u8(a.v));
 #else
@@ -2479,7 +2488,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(int16_t* ptr, half<int16x8> a) {
+        inline void store(int16_t* ptr, int16x4 a) {
 #ifdef USE_ARM_NEON
             vst1_s16(ptr, vget_low_s16(a.v));
 #else
@@ -2487,7 +2496,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(uint16_t* ptr, half<uint16x8> a) {
+        inline void store(uint16_t* ptr, uint16x4 a) {
 #ifdef USE_ARM_NEON
             vst1_u16(ptr, vget_low_u16(a.v));
 #else
@@ -2495,7 +2504,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(int32_t* ptr, half<int32x4> a) {
+        inline void store(int32_t* ptr, int32x2 a) {
 #ifdef USE_ARM_NEON
             vst1_s32(ptr, vget_low_s32(a.v));
 #else
@@ -2503,7 +2512,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(uint32_t* ptr, half<uint32x4> a) {
+        inline void store(uint32_t* ptr, uint32x2 a) {
 #ifdef USE_ARM_NEON
             vst1_u32(ptr, vget_low_u32(a.v));
 #else
@@ -2511,7 +2520,7 @@ namespace c4 {
 #endif
         }
 
-        inline void store(float* ptr, half<float32x4> a) {
+        inline void store(float* ptr, float32x2 a) {
 #ifdef USE_ARM_NEON
             vst1_f32(ptr, vget_low_f32(a.v));
 #else
