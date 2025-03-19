@@ -75,9 +75,12 @@ int main(int argc, char* argv[]) {
 			std::make_shared<JpegFrameReader>("imgs/%03d.jpg", 1);
 		std::shared_ptr<c4::VideoStabilization::FrameWriter> writer = std::make_shared<JpegFrameWriter>("out/%03d.jpg", 1);
 
+		c4::MotionDetector::Params params;
+		const std::vector<c4::rectangle<int>> ignore{{400, 900, 1120, 180}};
+
 		c4::VideoStabilization vs(reader, writer);
 
-		vs.run();
+		vs.run(params, ignore);
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
     }

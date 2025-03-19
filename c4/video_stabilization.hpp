@@ -45,52 +45,73 @@ namespace c4 {
 			: reader(reader), writer(writer) {
 		}
 		
-		void run() {
+		void run(const MotionDetector::Params &params, const std::vector<rectangle<int>> ignore = {}) {
 			c4::scoped_timer timer("VideoStabilization::run()");
 
 			MotionDetector md;
-			MotionDetector::Params params;
 
-			const int q_length = 2;
+			const int q_length = 10;
 
+			std::deque<matrix<uint8_t>> frame_q;
+			std::deque<MotionDetector::Motion> motion_q;
+
+			MotionDetector::Motion accMotion;
+
+			matrix<uint8_t> frame;
+			if (!reader->read(frame)) {
+				THROW_EXCEPTION("Failed to read first frame");
+			}
+			frame_q.push_back(frame);
+			motion_q.push_back(accMotion);
+
+			matrix_dimensions frame_dims = frame.dimensions();
+
+			bool done = false;
 			do {
-				matrix<uint8_t> frame;
-				bool done = !reader->read(frame);
-
 				if(!done){
-					q.push_back(frame);
+					done = !reader->read(frame);
+				}
+				
+				if(!done){
+					frame_q.push_back(frame);
+
+					matrix<uint8_t> &prev = frame_q[frame_q.size() - 2];
+					matrix<uint8_t> &cur = frame_q[frame_q.size() - 1];
+
+					MotionDetector::Motion motion = md.detect(prev, cur, params, ignore);
+					PRINT_DEBUG(motion.alpha);
+
+					accMotion = accMotion.combine(motion);
+					motion_q.push_back(accMotion);
 				}
 
-				if (q.size() > 1) {
-					matrix<uint8_t> &prev = q[0];
-					matrix<uint8_t> &cur = q[1];
-
-					auto motion = md.detect(prev, cur, params);
-					c4::point<double> mid(frame.width() / 2, frame.height() / 2);
-
+				if (frame_q.size() == q_length || done) {
+					const matrix<uint8_t>& frame = frame_q.front();
+					const MotionDetector::Motion& motion = motion_q.front();
+					
 					matrix<uint8_t> stabilized(frame.height(), frame.width());
 					
-					for (int i : range(stabilized.height())) {
-						for (int j : range(stabilized.width())) {
+					for (int i : range(frame.height())) {
+						for (int j : range(frame.width())) {
 							point<double> p(j, i);
-							point<double> p1 = motion.apply(cur, p);
-							stabilized[i][j] = cur.get_interpolate(p1);
+							point<double> p1 = motion.apply(frame, p);
+							stabilized[i][j] = frame.get_interpolate(p1);
 						}
 					}
 
-					cur = stabilized;
+					c4::draw_string(stabilized, 20, 20, "shift: " + c4::to_string(motion.shift.x, 2) + ", " + c4::to_string(motion.shift.y, 2)
+						+ ", scale: " + c4::to_string(motion.scale, 4)
+						+ ", alpha: " + c4::to_string(motion.alpha, 4), uint8_t(255), uint8_t(0), 2);
+
+					writer->write(stabilized);
+					frame_q.pop_front();
+					motion_q.pop_front();
 				}
-				if (q.size() == q_length || done) {
-					writer->write(q.front());
-					q.pop_front();
-				}
-			} while (!q.empty());
+			} while (!frame_q.empty());
 		}
 
 	private:
 		std::shared_ptr<FrameReader> reader;
 		std::shared_ptr<FrameWriter> writer;
-
-		std::deque<matrix<uint8_t>> q;
 	};
 };
