@@ -43,8 +43,8 @@ namespace c4 {
 
 		struct Motion {
 			point<double> shift;
-			double scale;
-			double alpha;
+			double scale = 1.0;
+			double alpha = 0.0;
 
 			point<double> apply(const matrix_ref<uint8_t>& frame, const point<double>& p) const {
 				point<double> C = center(frame);
@@ -240,12 +240,8 @@ namespace c4 {
 
 		static void detect_local(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights, int blockSize) {
 			switch (blockSize) {
-			case 8:
-				return detect_local_impl<8>(prev, frame, shifts, weights);
 			case 16:
 				return detect_local_impl<16>(prev, frame, shifts, weights);
-			case 24:
-				return detect_local_impl<24>(prev, frame, shifts, weights);
 			case 32:
 				return detect_local_impl<32>(prev, frame, shifts, weights);
 			case 48:
@@ -281,8 +277,10 @@ namespace c4 {
 			const uint32_t diffMul = 64 * 64;
 			const uint32_t randMask = diffMul - 1;
 
+			constexpr int block2 = block * block;
+
 			std::vector<int> diffs;
-			
+
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
 					point<int> shift(0, 0);
@@ -293,11 +291,22 @@ namespace c4 {
 					uint32_t minDiff = std::numeric_limits<uint32_t>::max();
 					diffs.clear();
 
+					const auto sma = prev.submatrix(y, x, block, block);
+
+					const int avg_a = (accumulate<block>(sma) + block2 / 2) / block2;
+
 					for (int dy = -halfBlock; dy <= halfBlock; dy++) {
 						for (int dx = -halfBlock; dx <= halfBlock; dx++) {
+							const auto smb = frame.submatrix(y + dy, x + dx, block, block);
+							const int avg_b = (accumulate<block>(smb) + block2 / 2) / block2;
+							
+							const uint8_t da = std::max(avg_b - avg_a, 0);
+							const uint8_t db = std::max(avg_a - avg_b, 0);
+							
+							uint32_t diff = calc_diff<block>(sma, smb, da, db) * diffMul;
+
 							// random offset to break ties, so that the scan order doesn't matter
 							const uint32_t randomOffset = ((((y + 10007) * 10009 + dy) * 10037 + x) * 10039 + dx) * 10061 & randMask;
-							uint32_t diff = calcDiff<block>(frame.submatrix(y + dy, x + dx, block, block), prev.submatrix(y, x, block, block)) * diffMul;
 							diff += randomOffset;
 
 							diffs.push_back(diff);
@@ -328,114 +337,169 @@ namespace c4 {
 		matrix<uint8_t> image4dump;
 
 		template<int dim>
-		static uint32_t inline calcDiff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) = delete;
+		static uint32_t inline accumulate(const matrix_ref<uint8_t>& src) = delete;
 
 		template<>
-		static uint32_t inline calcDiff<8>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
-			ASSERT_EQUAL(A.width(), 8);
+		static uint32_t inline accumulate<16>(const matrix_ref<uint8_t>& src) {
+			assert(src.width() == 16);
+			assert(src.height() == 16);
 
-			simd::uint32x4 sum(0);
+			simd::uint32x4 sum = simd::set_zero<simd::uint32x4>();
 
-			for (int i : range(A.height())) {
-				simd::uint8x16 a1 = simd::load_half(A[i].data());
-				simd::uint8x16 b1 = simd::load_half(B[i].data());
-				sum = simd::add(sum, simd::sad(a1, b1));
+			for (int i = 0; i < 16; i++) {
+				auto a = simd::load(src[i].data());
+				sum = simd::add(sum, simd::sad(a, simd::set_zero<simd::uint8x16>()));
 			}
 
-			uint32_t arr[4];
-			simd::store(arr, sum);
-
-			return arr[0] + arr[2];
+			return simd::sum02(sum);
 		}
 
 		template<>
-		static uint32_t inline calcDiff<16>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
-			ASSERT_EQUAL(A.width(), 16);
+		static uint32_t inline accumulate<32>(const matrix_ref<uint8_t>& src) {
+			assert(src.width() == 32);
+			assert(src.height() == 32);
 
-			simd::uint32x4 sum(0);
+			simd::uint32x4 sum = simd::set_zero<simd::uint32x4>();
 
-			for (int i : range(A.height())) {
+			for (int i = 0; i < 32; i++) {
+				auto a = simd::load(src[i].data());
+				auto b = simd::load(src[i].data() + 16);
+				sum = simd::add(sum, simd::sad(a, simd::set_zero<simd::uint8x16>()));
+				sum = simd::add(sum, simd::sad(b, simd::set_zero<simd::uint8x16>()));
+			}
+
+			return simd::sum02(sum);
+		}
+
+		template<>
+		static uint32_t inline accumulate<48>(const matrix_ref<uint8_t>& src) {
+			assert(src.width() == 48);
+			assert(src.height() == 48);
+
+			simd::uint32x4 sum = simd::set_zero<simd::uint32x4>();
+
+			for (int i = 0; i < 48; i++) {
+				auto a = simd::load(src[i].data());
+				auto b = simd::load(src[i].data() + 16);
+				auto c = simd::load(src[i].data() + 32);
+				sum = simd::add(sum, simd::sad(a, simd::set_zero<simd::uint8x16>()));
+				sum = simd::add(sum, simd::sad(b, simd::set_zero<simd::uint8x16>()));
+				sum = simd::add(sum, simd::sad(c, simd::set_zero<simd::uint8x16>()));
+			}
+
+			return simd::sum02(sum);
+		}
+
+		template<>
+		static uint32_t inline accumulate<64>(const matrix_ref<uint8_t>& src) {
+			assert(src.width() == 64);
+			assert(src.height() == 64);
+
+			simd::uint32x4 sum = simd::set_zero<simd::uint32x4>();
+
+			for (int i = 0; i < 64; i++) {
+				auto a = simd::load(src[i].data());
+				auto b = simd::load(src[i].data() + 16);
+				auto c = simd::load(src[i].data() + 32);
+				auto d = simd::load(src[i].data() + 48);
+
+				sum = simd::add(sum, simd::sad(a, simd::set_zero<simd::uint8x16>()));
+				sum = simd::add(sum, simd::sad(b, simd::set_zero<simd::uint8x16>()));
+				sum = simd::add(sum, simd::sad(c, simd::set_zero<simd::uint8x16>()));
+				sum = simd::add(sum, simd::sad(d, simd::set_zero<simd::uint8x16>()));
+			}
+
+			return simd::sum02(sum);
+		}
+
+		template<int dim>
+		static uint32_t inline calc_diff(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B, const uint8_t da, const uint8_t db) = delete;
+
+		template<>
+		static uint32_t inline calc_diff<16>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B, const uint8_t da, const uint8_t db) {
+			assert(A.width() == 16);
+
+			const simd::uint8x16 dav(da);
+			const simd::uint8x16 dbv(db);
+
+			simd::uint32x4 sum = simd::set_zero<simd::uint32x4>();
+
+			for (int i = 0; i < 16; i++) {
 				simd::uint8x16 a1 = simd::load(A[i].data());
 				simd::uint8x16 b1 = simd::load(B[i].data());
+				a1 = simd::add_saturate(a1, dav);
+				b1 = simd::add_saturate(b1, dbv);
 				sum = simd::add(sum, simd::sad(a1, b1));
 			}
 
-			uint32_t arr[4];
-			simd::store(arr, sum);
-
-			return arr[0] + arr[2];
+			return simd::sum02(sum);
 		}
 		
 		template<>
-		static uint32_t inline calcDiff<24>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
-			ASSERT_EQUAL(A.width(), 24);
+		static uint32_t inline calc_diff<32>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B, const uint8_t da, const uint8_t db) {
+			assert(A.width() == 32);
 
-			simd::uint32x4 sum(0);
+			const simd::uint8x16 dav(da);
+			const simd::uint8x16 dbv(db);
 
-			for (int i : range(A.height())) {
-				simd::uint8x16 a1 = simd::load(A[i].data());
-				simd::uint8x16 a2 = simd::load_half(A[i].data() + 16);
-				simd::uint8x16 b1 = simd::load(B[i].data());
-				simd::uint8x16 b2 = simd::load_half(B[i].data() + 16);
-				sum = simd::add(sum, simd::add(simd::sad(a1, b1), simd::sad(a2, b2)));
-			}
+			simd::uint32x4 sum = simd::set_zero<simd::uint32x4>();
 
-			uint32_t arr[4];
-			simd::store(arr, sum);
-
-			return arr[0] + arr[2];
-		}
-
-		template<>
-		static uint32_t inline calcDiff<32>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
-			ASSERT_EQUAL(A.width(), 32);
-
-			simd::uint32x4 sum(0);
-
-			for (int i : range(A.height())) {
+			for (int i = 0; i < 32; i++) {
 				simd::uint8x16 a1 = simd::load(A[i].data());
 				simd::uint8x16 a2 = simd::load(A[i].data() + 16);
 				simd::uint8x16 b1 = simd::load(B[i].data());
 				simd::uint8x16 b2 = simd::load(B[i].data() + 16);
+				a1 = simd::add_saturate(a1, dav);
+				a2 = simd::add_saturate(a2, dav);
+				b1 = simd::add_saturate(b1, dbv);
+				b2 = simd::add_saturate(b2, dbv);
+
 				sum = simd::add(sum, simd::add(simd::sad(a1, b1), simd::sad(a2, b2)));
 			}
 
-			uint32_t arr[4];
-			simd::store(arr, sum);
-
-			return arr[0] + arr[2];
+			return simd::sum02(sum);
 		}
 
 		template<>
-		static uint32_t inline calcDiff<48>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
-			ASSERT_EQUAL(A.width(), 48);
+		static uint32_t inline calc_diff<48>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B, const uint8_t da, const uint8_t db) {
+			assert(A.width() == 48);
 
-			simd::uint32x4 sum(0);
+			const simd::uint8x16 dav(da);
+			const simd::uint8x16 dbv(db);
 
-			for (int i : range(A.height())) {
+			simd::uint32x4 sum = simd::set_zero<simd::uint32x4>();
+
+			for (int i = 0; i < 48; i++) {
 				simd::uint8x16 a1 = simd::load(A[i].data());
 				simd::uint8x16 a2 = simd::load(A[i].data() + 16);
 				simd::uint8x16 a3 = simd::load(A[i].data() + 32);
 				simd::uint8x16 b1 = simd::load(B[i].data());
 				simd::uint8x16 b2 = simd::load(B[i].data() + 16);
 				simd::uint8x16 b3 = simd::load(B[i].data() + 32);
+				a1 = simd::add_saturate(a1, dav);
+				a2 = simd::add_saturate(a2, dav);
+				a3 = simd::add_saturate(a3, dav);
+				b1 = simd::add_saturate(b1, dbv);
+				b2 = simd::add_saturate(b2, dbv);
+				b3 = simd::add_saturate(b3, dbv);
+
 				sum = simd::add(sum, simd::add(simd::sad(a1, b1), simd::sad(a2, b2)));
 				sum = simd::add(sum, simd::sad(a3, b3));
 			}
 
-			uint32_t arr[4];
-			simd::store(arr, sum);
-
-			return arr[0] + arr[2];
+			return simd::sum02(sum);
 		}
 
 		template<>
-		static uint32_t inline calcDiff<64>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B) {
-			ASSERT_EQUAL(A.width(), 64);
+		static uint32_t inline calc_diff<64>(const matrix_ref<uint8_t>& A, const matrix_ref<uint8_t>& B, const uint8_t da, const uint8_t db) {
+			assert(A.width() == 64);
 
-			simd::uint32x4 sum(0);
+			const simd::uint8x16 dav(da);
+			const simd::uint8x16 dbv(db);
 
-			for (int i : range(A.height())) {
+			simd::uint32x4 sum = simd::set_zero<simd::uint32x4>();
+
+			for (int i = 0; i < 64; i++) {
 				simd::uint8x16 a1 = simd::load(A[i].data());
 				simd::uint8x16 a2 = simd::load(A[i].data() + 16);
 				simd::uint8x16 a3 = simd::load(A[i].data() + 32);
@@ -444,14 +508,21 @@ namespace c4 {
 				simd::uint8x16 b2 = simd::load(B[i].data() + 16);
 				simd::uint8x16 b3 = simd::load(B[i].data() + 32);
 				simd::uint8x16 b4 = simd::load(B[i].data() + 48);
+
+				a1 = simd::add_saturate(a1, dav);
+				a2 = simd::add_saturate(a2, dav);
+				a3 = simd::add_saturate(a3, dav);
+				a4 = simd::add_saturate(a4, dav);
+				b1 = simd::add_saturate(b1, dbv);
+				b2 = simd::add_saturate(b2, dbv);
+				b3 = simd::add_saturate(b3, dbv);
+				b4 = simd::add_saturate(b4, dbv);
+
 				sum = simd::add(sum, simd::add(simd::sad(a1, b1), simd::sad(a2, b2)));
 				sum = simd::add(sum, simd::add(simd::sad(a3, b3), simd::sad(a4, b4)));
 			}
 
-			uint32_t arr[4];
-			simd::store(arr, sum);
-
-			return arr[0] + arr[2];
+			return simd::sum02(sum);
 		}
 	};
 };

@@ -37,10 +37,10 @@ int main(int argc, char* argv[]) {
         c4::image_dumper::getInstance().init("", true);
 
 		c4::matrix<uint8_t> prev, cur;
-        c4::read_jpeg("img0.jpg", prev);
-        c4::read_jpeg("img1.jpg", cur);
-        //c4::read_jpeg("imgs/001.jpg", prev);
-        //c4::read_jpeg("imgs/002.jpg", cur);
+        //c4::read_jpeg("img0.jpg", prev);
+        //c4::read_jpeg("img1.jpg", cur);
+        c4::read_jpeg("imgs/214.jpg", prev);
+        c4::read_jpeg("imgs/215.jpg", cur);
 
         c4::MotionDetector md;
 		c4::MotionDetector::Params params;
