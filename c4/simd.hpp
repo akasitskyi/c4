@@ -496,7 +496,11 @@ namespace c4 {
 
         template<class dst_t, class src_t, class = typename std::enable_if<traits::is_simd<src_t>::value && traits::is_simd<dst_t>::value>::type>
         inline dst_t reinterpret(src_t a) {
+#ifdef USE_ARM_NEON
             return *reinterpret_cast<dst_t*>(&a);
+#else
+            return a.v;
+#endif
         }
 
         template<class dst_t, class src_t, int n, class = typename std::enable_if<traits::is_simd<src_t>::value && traits::is_simd<dst_t>::value>::type>
@@ -544,7 +548,7 @@ namespace c4 {
             return r;
         }
 
-        template<class T, class = typename std::enable_if<traits::is_simd<T>::value>::type>
+        template<class T, class = typename std::enable_if<traits::is_integral<T>::value>::type>
         inline T set_zero() {
 #ifdef USE_ARM_NEON
             int8x16 r8;
@@ -553,6 +557,16 @@ namespace c4 {
             int8x16 r8 = _mm_setzero_si128();
 #endif
             return reinterpret<T>(r8);
+        }
+
+        inline float32x4 set_zero_float() {
+#ifdef USE_ARM_NEON
+            int8x16 r8;
+            r8.v = veorq_s8(r8.v, r8.v);
+			return vreinterpretq_m128_f32(r8.v);
+#else
+            return _mm_setzero_ps();
+#endif
         }
 
         template<int i>
@@ -4425,7 +4439,7 @@ namespace c4 {
             const float32x4 plus_half(0.5f);
             const float32x4 minus_half = neg(plus_half);
 
-            uint32x4 mask = greater_equal(a, set_zero<float32x4>());
+            uint32x4 mask = greater_equal(a, set_zero_float());
 
             float32x4 t = select(mask, plus_half, minus_half);
 
