@@ -121,7 +121,7 @@ namespace c4 {
 			}
 
 			if (image_dumper::getInstance().isEnabled()) {
-				image4dump = frame;
+				matrix<uint8_t> image4dump = frame;
 				for (int i : range(shifts.height())) {
 					for (int j : range(shifts.width())) {
 						if (weights[i][j] > 0) {
@@ -345,7 +345,6 @@ namespace c4 {
 	private:
 		matrix<uint8_t> downFrame;
 		matrix<uint8_t> downPrev;
-		matrix<uint8_t> image4dump;
 
 		template<int dim>
 		static uint32_t inline accumulate(const matrix_ref<uint8_t>& src) = delete;

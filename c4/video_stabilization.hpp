@@ -23,9 +23,9 @@
 #pragma once
 
 #include <memory>
+#include <deque>
 
 #include "motion_detection.hpp"
-#include <deque>
 
 
 namespace c4 {
@@ -50,7 +50,7 @@ namespace c4 {
 
 			MotionDetector md;
 
-			const int q_length = 10;
+			const int q_length = 25;
 
 			std::deque<matrix<uint8_t>> frame_q;
 			std::deque<MotionDetector::Motion> motion_q;
@@ -80,32 +80,36 @@ namespace c4 {
 					matrix<uint8_t> &prev = frame_q[frame_q.size() - 2];
 					matrix<uint8_t> &cur = frame_q[frame_q.size() - 1];
 
-					MotionDetector::Motion motion = md.detect(prev, cur, params, ignore);
-					PRINT_DEBUG(motion.alpha);
-
-					accMotion = accMotion.combine(motion);
-					motion_q.push_back(accMotion);
+					motion_q.push_back(md.detect(prev, cur, params, ignore));
 				}
 
 				if (frame_q.size() == q_length || done) {
 					const matrix<uint8_t>& frame = frame_q.front();
-					const MotionDetector::Motion& motion = motion_q.front();
+
+					const MotionDetector::Motion avgMotion = average(motion_q);
+					MotionDetector::Motion curMotion = motion_q.front();
+
+					curMotion.shift -= avgMotion.shift;
+					curMotion.scale /= avgMotion.scale;
+					curMotion.alpha -= avgMotion.alpha;
+
+					accMotion = accMotion.combine(curMotion);
 					
 					matrix<uint8_t> stabilized(frame.height(), frame.width());
 					
 					for (int i : range(frame.height())) {
 						for (int j : range(frame.width())) {
 							point<double> p(j, i);
-							point<double> p1 = motion.apply(frame, p);
+							point<double> p1 = accMotion.apply(frame, p);
 							stabilized[i][j] = frame.get_interpolate(p1);
 						}
 					}
 					
 					c4::draw_string(stabilized, 20, 15, "frame " + c4::to_string(++counter, 3), uint8_t(255), uint8_t(0), 2);
 
-					c4::draw_string(stabilized, 20, 45, "shift: " + c4::to_string(motion.shift.x, 2) + ", " + c4::to_string(motion.shift.y, 2)
-						+ ", scale: " + c4::to_string(motion.scale, 4)
-						+ ", alpha: " + c4::to_string(motion.alpha, 4), uint8_t(255), uint8_t(0), 2);
+					c4::draw_string(stabilized, 20, 45, "shift: " + c4::to_string(accMotion.shift.x, 2) + ", " + c4::to_string(accMotion.shift.y, 2)
+						+ ", scale: " + c4::to_string(accMotion.scale, 4)
+						+ ", alpha: " + c4::to_string(accMotion.alpha, 4), uint8_t(255), uint8_t(0), 2);
 
 					writer->write(stabilized);
 					frame_q.pop_front();
@@ -117,5 +121,19 @@ namespace c4 {
 	private:
 		std::shared_ptr<FrameReader> reader;
 		std::shared_ptr<FrameWriter> writer;
+
+		static MotionDetector::Motion average(const std::deque<MotionDetector::Motion>& motions) {
+			MotionDetector::Motion sum;
+			double lscale = 0;
+			for (const auto& m : motions) {
+				sum.shift = sum.shift + m.shift;
+				lscale += std::log2(m.scale);
+				sum.alpha += m.alpha;
+			}
+			sum.shift = sum.shift * (1. / motions.size());
+			sum.scale = std::exp2(lscale / motions.size());
+			sum.alpha /= motions.size();
+			return sum;
+		}
 	};
 };
