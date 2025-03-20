@@ -180,20 +180,6 @@ namespace c4 {
     }
 
 
-    template<class T>
-    inline int clz(T x) {
-        constexpr int n = 8 * sizeof(T);
-        constexpr T mask = T(1ll << (n - 1));
-
-        int r = 0;
-            
-        for (; r < n && !(x & mask); r++) {
-            x <<= 1;
-        }
-
-        return r;
-    }
-
     template<typename T>
     auto mean(const std::vector<T>& a) {
         ASSERT_TRUE(a.size() > 0);
