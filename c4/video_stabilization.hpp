@@ -26,11 +26,14 @@
 #include <deque>
 
 #include "motion_detection.hpp"
-
+#include "parallel.hpp"
 
 namespace c4 {
 	class VideoStabilization {
 	public:
+		typedef matrix<uint8_t> Frame;
+		typedef std::shared_ptr<Frame> FramePtr;
+
 		class FrameReader {
 		public:
 			virtual bool read(matrix<uint8_t>& frame) = 0;
@@ -48,46 +51,57 @@ namespace c4 {
 		void run(const MotionDetector::Params &params, const std::vector<rectangle<int>> ignore = {}) {
 			c4::scoped_timer timer("VideoStabilization::run()");
 
-			MotionDetector md;
+			//MotionDetector md;
 
 			const int q_length = 25;
 
-			std::deque<matrix<uint8_t>> frame_q;
-			std::deque<MotionDetector::Motion> motion_q;
+			std::deque<FramePtr> frame_q;
+			std::deque<std::shared_future<MotionDetector::Motion>> motion_q;
 
 			MotionDetector::Motion accMotion;
 
-			matrix<uint8_t> frame;
-			if (!reader->read(frame)) {
+			FramePtr frame = std::make_shared<Frame>();
+			if (!reader->read(*frame)) {
 				THROW_EXCEPTION("Failed to read first frame");
 			}
-			frame_q.push_back(frame);
-			motion_q.push_back(accMotion);
 
-			matrix_dimensions frame_dims = frame.dimensions();
+			thread_pool pool;
+
+			frame_q.push_back(frame);
+			motion_q.emplace_back(pool.enqueue([accMotion]() {
+				return accMotion;
+				}));
+
+			matrix_dimensions frame_dims = frame->dimensions();
 
 			int counter = 0;
 
 			bool done = false;
 			do {
 				if(!done){
-					done = !reader->read(frame);
+					frame = std::make_shared<Frame>();
+					done = !reader->read(*frame);
 				}
 				
 				if(!done){
 					frame_q.push_back(frame);
 
-					matrix<uint8_t> &prev = frame_q[frame_q.size() - 2];
-					matrix<uint8_t> &cur = frame_q[frame_q.size() - 1];
+					FramePtr prev = frame_q[frame_q.size() - 2];
+					FramePtr cur = frame_q[frame_q.size() - 1];
 
-					motion_q.push_back(md.detect(prev, cur, params, ignore));
+					motion_q.emplace_back(pool.enqueue([prev, cur, params, ignore]() {
+						return MotionDetector::detect(*prev, *cur, params, ignore);
+						}));
+
+					//motion_q.push_back(MotionDetector::detect(*prev, *cur, params, ignore));
 				}
 
 				if (frame_q.size() == q_length || done) {
-					const matrix<uint8_t>& frame = frame_q.front();
+					FramePtr frame = frame_q.front();
 
 					const MotionDetector::Motion avgMotion = average(motion_q);
-					MotionDetector::Motion curMotion = motion_q.front();
+
+					MotionDetector::Motion curMotion = motion_q.front().get();
 
 					curMotion.shift -= avgMotion.shift;
 					curMotion.scale /= avgMotion.scale;
@@ -95,13 +109,13 @@ namespace c4 {
 
 					accMotion = accMotion.combine(curMotion);
 					
-					matrix<uint8_t> stabilized(frame.height(), frame.width());
+					matrix<uint8_t> stabilized(frame->dimensions());
 					
-					for (int i : range(frame.height())) {
-						for (int j : range(frame.width())) {
+					for (int i : range(frame->height())) {
+						for (int j : range(frame->width())) {
 							point<double> p(j, i);
-							point<double> p1 = accMotion.apply(frame, p);
-							stabilized[i][j] = frame.get_interpolate(p1);
+							point<double> p1 = accMotion.apply(*frame, p);
+							stabilized[i][j] = frame->get_interpolate(p1);
 						}
 					}
 					
@@ -122,17 +136,18 @@ namespace c4 {
 		std::shared_ptr<FrameReader> reader;
 		std::shared_ptr<FrameWriter> writer;
 
-		static MotionDetector::Motion average(const std::deque<MotionDetector::Motion>& motions) {
+		static MotionDetector::Motion average(std::deque<std::shared_future<MotionDetector::Motion>>& fmotions) {
 			MotionDetector::Motion sum;
 			double lscale = 0;
-			for (const auto& m : motions) {
+			for (auto& fm : fmotions) {
+				const auto m = fm.get();
 				sum.shift = sum.shift + m.shift;
 				lscale += std::log2(m.scale);
 				sum.alpha += m.alpha;
 			}
-			sum.shift = sum.shift * (1. / motions.size());
-			sum.scale = std::exp2(lscale / motions.size());
-			sum.alpha /= motions.size();
+			sum.shift = sum.shift * (1. / fmotions.size());
+			sum.scale = std::exp2(lscale / fmotions.size());
+			sum.alpha /= fmotions.size();
 			return sum;
 		}
 	};

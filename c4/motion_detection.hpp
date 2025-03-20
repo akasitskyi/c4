@@ -67,11 +67,14 @@ namespace c4 {
 		MotionDetector() {
 		}
 		
-		Motion detect(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, const Params& params, const std::vector<rectangle<int>> ignore = {}) {
+		static Motion detect(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, const Params& params, const std::vector<rectangle<int>> ignore = {}) {
 			c4::scoped_timer timer("MotionDetector::detect");
 
 			ASSERT_EQUAL(prev.height(), frame.height());
 			ASSERT_EQUAL(prev.width(), frame.width());
+
+			matrix<uint8_t> downFrame;
+			matrix<uint8_t> downPrev;
 
 			matrix<point<int>> shifts;
 			matrix<double> weights;
@@ -139,7 +142,7 @@ namespace c4 {
 			//return motion_from_local_opt(frame, src, shifts, weights, block, params);
 		}
 
-		Motion motion_from_local_mat(const matrix_ref<uint8_t>& frame, const matrix<point<double>>& src, const matrix<point<int>>& shifts, const matrix<double>& weights, const Params& params) {
+		static Motion motion_from_local_mat(const matrix_ref<uint8_t>& frame, const matrix<point<double>>& src, const matrix<point<int>>& shifts, const matrix<double>& weights, const Params& params) {
 			point<double> sumShift(0, 0);
 			double sumWeight = 0;
 
@@ -210,7 +213,7 @@ namespace c4 {
 			return { rshift, rscale, alpha };
 		}
 
-		Motion motion_from_local_opt(const matrix_ref<uint8_t>& frame, const matrix<point<double>>& src, matrix<point<int>>& shifts, const matrix<double>& weights, int block, const Params& params) {
+		static Motion motion_from_local_opt(const matrix_ref<uint8_t>& frame, const matrix<point<double>>& src, matrix<point<int>>& shifts, const matrix<double>& weights, int block, const Params& params) {
 			std::vector<double> v0{0., 0., 1., 0.};
 			std::vector<double> l{-1. * block, -1. * block, 1. / params.scaleMax, -params.alphaMax};
 			std::vector<double> h{ 1. * block, 1. * block, params.scaleMax, params.alphaMax};
@@ -343,9 +346,6 @@ namespace c4 {
 		}
 
 	private:
-		matrix<uint8_t> downFrame;
-		matrix<uint8_t> downPrev;
-
 		template<int dim>
 		static uint32_t inline accumulate(const matrix_ref<uint8_t>& src) = delete;
 
