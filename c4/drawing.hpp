@@ -28,8 +28,18 @@
 #include "geometry.hpp"
 
 namespace c4 {
+	template<class pixel_t>
+	inline void draw_pixel_safe(matrix_ref<pixel_t>& img, int y0, int x0, pixel_t color, float alpha = 1.f) {
+		assert(alpha >= 0.f && alpha <= 1.f);
+
+		if (img.is_inside(y0, x0)){
+			pixel_t v = pixel_t(color * alpha + img[y0][x0] * (1.f-alpha));
+			img[y0][x0] = v;
+        }
+	}
+
     template<class pixel_t, class coord_t>
-    inline void draw_line(matrix_ref<pixel_t>& img, coord_t x0, coord_t y0, coord_t x1, coord_t y1, pixel_t color, int thickness = 1){
+    inline void draw_line(matrix_ref<pixel_t>& img, coord_t x0, coord_t y0, coord_t x1, coord_t y1, pixel_t color, int thickness = 1, float alpha = 1.f){
         int T = (int)std::max(abs(x0 - x1), abs(y0 - y1));
 
         for(int t : range(T)){
@@ -38,17 +48,15 @@ namespace c4 {
             
             for (int dx : range(-thickness / 2, thickness - thickness / 2)) {
                 for (int dy : range(-thickness / 2, thickness - thickness / 2)) {
-                    if (img.is_inside(y + dy, x + dx)) {
-                        img[y + dy][x + dx] = color;
-                    }
+					draw_pixel_safe(img, y + dy, x + dx, color, alpha);
                 }
             }
         }
     }
 
     template<class pixel_t>
-    inline void draw_line(matrix_ref<pixel_t>& img, c4::point<double> p0, c4::point<double> p1, pixel_t color, int thickness = 1){
-        draw_line(img, p0.x, p0.y, p1.x, p1.y, color, thickness);
+    inline void draw_line(matrix_ref<pixel_t>& img, c4::point<double> p0, c4::point<double> p1, pixel_t color, int thickness = 1, float alpha = 1.f){
+        draw_line(img, p0.x, p0.y, p1.x, p1.y, color, thickness, alpha);
     }
 
     template<class pixel_t>
@@ -82,38 +90,36 @@ namespace c4 {
     }
 
     template<class pixel_t>
-    inline void draw_rect(matrix_ref<pixel_t>& img, rectangle<int> r, pixel_t color, int thickness = 1){
-        int y0 = std::max(r.y, thickness / 2);
-        int x0 = std::max(r.x, thickness / 2);
+    inline void draw_rect(matrix_ref<pixel_t>& img, rectangle<int> r, pixel_t color, int thickness = 1, float alpha = 1.f){
+        int y0 = r.y;
+        int x0 = r.x;
 
-        int y1 = std::min(r.y + r.h - 1, img.height() - (thickness - thickness / 2));
-        int x1 = std::min(r.x + r.w - 1, img.width() - (thickness - thickness / 2));
+        int y1 = r.y + r.h - 1;
+        int x1 = r.x + r.w - 1;
         
         for(int d : range(-thickness / 2, thickness - thickness / 2)) {
-            for(int y : range(y0, y1 + 1)) {
-                img[y][x0 + d] = color;
-                img[y][x1 + d] = color;
+            for(int y = y0; y <= y1; y++) {
+			    draw_pixel_safe(img, y, x0 + d, color, alpha);
+				draw_pixel_safe(img, y, x1 + d, color, alpha);
             }
-            for(int x : range(x0, x1 + 1)) {
-                img[y0 + d][x] = color;
-                img[y1 + d][x] = color;
+            for(int x = x0; x <= x1; x++) {
+				draw_pixel_safe(img, y0 + d, x, color, alpha);
+				draw_pixel_safe(img, y1 + d, x, color, alpha);
             }
         }
     }
 
     template<class pixel_t>
-    inline void draw_point(matrix_ref<pixel_t>& img, int y0, int x0, pixel_t color, int thickness = 1){
+    inline void draw_point(matrix_ref<pixel_t>& img, int y0, int x0, pixel_t color, int thickness = 1, float alpha = 1.f){
         for (int d : c4::range(-thickness / 2, thickness - thickness / 2)) {
-            if( img.is_inside(y0, x0 + d) )
-                img[y0][x0 + d] = color;
-            if( img.is_inside(y0 + d, x0) )
-                img[y0 + d][x0] = color;
+			draw_pixel_safe(img, y0, x0 + d, color, alpha);
+			draw_pixel_safe(img, y0 + d, x0, color, alpha);
         }
     }
 
     template<class pixel_t>
-	inline void draw_point(matrix_ref<pixel_t>& img, point<int> p0, pixel_t color, int thickness = 1) {
-		draw_point(img, p0.y, p0.x, color, thickness);
+	inline void draw_point(matrix_ref<pixel_t>& img, point<int> p0, pixel_t color, int thickness = 1, float alpha = 1.f) {
+		draw_point(img, p0.y, p0.x, color, thickness, alpha);
     }
 
     static const int DRAW_CHAR_DIM = 8;
