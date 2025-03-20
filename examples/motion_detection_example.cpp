@@ -37,10 +37,13 @@ int main(int argc, char* argv[]) {
         c4::image_dumper::getInstance().init("", true);
 
 		c4::matrix<uint8_t> prev, cur;
-        //c4::read_jpeg("img0.jpg", prev);
-        //c4::read_jpeg("img1.jpg", cur);
-        c4::read_jpeg("imgs/214.jpg", prev);
-        c4::read_jpeg("imgs/215.jpg", cur);
+        c4::read_jpeg("img0.jpg", prev);
+        c4::read_jpeg("img1.jpg", cur);
+        //c4::read_jpeg("imgs/230.jpg", prev);
+        //c4::read_jpeg("imgs/231.jpg", cur);
+
+		//prev = prev.submatrix(192, 64, 192, 192);
+		//cur = cur.submatrix(192, 64, 192, 192);
 
         c4::MotionDetector md;
 		c4::MotionDetector::Params params;
@@ -64,13 +67,13 @@ int main(int argc, char* argv[]) {
 			c4::draw_rect(cur, r, uint8_t(255), 1);
 		}
 
+		c4::dump_image(prev, "prev");
 		c4::draw_line(cur, mid, mid + motion.shift, uint8_t(255), 1);
 		c4::draw_point(cur, mid + motion.shift, uint8_t(255), 5);
 		c4::draw_string(cur, 20, 20, "shift: " + c4::to_string(motion.shift.x, 2) + ", " + c4::to_string(motion.shift.y, 2)
             + ", scale: " + c4::to_string(motion.scale, 4)
             + ", alpha: " + c4::to_string(motion.alpha, 4), uint8_t(255), uint8_t(0), 2);
 		c4::dump_image(cur, "cur");
-		c4::dump_image(prev, "prev");
 
 		c4::dump_image(cura, "cura");
     } catch (const std::exception& e) {

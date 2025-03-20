@@ -125,9 +125,10 @@ namespace c4 {
 				for (int i : range(shifts.height())) {
 					for (int j : range(shifts.width())) {
 						if (weights[i][j] > 0) {
-							uint8_t color = 127 + 128 * weights[i][j];
-							draw_line(image4dump, src[i][j], src[i][j] + point<double>(shifts[i][j]), color, 1);
-							draw_point(image4dump, src[i][j] + point<double>(shifts[i][j]), color, 5);
+							const uint8_t color = 255;
+							point<double> dst = src[i][j] + point<double>(shifts[i][j]);
+							draw_line(image4dump, src[i][j], dst, color, 1, weights[i][j]);
+							draw_point(image4dump, dst, color, 5, weights[i][j]);
 						}
 					}
 				}
@@ -279,7 +280,9 @@ namespace c4 {
 
 			constexpr int block2 = block * block;
 
-			std::vector<int> diffs;
+			const int maxShift = halfBlock;
+
+			matrix<int> diffs(2 * maxShift + 1, 2 * maxShift + 1);
 
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
@@ -289,27 +292,26 @@ namespace c4 {
 					const int y = i * block + halfBlock;
 
 					uint32_t minDiff = std::numeric_limits<uint32_t>::max();
-					diffs.clear();
 
 					const auto sma = prev.submatrix(y, x, block, block);
 
 					const int avg_a = (accumulate<block>(sma) + block2 / 2) / block2;
 
-					for (int dy = -halfBlock; dy <= halfBlock; dy++) {
-						for (int dx = -halfBlock; dx <= halfBlock; dx++) {
+					for (int dy = -maxShift; dy <= maxShift; dy++) {
+						for (int dx = -maxShift; dx <= maxShift; dx++) {
 							const auto smb = frame.submatrix(y + dy, x + dx, block, block);
 							const int avg_b = (accumulate<block>(smb) + block2 / 2) / block2;
 							
 							const uint8_t da = std::max(avg_b - avg_a, 0);
 							const uint8_t db = std::max(avg_a - avg_b, 0);
 							
-							uint32_t diff = calc_diff<block>(sma, smb, da, db) * diffMul;
+							uint32_t diff = calc_diff<block>(sma, smb, da, db);
+							diffs[maxShift + dy][maxShift + dx] = diff;
 
 							// random offset to break ties, so that the scan order doesn't matter
 							const uint32_t randomOffset = ((((y + 10007) * 10009 + dy) * 10037 + x) * 10039 + dx) * 10061 & randMask;
-							diff += randomOffset;
+							diff = diff * diffMul +  randomOffset;
 
-							diffs.push_back(diff);
 
 							if (diff < minDiff) {
 								minDiff = diff;
@@ -318,12 +320,21 @@ namespace c4 {
 						}
 					}
 
-					auto it = diffs.begin() + diffs.size() / 3;
-					std::nth_element(diffs.begin(), it, diffs.end());
-					const double avgDiff = *it;
-
 					const double noiseOffset = block * block;
-					double w = 1. - (minDiff / diffMul + noiseOffset) / (avgDiff / diffMul + noiseOffset);
+					minDiff /= diffMul;
+
+					double maxQ = 0;
+
+					for (int i = 0; i < diffs.height(); i++) {
+						for (int j = 0; j < diffs.width(); j++) {
+							const int d2 = dist_squared(shift, { j - maxShift, i - maxShift });
+							const double qdiff = (minDiff + noiseOffset) / (diffs[i][j] + noiseOffset);
+							const double qlength = std::min(0.05 * d2, 1.);
+							const double q = qdiff * qlength;
+							maxQ = std::max(maxQ, q);
+						}
+					}
+					const double w = 1. - maxQ;
 
 					shifts[i][j] = shift;
 					weights[i][j] = w;

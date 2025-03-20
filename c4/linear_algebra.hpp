@@ -69,7 +69,7 @@ namespace c4 {
         int i = 0;
         float r = 0;
 #ifdef __C4_SIMD__
-		simd::float32x4 s = simd::set_zero<simd::float32x4>();
+		simd::float32x4 s = simd::set_zero_float();
         for (; i + 4 <= n; i += 4) {
             simd::float32x4 a = simd::load(pa + i);
             simd::float32x4 b = simd::load(pb + i);

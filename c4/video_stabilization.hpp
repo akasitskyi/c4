@@ -66,6 +66,8 @@ namespace c4 {
 
 			matrix_dimensions frame_dims = frame.dimensions();
 
+			int counter = 0;
+
 			bool done = false;
 			do {
 				if(!done){
@@ -98,8 +100,10 @@ namespace c4 {
 							stabilized[i][j] = frame.get_interpolate(p1);
 						}
 					}
+					
+					c4::draw_string(stabilized, 20, 15, "frame " + c4::to_string(++counter, 3), uint8_t(255), uint8_t(0), 2);
 
-					c4::draw_string(stabilized, 20, 20, "shift: " + c4::to_string(motion.shift.x, 2) + ", " + c4::to_string(motion.shift.y, 2)
+					c4::draw_string(stabilized, 20, 45, "shift: " + c4::to_string(motion.shift.x, 2) + ", " + c4::to_string(motion.shift.y, 2)
 						+ ", scale: " + c4::to_string(motion.scale, 4)
 						+ ", alpha: " + c4::to_string(motion.alpha, 4), uint8_t(255), uint8_t(0), 2);
 
