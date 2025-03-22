@@ -53,101 +53,82 @@ namespace c4 {
 
 			//MotionDetector md;
 
-			const int q_length = 25;
+			const int q_length = 50;
 
-			std::deque<FramePtr> frame_q;
-			std::deque<std::shared_future<MotionDetector::Motion>> motion_q;
+			std::deque<MotionDetector::Motion> motion_q;
 
 			MotionDetector::Motion accMotion;
+			MotionDetector::Motion avgMotion;
 
 			FramePtr frame = std::make_shared<Frame>();
 			if (!reader->read(*frame)) {
 				THROW_EXCEPTION("Failed to read first frame");
 			}
 
-			thread_pool pool;
-
-			frame_q.push_back(frame);
-			motion_q.emplace_back(pool.enqueue([accMotion]() {
-				return accMotion;
-				}));
+			motion_q.emplace_back(accMotion);
 
 			matrix_dimensions frame_dims = frame->dimensions();
 
 			int counter = 0;
 
-			bool done = false;
-			do {
-				if(!done){
-					frame = std::make_shared<Frame>();
-					done = !reader->read(*frame);
+			for(;;) {
+				matrix<uint8_t> stabilized(frame->dimensions());
+					
+				for (int i : range(frame->height())) {
+					for (int j : range(frame->width())) {
+						point<double> p(j, i);
+						point<double> p1 = accMotion.apply(*frame, p);
+						stabilized[i][j] = frame->get_interpolate(p1);
+					}
 				}
 				
-				if(!done){
-					frame_q.push_back(frame);
+				c4::draw_string(stabilized, 20, 15, "frame " + c4::to_string(++counter, 3), uint8_t(255), uint8_t(0), 2);
 
-					FramePtr prev = frame_q[frame_q.size() - 2];
-					FramePtr cur = frame_q[frame_q.size() - 1];
+				c4::draw_string(stabilized, 20, 45, "shift: " + c4::to_string(accMotion.shift.x, 2) + ", " + c4::to_string(accMotion.shift.y, 2)
+					+ ", scale: " + c4::to_string(accMotion.scale, 4)
+					+ ", alpha: " + c4::to_string(accMotion.alpha, 4), uint8_t(255), uint8_t(0), 2);
 
-					motion_q.emplace_back(pool.enqueue([prev, cur, params, ignore]() {
-						return MotionDetector::detect(*prev, *cur, params, ignore);
-						}));
+				writer->write(stabilized);
 
-					//motion_q.push_back(MotionDetector::detect(*prev, *cur, params, ignore));
-				}
+				FramePtr prev = frame;
+				frame = std::make_shared<Frame>();
 
-				if (frame_q.size() == q_length || done) {
-					FramePtr frame = frame_q.front();
+				if (!reader->read(*frame))
+					break;
 
-					const MotionDetector::Motion avgMotion = average(motion_q);
-
-					MotionDetector::Motion curMotion = motion_q.front().get();
-
-					curMotion.shift -= avgMotion.shift;
-					curMotion.scale /= avgMotion.scale;
-					curMotion.alpha -= avgMotion.alpha;
-
-					accMotion = accMotion.combine(curMotion);
-					
-					matrix<uint8_t> stabilized(frame->dimensions());
-					
-					for (int i : range(frame->height())) {
-						for (int j : range(frame->width())) {
-							point<double> p(j, i);
-							point<double> p1 = accMotion.apply(*frame, p);
-							stabilized[i][j] = frame->get_interpolate(p1);
-						}
-					}
-					
-					c4::draw_string(stabilized, 20, 15, "frame " + c4::to_string(++counter, 3), uint8_t(255), uint8_t(0), 2);
-
-					c4::draw_string(stabilized, 20, 45, "shift: " + c4::to_string(accMotion.shift.x, 2) + ", " + c4::to_string(accMotion.shift.y, 2)
-						+ ", scale: " + c4::to_string(accMotion.scale, 4)
-						+ ", alpha: " + c4::to_string(accMotion.alpha, 4), uint8_t(255), uint8_t(0), 2);
-
-					writer->write(stabilized);
-					frame_q.pop_front();
+				MotionDetector::Motion curMotion = MotionDetector::detect(*prev, *frame, params, ignore);
+				
+				motion_q.push_back(curMotion);
+				if (motion_q.size() > q_length) {
 					motion_q.pop_front();
 				}
-			} while (!frame_q.empty());
+
+				avgMotion = average(motion_q);
+
+				curMotion.shift -= avgMotion.shift;
+				curMotion.scale /= avgMotion.scale;
+				curMotion.alpha -= avgMotion.alpha;
+
+				accMotion = accMotion.combine(curMotion);
+			}
 		}
 
 	private:
 		std::shared_ptr<FrameReader> reader;
 		std::shared_ptr<FrameWriter> writer;
 
-		static MotionDetector::Motion average(std::deque<std::shared_future<MotionDetector::Motion>>& fmotions) {
+		static MotionDetector::Motion average(const std::deque<MotionDetector::Motion>& motions) {
 			MotionDetector::Motion sum;
 			double lscale = 0;
-			for (auto& fm : fmotions) {
-				const auto m = fm.get();
+			for (const auto& m : motions) {
+				//const auto m = fm.get();
 				sum.shift = sum.shift + m.shift;
 				lscale += std::log2(m.scale);
 				sum.alpha += m.alpha;
 			}
-			sum.shift = sum.shift * (1. / fmotions.size());
-			sum.scale = std::exp2(lscale / fmotions.size());
-			sum.alpha /= fmotions.size();
+			sum.shift = sum.shift * (1. / motions.size());
+			sum.scale = std::exp2(lscale / motions.size());
+			sum.alpha /= motions.size();
 			return sum;
 		}
 	};
