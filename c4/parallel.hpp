@@ -53,9 +53,24 @@ namespace c4 {
     }
 
     class thread_pool {
+        struct PriorityFunction {
+			int priority;
+			int timestamp;
+			std::function<void()> f;
+
+            PriorityFunction(std::function<void()>&& f, int priority) : f(f), priority(priority) {
+				static std::atomic<int> counter(0);
+				timestamp = counter++;
+            }
+			
+            bool operator<(const PriorityFunction& other) const {
+				return priority < other.priority || priority == other.priority && timestamp > other.timestamp;
+			}
+		};
+
         std::mutex mu;
         std::vector<std::thread> workers;
-        std::queue<std::function<void()> > tasks;
+        std::priority_queue<PriorityFunction> tasks;
         std::condition_variable condition;
         bool stop;
 
@@ -71,7 +86,7 @@ namespace c4 {
                             if (stop && tasks.empty())
                                 return;
 
-                            task = std::move(tasks.front());
+                            task = std::move(tasks.top().f);
                             tasks.pop();
                         }
 
@@ -96,14 +111,14 @@ namespace c4 {
         }
 
         template<class F>
-        auto enqueue(F&& f) -> std::future<typename std::invoke_result_t<F>> {
+        auto enqueue(F&& f, int priority = 0) -> std::future<typename std::invoke_result_t<F>> {
             using return_type = typename std::invoke_result_t<F>;
 
             auto task = std::make_shared<std::packaged_task<return_type()>>((f));
 
             std::lock_guard<std::mutex> lock(mu);
 
-            tasks.emplace([task]() { (*task)(); });
+            tasks.emplace([task]() { (*task)(); }, priority);
             condition.notify_one();
 
             return task->get_future();
