@@ -28,6 +28,7 @@
 #include "matrix.hpp"
 #include "drawing.hpp"
 #include "scaling.hpp"
+#include "parallel.hpp"
 #include "image_dumper.hpp"
 #include "optimization.hpp"
 
@@ -224,9 +225,14 @@ namespace c4 {
 
 			const int maxShift = halfBlock;
 
-			matrix<int> diffs(2 * maxShift + 1, 2 * maxShift + 1);
+			enumerable_thread_specific<matrix<int>> diffs_v;
+			for (auto& diffs : diffs_v){
+				diffs.resize(2 * maxShift + 1, 2 * maxShift + 1);
+			}
 
-			for (int i : range(shifts.height())) {
+			parallel_for(range(shifts.height()), [&diffs_v, &shifts, &prev, &frame, &weights](int i){
+				auto& diffs = diffs_v.local();
+
 				for (int j : range(shifts.width())) {
 					point<int> shift(0, 0);
 
@@ -281,7 +287,7 @@ namespace c4 {
 					shifts[i][j] = shift;
 					weights[i][j] = w;
 				}
-			}
+			});
 		}
 
 	private:
