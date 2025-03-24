@@ -319,6 +319,9 @@ namespace c4 {
 
 	inline void downscale_bilinear_nx(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst, int n) {
 		switch (n) {
+		case 1:
+			dst = src;
+			break;
 		case 2:
 			downscale_bilinear_2x(src, dst);
 			break;

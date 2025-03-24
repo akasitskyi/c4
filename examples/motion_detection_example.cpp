@@ -70,12 +70,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		c4::matrix<uint8_t> cura(cur.dimensions());
-		for (int y : c4::range(cura.height())) {
-			for (int x : c4::range(cura.width())) {
-				c4::point<double> p(x, y);
-				cura[y][x] = cur.get_interpolate(motion.apply(cura, p));
-			}
-		}
+		motion.apply(cur, cura);
 
 		if (c4::image_dumper::getInstance().isEnabled()) {
 			for (auto& r : ignore) {

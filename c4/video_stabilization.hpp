@@ -34,68 +34,18 @@ namespace c4 {
 		typedef matrix<uint8_t> Frame;
 		typedef std::shared_ptr<Frame> FramePtr;
 
-		class FrameReader {
-		public:
-			virtual bool read(matrix<uint8_t>& frame) = 0;
+		struct Params : public MotionDetector::Params {
+			int q_length = 50;
 		};
 
-		class FrameWriter {
-		public:
-			virtual void write(const matrix<uint8_t>& frame) = 0;
-		};
-
-		VideoStabilization(std::shared_ptr<FrameReader> reader, std::shared_ptr<FrameWriter> writer)
-			: reader(reader), writer(writer) {
+		VideoStabilization(const Params &params, const std::vector<rectangle<int>> ignore = {})
+			: params(params), ignore(ignore) {
 		}
-		
-		void run(const MotionDetector::Params &params, const std::vector<rectangle<int>> ignore = {}) {
-			c4::scoped_timer timer("VideoStabilization::run()");
 
-			//MotionDetector md;
+		MotionDetector::Motion process(FramePtr frame) {
+			c4::scoped_timer timer("VideoStabilization::process()");
 
-			const int q_length = 50;
-
-			std::deque<MotionDetector::Motion> motion_q;
-
-			MotionDetector::Motion accMotion;
-			MotionDetector::Motion avgMotion;
-
-			FramePtr frame = std::make_shared<Frame>();
-			if (!reader->read(*frame)) {
-				THROW_EXCEPTION("Failed to read first frame");
-			}
-
-			motion_q.emplace_back(accMotion);
-
-			matrix_dimensions frame_dims = frame->dimensions();
-
-			int counter = 0;
-
-			for(;;) {
-				matrix<uint8_t> stabilized(frame->dimensions());
-					
-				for (int i : range(frame->height())) {
-					for (int j : range(frame->width())) {
-						point<double> p(j, i);
-						point<double> p1 = accMotion.apply(*frame, p);
-						stabilized[i][j] = frame->get_interpolate(p1);
-					}
-				}
-				
-				c4::draw_string(stabilized, 20, 15, "frame " + c4::to_string(++counter, 3), uint8_t(255), uint8_t(0), 2);
-
-				c4::draw_string(stabilized, 20, 45, "shift: " + c4::to_string(accMotion.shift.x, 2) + ", " + c4::to_string(accMotion.shift.y, 2)
-					+ ", scale: " + c4::to_string(accMotion.scale, 4)
-					+ ", alpha: " + c4::to_string(accMotion.alpha, 4), uint8_t(255), uint8_t(0), 2);
-
-				writer->write(stabilized);
-
-				FramePtr prev = frame;
-				frame = std::make_shared<Frame>();
-
-				if (!reader->read(*frame))
-					break;
-
+			if (prev) {
 				MotionDetector::Motion curMotion = MotionDetector::detect(*prev, *frame, params, ignore);
 				
 				motion_q.push_back(curMotion);
@@ -103,7 +53,7 @@ namespace c4 {
 					motion_q.pop_front();
 				}
 
-				avgMotion = average(motion_q);
+				MotionDetector::Motion avgMotion = average(motion_q);
 
 				curMotion.shift -= avgMotion.shift;
 				curMotion.scale /= avgMotion.scale;
@@ -111,11 +61,20 @@ namespace c4 {
 
 				accMotion = accMotion.combine(curMotion);
 			}
+
+			prev = frame;
+
+			return accMotion;
 		}
 
 	private:
-		std::shared_ptr<FrameReader> reader;
-		std::shared_ptr<FrameWriter> writer;
+		Params params;
+		std::vector<rectangle<int>> ignore;
+		
+		const int q_length = 50;
+		std::deque<MotionDetector::Motion> motion_q;
+		FramePtr prev = nullptr;
+		MotionDetector::Motion accMotion;
 
 		static MotionDetector::Motion average(const std::deque<MotionDetector::Motion>& motions) {
 			MotionDetector::Motion sum;

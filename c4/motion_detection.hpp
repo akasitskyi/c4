@@ -52,6 +52,19 @@ namespace c4 {
 				return C + (p-C).rotate(alpha) * scale + shift;
 			}
 
+			void apply(const matrix_ref<uint8_t>& src, matrix_ref<uint8_t>& dst) const {
+				ASSERT_EQUAL(src.dimensions(), dst.dimensions());
+
+				point<double> C = center(src);
+
+				for (int y : c4::range(src.height())) {
+					for (int x : c4::range(src.width())) {
+						c4::point<double> p(x, y);
+						dst[y][x] = src.get_interpolate(C + (p-C).rotate(alpha) * scale + shift);
+					}
+				}
+			}
+
 			// combine two motions: first apply this motion, then apply other motion
 			Motion combine(const Motion& other) const {
 				return { shift.rotate(other.alpha) * other.scale + other.shift, scale * other.scale, alpha + other.alpha };
