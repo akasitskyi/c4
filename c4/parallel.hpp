@@ -86,7 +86,7 @@ namespace c4 {
                             if (stop && tasks.empty())
                                 return;
 
-                            task = std::move(tasks.top().f);
+                            task = tasks.top().f;
                             tasks.pop();
                         }
 

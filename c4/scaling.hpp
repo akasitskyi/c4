@@ -27,6 +27,7 @@
 #include "matrix.hpp"
 #include "pixel.hpp"
 #include "logger.hpp"
+#include "exception.hpp"
 #include "fixed_point.hpp"
 
 namespace c4 {
@@ -315,6 +316,22 @@ namespace c4 {
             }
         }
     }
+
+	inline void downscale_bilinear_nx(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst, int n) {
+		switch (n) {
+		case 2:
+			downscale_bilinear_2x(src, dst);
+			break;
+		case 3:
+			downscale_bilinear_3x(src, dst);
+			break;
+		case 4:
+			downscale_bilinear_4x(src, dst);
+			break;
+		default:
+			INVALID_VALUE(n);
+		}
+	}
 
     inline void downscale_linear_2x(const c4::matrix_ref<uint8_t>& src, c4::matrix<uint8_t>& dst) {
         int height2 = src.height() / 2;

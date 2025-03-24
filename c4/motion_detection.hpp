@@ -60,7 +60,6 @@ namespace c4 {
 		struct Params {
 			double scaleMax = 1.05;
 			double alphaMax = std::numbers::pi * 0.1;
-			int downscale = 2;
 			int blockSize = 32;
 		};
 
@@ -73,46 +72,16 @@ namespace c4 {
 			ASSERT_EQUAL(prev.height(), frame.height());
 			ASSERT_EQUAL(prev.width(), frame.width());
 
-			matrix<uint8_t> downFrame;
-			matrix<uint8_t> downPrev;
-
 			matrix<point<int>> shifts;
 			matrix<double> weights;
 
-			switch (params.downscale) {
-			case 1:
-				detect_local(prev, frame, shifts, weights, params.blockSize);
-				break;
-			case 2:
-				downscale_bilinear_2x(prev, downPrev);
-				downscale_bilinear_2x(frame, downFrame);
-				detect_local(downPrev, downFrame, shifts, weights, params.blockSize);
-				break;
-			case 3:
-				downscale_bilinear_3x(prev, downPrev);
-				downscale_bilinear_3x(frame, downFrame);
-				detect_local(downPrev, downFrame, shifts, weights, params.blockSize);
-				break;
-			case 4:
-				downscale_bilinear_4x(prev, downPrev);
-				downscale_bilinear_4x(frame, downFrame);
-				detect_local(downPrev, downFrame, shifts, weights, params.blockSize);
-				break;
-			default:
-				INVALID_VALUE(params.downscale);
-			}
-
-			if (params.downscale > 1){
-				transform_inplace(shifts, [&params](const point<double>& p) { return p * params.downscale; });
-			}
-
-			const int block = params.blockSize * params.downscale;
+			detect_local(prev, frame, shifts, weights, params.blockSize);
 
 			matrix<point<double>> src(shifts.dimensions());
 
 			for (int i : range(shifts.height())) {
 				for (int j : range(shifts.width())) {
-					src[i][j] = point<double>((j + 1) * block, (i + 1) * block);
+					src[i][j] = point<double>((j + 1) * params.blockSize, (i + 1) * params.blockSize);
 
 					for (const rectangle<int>& r : ignore) {
 						if (r.contains(src[i][j])) {
@@ -139,7 +108,6 @@ namespace c4 {
 			}
 
 			return motion_from_local_mat(frame, src, shifts, weights, params);
-			//return motion_from_local_opt(frame, src, shifts, weights, block, params);
 		}
 
 		static Motion motion_from_local_mat(const matrix_ref<uint8_t>& frame, const matrix<point<double>>& src, const matrix<point<int>>& shifts, const matrix<double>& weights, const Params& params) {
@@ -211,35 +179,6 @@ namespace c4 {
 			const double alpha = std::asin(sumSinAlpha / sumWeight);
 
 			return { rshift, rscale, alpha };
-		}
-
-		static Motion motion_from_local_opt(const matrix_ref<uint8_t>& frame, const matrix<point<double>>& src, matrix<point<int>>& shifts, const matrix<double>& weights, int block, const Params& params) {
-			std::vector<double> v0{0., 0., 1., 0.};
-			std::vector<double> l{-1. * block, -1. * block, 1. / params.scaleMax, -params.alphaMax};
-			std::vector<double> h{ 1. * block, 1. * block, params.scaleMax, params.alphaMax};
-
-			auto errorF = [&](const std::vector<double>& v) {
-				Motion motion{ {v[0], v[1]}, v[2], v[3] };
-
-				double sum = 0;
-				for (int i : range(src.height())) {
-					for (int j : range(src.width())) {
-						const point<double> dst0 = src[i][j] + point<double>(shifts[i][j]);
-						const point<double> dst1 = motion.apply(frame, src[i][j]);
-						sum += weights[i][j] * dist_squared(dst0, dst1);
-					}
-				}
-
-				return sum;
-			};
-
-			c4::scoped_timer timer1("MotionDetector::detect minimize");
-
-			auto m = minimize(l, h, v0, errorF);
-
-			PRINT_DEBUG(errorF(m));
-
-			return { {m[0], m[1]}, m[2], m[3] };
 		}
 
 		static void detect_local(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights, int blockSize) {
