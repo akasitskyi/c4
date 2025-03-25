@@ -82,7 +82,9 @@ namespace c4 {
 		struct Params {
 			double scaleMax = 1.05;
 			double alphaMax = std::numbers::pi * 0.1;
+
 			int blockSize = 32;
+			int maxShift = 16;
 		};
 
 		MotionDetector() {
@@ -97,7 +99,7 @@ namespace c4 {
 			matrix<point<int>> shifts;
 			matrix<double> weights;
 
-			detect_local(prev, frame, shifts, weights, params.blockSize);
+			detect_local(prev, frame, shifts, weights, params.blockSize, params.maxShift);
 
 			matrix<point<double>> src(shifts.dimensions());
 
@@ -171,7 +173,7 @@ namespace c4 {
 				}
 			}
 
-			const double rscale = sumScale / sumWeight;
+			const double rscale = std::clamp(sumScale / sumWeight, 1. / params.scaleMax, params.scaleMax);
 
 			transform_inplace(dst, [rscale](const point<double>& p) { return p * rscale; });
 
@@ -198,28 +200,28 @@ namespace c4 {
 				}
 			}
 
-			const double alpha = std::asin(sumSinAlpha / sumWeight);
+			const double alpha = std::clamp(std::asin(sumSinAlpha / sumWeight), -params.alphaMax, params.alphaMax);
 
 			return { rshift, rscale, alpha };
 		}
 
-		static void detect_local(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights, int blockSize) {
+		static void detect_local(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights, int blockSize, int maxShift) {
 			switch (blockSize) {
 			case 16:
-				return detect_local_impl<16>(prev, frame, shifts, weights);
+				return detect_local_impl<16>(prev, frame, shifts, weights, maxShift);
 			case 32:
-				return detect_local_impl<32>(prev, frame, shifts, weights);
+				return detect_local_impl<32>(prev, frame, shifts, weights, maxShift);
 			case 48:
-				return detect_local_impl<48>(prev, frame, shifts, weights);
+				return detect_local_impl<48>(prev, frame, shifts, weights, maxShift);
 			case 64:
-				return detect_local_impl<64>(prev, frame, shifts, weights);
+				return detect_local_impl<64>(prev, frame, shifts, weights, maxShift);
 			default:
 				INVALID_VALUE(blockSize);
 			}
 		}
 		
 		template<int block>
-		static void detect_local_impl(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights) {
+		static void detect_local_impl(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights, const int maxShift) {
 			c4::scoped_timer timer("MotionDetector::detect_local_impl");
 
 			ASSERT_EQUAL(prev.height(), frame.height());
@@ -229,6 +231,7 @@ namespace c4 {
 
 			ASSERT_LESS(block + 2 * halfBlock, frame.height());
 			ASSERT_LESS(block + 2 * halfBlock, frame.width());
+			ASSERT_LESS_EQUAL(maxShift, halfBlock);
 
 			const int bh = (frame.height() - 2 * halfBlock) / block;
 			const int bw = (frame.width() - 2 * halfBlock) / block;
@@ -244,14 +247,12 @@ namespace c4 {
 
 			constexpr int block2 = block * block;
 
-			const int maxShift = halfBlock;
-
 			enumerable_thread_specific<matrix<int>> diffs_v;
 			for (auto& diffs : diffs_v){
 				diffs.resize(2 * maxShift + 1, 2 * maxShift + 1);
 			}
 
-			parallel_for(range(shifts.height()), [&diffs_v, &shifts, &prev, &frame, &weights](int i){
+			parallel_for(range(shifts.height()), [maxShift, &diffs_v, &shifts, &prev, &frame, &weights](int i){
 				auto& diffs = diffs_v.local();
 
 				for (int j : range(shifts.width())) {

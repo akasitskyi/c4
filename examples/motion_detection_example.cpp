@@ -48,6 +48,7 @@ int main(int argc, char* argv[]) {
         c4::MotionDetector md;
 		c4::MotionDetector::Params params;
 		params.blockSize = 32;
+		params.maxShift = 16;
 
 		const int downscale = 2;
 
