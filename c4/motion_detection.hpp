@@ -53,16 +53,24 @@ namespace c4 {
 			}
 
 			void apply(const matrix_ref<uint8_t>& src, matrix_ref<uint8_t>& dst) const {
+				c4::scoped_timer timer2("Motion::apply");
 				ASSERT_EQUAL(src.dimensions(), dst.dimensions());
 
-				point<double> C = center(src);
+				const double sns = std::sin(alpha) * scale;
+				const double css = std::cos(alpha) * scale;
 
-				for (int y : c4::range(src.height())) {
+				const point<double> C = center(src);
+				const point<double> Cps = C + shift;
+
+				parallel_for(range(src.height()), [&src, &dst, C, css, sns, Cps](int y){
 					for (int x : c4::range(src.width())) {
-						c4::point<double> p(x, y);
-						dst[y][x] = src.get_interpolate(C + (p-C).rotate(alpha) * scale + shift);
+						c4::point<double> p = c4::point<double>(x, y) - C;
+						c4::point<double> prs(css * p.x - sns * p.y, sns * p.x + css * p.y);
+						c4::point<double> t = prs + Cps;
+
+						dst[y][x] = src.get_interpolate(t);
 					}
-				}
+				});
 			}
 
 			// combine two motions: first apply this motion, then apply other motion

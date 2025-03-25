@@ -312,8 +312,8 @@ namespace c4 {
 			auto p0 = operator[](i0).data();
 			auto p1 = operator[](i1).data();
 
-			auto v = p0[j0] * (1.f - di) * (1.f - dj) + p0[j1] * (1.f - di) * dj +
-				      p1[j0] *     di     * (1.f - dj) + p1[j1] *    di      * dj;
+			auto v = (p0[j0] * (1.f - dj) + p0[j1] * dj) * (1.f - di) +
+                     (p1[j0] * (1.f - dj) + p1[j1] * dj) * di;
 
             return v;
         }
