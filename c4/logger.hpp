@@ -62,7 +62,16 @@ namespace c4 {
     };
 
     class Logger {
+		static std::atomic<int>& logLevel() {
+			static std::atomic<int> level{LOG_INFO};
+			return level;
+        }
+
     public:
+		static void setLogLevel(LogLevel level) {
+			logLevel() = level;
+		}
+
         Logger(LogLevel level) : level(level) {}
         
         template<typename T>
@@ -72,6 +81,9 @@ namespace c4 {
         }
 
         ~Logger(){
+            if (level > logLevel())
+				return;
+
             switch(level)
             {
 #ifdef ANDROID

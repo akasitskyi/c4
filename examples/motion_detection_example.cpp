@@ -30,8 +30,8 @@
 #include <c4/motion_detection.hpp>
 
 int main(int argc, char* argv[]) {
-	std::cout << argv[0] << std::endl;
     try{
+		c4::Logger::setLogLevel(c4::LOG_VERBOSE);
         c4::scoped_timer timer("main");
 
         c4::image_dumper::getInstance().init("", true);
