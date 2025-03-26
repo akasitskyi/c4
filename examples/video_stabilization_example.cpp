@@ -31,6 +31,7 @@
 
 int main(int argc, char* argv[]) {
     try{
+		c4::Logger::setLogLevel(c4::LOG_DEBUG);
         c4::scoped_timer timer("main");
 
         c4::image_dumper::getInstance().init("", true);
@@ -41,8 +42,12 @@ int main(int argc, char* argv[]) {
 		c4::VideoStabilization::Params params;
 		const std::vector<c4::rectangle<int>> ignore{{400, 900, 1120, 180}};
 		const int downscale = 2;
+		std::vector<c4::rectangle<int>> ignoreDown;
+		for (const auto& r : ignore) {
+			ignoreDown.emplace_back(r.x / downscale, r.y / downscale, r.w / downscale, r.h / downscale);
+		}
 
-		c4::VideoStabilization vs(params, ignore);
+		c4::VideoStabilization vs(params, ignoreDown);
 		c4::matrix<uint8_t> image;
 
 		char buf[1024];
