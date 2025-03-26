@@ -66,6 +66,11 @@ namespace c4 {
         return t;
     }
 
+    template<>
+    inline std::string string_to<std::string>(const std::string& s) {
+		return s;
+    }
+
     inline std::vector<std::string> split(const std::string& s, const std::string& d) {
         std::vector<std::string> v;
         size_t i = 0;

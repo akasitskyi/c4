@@ -71,15 +71,38 @@ namespace c4 {
             }
         };
 
+        class cmd_multi_opt {
+            friend class cmd_opts;
+
+            std::shared_ptr<std::vector<std::string>> ptr;
+
+            cmd_multi_opt() : ptr(std::make_shared<std::vector<std::string>>()) {}
+        public:
+            operator std::vector<std::string>() const {
+                return *ptr;
+            }
+
+            friend std::ostream& operator<<(std::ostream& out, const cmd_multi_opt& t) {
+                out << "{";
+				for (int i = 0; i < t.ptr->size(); i++) {
+					if (i > 0)
+						out << ", ";
+					out << t.ptr->at(i);
+				}
+                return out << "}";
+            }
+        };
+
         std::map<std::string, std::shared_ptr<std::string>> optional;
         std::map<std::string, std::shared_ptr<std::string>> required;
+        std::map<std::string, std::shared_ptr<std::vector<std::string>>> multiple;
         std::map<std::string, std::shared_ptr<bool>> flags;
 
         std::vector<std::string> free_args;
         std::string arg0;
 
         void assert_unique(const std::string name) const {
-            if (optional.count(name) || required.count(name) || flags.count(name))
+            if (optional.count(name) || required.count(name) || multiple.count(name) || flags.count(name))
                 throw std::logic_error("Can't add multiple options with the same name: " + name);
         }
 
@@ -106,6 +129,13 @@ namespace c4 {
             return opt;
         }
 
+        cmd_multi_opt add_multiple_internal(const std::string& name) {
+            assert_unique(name);
+            cmd_multi_opt opt;
+            multiple.emplace(name, opt.ptr);
+            return opt;
+        }
+
         void fail_with_error(const std::string& error) const {
             std::cout << error << std::endl;
             exit(EXIT_FAILURE);
@@ -123,6 +153,10 @@ namespace c4 {
         template<typename T>
         cmd_opt<T> add_required(const std::string& name) {
             return add_required_internal<T>("--" + name);
+        }
+
+        cmd_multi_opt add_multiple(const std::string& name) {
+            return add_multiple_internal("--" + name);
         }
 
         cmd_flag add_flag(const std::string& name) {
@@ -147,6 +181,14 @@ namespace c4 {
                     if (i == argc)
                         fail_with_error("Cmd line option '" + arg + "' needs to have a following value");
                     *required_it->second = argv[i++];
+                    continue;
+                }
+
+                auto multiple_it = multiple.find(arg);
+                if (multiple_it != multiple.end()) {
+                    if (i == argc)
+                        fail_with_error("Cmd line option '" + arg + "' needs to have a following value");
+                    multiple_it->second->push_back(argv[i++]);
                     continue;
                 }
 
