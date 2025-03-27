@@ -38,7 +38,8 @@
 namespace c4 {
 	class MotionDetector {
 	public:
-		static inline point<double> center(const matrix_ref<uint8_t>& frame) {
+		template<typename T>
+		static inline point<double> center(const matrix_ref<T>& frame) {
 			return point<double>((frame.width() - 1) * 0.5, (frame.height() - 1) * 0.5);
 		}
 
@@ -52,7 +53,8 @@ namespace c4 {
 				return C + (p-C).rotate(alpha) * scale + shift;
 			}
 
-			void apply(const matrix_ref<uint8_t>& src, matrix_ref<uint8_t>& dst) const {
+			template<typename T>
+			void apply(const matrix_ref<T>& src, matrix_ref<T>& dst) const {
 				c4::scoped_timer timer2("Motion::apply");
 				ASSERT_EQUAL(src.dimensions(), dst.dimensions());
 
