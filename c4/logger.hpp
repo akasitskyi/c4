@@ -72,6 +72,10 @@ namespace c4 {
 			logLevel() = level;
 		}
 
+		static int getLogLevel() {
+			return logLevel();
+		}
+
         Logger(LogLevel level) : level(level) {}
         
         template<typename T>

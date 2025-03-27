@@ -80,8 +80,8 @@ namespace c4 {
 		};
 
 		struct Params {
-			double scaleMax = 1.05;
-			double alphaMax = std::numbers::pi * 0.1;
+			double maxScale = 1.05;
+			double maxAlpha = std::numbers::pi * 0.1;
 
 			int blockSize = 32;
 			int maxShift = 16;
@@ -173,7 +173,7 @@ namespace c4 {
 				}
 			}
 
-			const double rscale = std::clamp(sumScale / sumWeight, 1. / params.scaleMax, params.scaleMax);
+			const double rscale = std::clamp(sumScale / sumWeight, 1. / params.maxScale, params.maxScale);
 
 			transform_inplace(dst, [rscale](const point<double>& p) { return p * rscale; });
 
@@ -200,7 +200,7 @@ namespace c4 {
 				}
 			}
 
-			const double alpha = std::clamp(std::asin(sumSinAlpha / sumWeight), -params.alphaMax, params.alphaMax);
+			const double alpha = std::clamp(std::asin(sumSinAlpha / sumWeight), -params.maxAlpha, params.maxAlpha);
 
 			return { rshift, rscale, alpha };
 		}

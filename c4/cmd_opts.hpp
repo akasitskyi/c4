@@ -98,7 +98,11 @@ namespace c4 {
         std::map<std::string, std::shared_ptr<std::vector<std::string>>> multiple;
         std::map<std::string, std::shared_ptr<bool>> flags;
 
-        std::vector<std::string> free_args;
+        std::vector<std::pair<std::string, std::shared_ptr<std::string>>> required_free_args;
+
+		std::map<std::string, std::string> explanations;
+
+        std::vector<std::string> free_args_left;
         std::string arg0;
 
         void assert_unique(const std::string name) const {
@@ -106,65 +110,87 @@ namespace c4 {
                 throw std::logic_error("Can't add multiple options with the same name: " + name);
         }
 
-        cmd_flag add_flag_internal(const std::string name) {
-            assert_unique(name);
-            cmd_flag flag;
-            flags.emplace(name, flag.ptr);
-            return flag;
+        void fail_with_error(const std::string& error) const {
+            std::cout << error << std::endl;
+			print_help();
+
+            exit(EXIT_FAILURE);
         }
 
-        template<typename T>
-        cmd_opt<T> add_optional_internal(const std::string name, const T& init) {
+    public:
+
+		cmd_opts() {
+			add_flag("help", "Print this help message.");
+        }
+
+		void print_help() const {
+			std::cout << "Usage: " << arg0;
+			if (!explanations.empty()){
+				std::cout << " [options]";
+            }
+			for (const auto& arg : required_free_args) {
+				std::cout << " <" << arg.first << ">";
+			}
+            std::cout << std::endl;
+
+			if (!explanations.empty()){
+			    std::cout << "Options:" << std::endl;
+			    for (const auto& opt : explanations) {
+				    std::cout << "  " << opt.first << "\t" << opt.second << std::endl;
+			    }
+            }
+
+            exit(EXIT_SUCCESS);
+		}
+
+        template<typename T, typename U>
+        cmd_opt<T> add_optional(std::string name, const U& init, std::string explanation = "") {
+			name = "--" + name;
             assert_unique(name);
+            explanations[name] = explanation;
             cmd_opt<T> opt(init);
             optional.emplace(name, opt.ptr);
             return opt;
         }
 
         template<typename T>
-        cmd_opt<T> add_required_internal(const std::string& name) {
+        cmd_opt<T> add_required(std::string name, std::string explanation = "") {
+			name = "--" + name;
             assert_unique(name);
+            explanations[name] = explanation;
             cmd_opt<T> opt;
             required.emplace(name, opt.ptr);
             return opt;
         }
 
-        cmd_multi_opt add_multiple_internal(const std::string& name) {
+        template<typename T>
+		cmd_opt<T> add_required_free_arg(std::string explanation) {
+            cmd_opt<T> opt;
+            required_free_args.emplace_back(explanation, opt.ptr);
+            return opt;
+        }
+
+        cmd_multi_opt add_multiple(std::string name, std::string explanation = "") {
+			name = "--" + name;
             assert_unique(name);
+            explanations[name] = explanation;
             cmd_multi_opt opt;
             multiple.emplace(name, opt.ptr);
             return opt;
         }
 
-        void fail_with_error(const std::string& error) const {
-            std::cout << error << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-    public:
-
-        cmd_opts() {}
-
-        template<typename T, typename U>
-        cmd_opt<T> add_optional(const std::string& name, const U& init) {
-            return add_optional_internal("--" + name, static_cast<T>(init));
-        }
-
-        template<typename T>
-        cmd_opt<T> add_required(const std::string& name) {
-            return add_required_internal<T>("--" + name);
-        }
-
-        cmd_multi_opt add_multiple(const std::string& name) {
-            return add_multiple_internal("--" + name);
-        }
-
-        cmd_flag add_flag(const std::string& name) {
-            return add_flag_internal("--" + name);
+        cmd_flag add_flag(std::string name, std::string explanation = "") {
+			name = "--" + name;
+            assert_unique(name);
+            explanations[name] = explanation;
+            cmd_flag flag;
+            flags.emplace(name, flag.ptr);
+            return flag;
         }
 
         void parse(const int argc, const char** argv) {
             arg0 = argv[0];
+			int required_free_args_index = 0;
             for (int i = 1; i < argc;) {
                 const std::string arg = argv[i++];
 
@@ -198,7 +224,13 @@ namespace c4 {
                     continue;
                 }
 
-                free_args.push_back(arg);
+                if (required_free_args_index < required_free_args.size()) {
+					*required_free_args[required_free_args_index].second = arg;
+					required_free_args_index++;
+					continue;
+				}
+                
+                free_args_left.push_back(arg);
             }
 
             for (auto& opt : required) {
@@ -206,14 +238,18 @@ namespace c4 {
                     fail_with_error("Required cmd line argument not found: " + opt.first);
                 }
             }
+
+			if (required_free_args_index < required_free_args.size()) {
+				fail_with_error(required_free_args[required_free_args_index].first + " not found in the command line");
+			}
         }
 
         void parse(const int argc, char** argv) {
             parse(argc, const_cast<const char**>(argv));
         }
         
-        const std::vector<std::string>& get_free_args() const {
-            return free_args;
+        const std::vector<std::string>& get_args_left() const {
+            return free_args_left;
         }
 
         const std::string& get_arg0() const {

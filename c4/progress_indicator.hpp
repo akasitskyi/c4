@@ -50,26 +50,39 @@ namespace c4 {
 
         std::mutex mu;
 
+		int percent_done() {
+			return work_done * 100 / work_total;
+		}
+
     public:
-        progress_indicator(uint32_t work_total) : last_ts(0), work_total(work_total), work_done(0), label("") {}
-        progress_indicator(std::string label, uint32_t work_total) : last_ts(0), work_total(work_total), work_done(0), label(label) {}
+        progress_indicator(uint32_t work_total, std::string label = "Progress") : last_ts(0), work_total(work_total), work_done(0), label(label) {}
 
         void did_some(uint32_t amount) {
+			const int p0 = percent_done();
             work_done += amount;
+			const int p1 = percent_done();
             uint32_t t1 = timer.elapsed();
 
             uint32_t t0 = last_ts.exchange(t1);
 
-            if (t1 > t0) {
+            if (t1 > t0 || p1 > p0) {
                 print();
             }
         }
 
         void print() {
+			if (work_total == 0)
+				return;
+
             std::lock_guard<std::mutex> lock(mu);
 
-            std::cout << label << " " << work_done * 100 / work_total << "% done\r";
+            std::cout << label << " " << percent_done() << "% done\r";
         }
+
+		void print_final() {
+			std::lock_guard<std::mutex> lock(mu);
+			std::cout << label << " 100% done" << std::endl;
+		}
     };
 
 }; // namespace c4
