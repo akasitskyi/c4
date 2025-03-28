@@ -24,6 +24,7 @@
 
 #include <string>
 #include <cctype>
+#include <vector>
 #include <sstream>
 #include <iomanip>
 
