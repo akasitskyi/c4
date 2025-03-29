@@ -131,7 +131,7 @@ namespace c4 {
             enumerable_thread_specific<std::vector<matrix<uint8_t>>> ts_xp;
             enumerable_thread_specific<std::vector<matrix<uint8_t>>> ts_xn;
 
-            progress_indicator progress("dataset::load", (uint32_t)mds.data.size());
+            progress_indicator progress((uint32_t)mds.data.size(), "dataset::load");
 
             parallel_for(range(mds.data), [&](int i) {
                 const auto& file_meta = mds.data[i];

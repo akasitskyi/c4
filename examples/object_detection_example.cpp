@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
             c4::scaling_detector<c4::lbpx<3>, 256> sd;
             c4::load("face_detector_24_lbpx3.dat", sd);
 
-            c4::progress_indicator progress("detection", (uint32_t)test_meta.data.size());
+            c4::progress_indicator progress((uint32_t)test_meta.data.size(), "detection");
 
             c4::scoped_timer timer("c4 detect time");
 

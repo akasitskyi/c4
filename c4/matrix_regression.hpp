@@ -159,7 +159,7 @@ namespace c4 {
 
             print_status("initial ");
 
-            progress_indicator progress("matrix_regression::train", itc);
+            progress_indicator progress(itc, "matrix_regression::train");
 
             for (int it = 1; it <= itc; it++) {
                 parallel_for(range(weights.height()), [&](int i) {

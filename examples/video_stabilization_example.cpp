@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
 		for (const auto& r : ignore) {
 			ignoreDown.emplace_back(r.x / downscale, r.y / downscale, r.w / downscale, r.h / downscale);
 		}
-		params.q_length = 5;
+		params.x_smooth = 25;
 		c4::VideoStabilization vs(params, ignoreDown);
 		c4::matrix<uint8_t> image;
 
