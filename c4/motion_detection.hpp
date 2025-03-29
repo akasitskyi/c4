@@ -80,13 +80,13 @@ namespace c4 {
 				return { shift.rotate(other.alpha) * other.scale + other.shift, scale * other.scale, alpha + other.alpha };
 			}
 
-			double calc_fill_scale(const matrix_ref<uint8_t>& frame) const {
+			double calc_fill_scale(int frameHeight, int frameWidth) const {
 				auto apply = [this](const point<double>& p){
 					return p.rotate(alpha) * scale + shift;
 				};
 
-				const double h2 = frame.height() * 0.5;
-				const double w2 = frame.width() * 0.5;
+				const double h2 = frameHeight * 0.5;
+				const double w2 = frameWidth * 0.5;
 
 				std::vector<point<double>> v;
 				v.push_back(apply(point<double>(-w2, -h2)));
