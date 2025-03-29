@@ -87,6 +87,7 @@ namespace c4 {
 #define ASSERT_LESS(A, B) { auto __a = (A); auto __b = (B); if( !(__a < __b) ) THROW_EXCEPTION("Runtime assertion failed: " #A " < " #B ", " + c4::to_string(__a) + " !< " + c4::to_string(__b)); }
 #define ASSERT_GREATER(A, B) { auto __a = (A); auto __b = (B); if( !(__a > __b) ) THROW_EXCEPTION("Runtime assertion failed: " #A " > " #B ", " + c4::to_string(__a) + " !> " + c4::to_string(__b)); }
 #define ASSERT_LESS_EQUAL(A, B) { auto __a = (A); auto __b = (B); if( !(__a <= __b) ) THROW_EXCEPTION("Runtime assertion failed: " #A " <= " #B ", " + c4::to_string(__a) + " !<= " + c4::to_string(__b)); }
+#define ASSERT_GREATER_EQUAL(A, B) { auto __a = (A); auto __b = (B); if( !(__a >= __b) ) THROW_EXCEPTION("Runtime assertion failed: " #A " >= " #B ", " + c4::to_string(__a) + " !>= " + c4::to_string(__b)); }
 
 #define INVALID_VALUE(P) THROW_EXCEPTION(#P " = " + c4::to_string(P) + " is invalid")
 };
