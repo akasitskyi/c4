@@ -35,7 +35,10 @@ namespace c4 {
 		typedef std::shared_ptr<Frame> FramePtr;
 
 		struct Params : public MotionDetector::Params {
-			int q_length = 50;
+			int x_smooth = 50;
+			int y_smooth = 50;
+			int scale_smooth = 50;
+			int alpha_smooth = 50;
 		};
 
 		VideoStabilization(const Params &params, const std::vector<rectangle<int>> ignore = {})
@@ -45,15 +48,17 @@ namespace c4 {
 		MotionDetector::Motion process(FramePtr frame) {
 			c4::scoped_timer timer("VideoStabilization::process()");
 
+			const int q_length = std::max(std::max(params.x_smooth, params.y_smooth), std::max(params.alpha_smooth, params.scale_smooth));
+
 			if (prev) {
 				MotionDetector::Motion curMotion = MotionDetector::detect(*prev, *frame, params, ignore);
 				
 				motion_q.push_back(curMotion);
-				if (motion_q.size() > params.q_length) {
+				if (motion_q.size() > q_length) {
 					motion_q.pop_front();
 				}
 
-				MotionDetector::Motion avgMotion = average(motion_q);
+				const MotionDetector::Motion avgMotion = average();
 
 				curMotion.shift -= avgMotion.shift;
 				curMotion.scale /= avgMotion.scale;
@@ -75,18 +80,30 @@ namespace c4 {
 		FramePtr prev = nullptr;
 		MotionDetector::Motion accMotion;
 
-		static MotionDetector::Motion average(const std::deque<MotionDetector::Motion>& motions) {
+		MotionDetector::Motion average() const {
 			MotionDetector::Motion sum;
-			double lscale = 0;
-			for (const auto& m : motions) {
-				//const auto m = fm.get();
-				sum.shift = sum.shift + m.shift;
-				lscale += std::log2(m.scale);
-				sum.alpha += m.alpha;
+			if (motion_q.empty()) {
+				return sum;
 			}
-			sum.shift = sum.shift * (1. / motions.size());
-			sum.scale = std::exp2(lscale / motions.size());
-			sum.alpha /= motions.size();
+			double lscale = 0;
+			for (int i = 0; i < isize(motion_q); i++) {
+				const auto& m = motion_q[isize(motion_q) - i - 1];
+
+				if (i < params.x_smooth)
+					sum.shift.x += m.shift.x;
+				if (i < params.y_smooth)
+					sum.shift.y += m.shift.y;
+				if (i < params.scale_smooth)
+					lscale += std::log2(m.scale);
+				if (i < params.alpha_smooth)
+					sum.alpha += m.alpha;
+			}
+
+			sum.shift.x /= std::min(isize(motion_q), params.x_smooth);
+			sum.shift.y /= std::min(isize(motion_q), params.y_smooth);
+			sum.scale = std::exp2(lscale / std::min(isize(motion_q), params.scale_smooth));
+			sum.alpha /= std::min(isize(motion_q), params.alpha_smooth);
+
 			return sum;
 		}
 	};
