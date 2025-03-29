@@ -49,7 +49,7 @@ namespace c4 {
 				MotionDetector::Motion curMotion = MotionDetector::detect(*prev, *frame, params, ignore);
 				
 				motion_q.push_back(curMotion);
-				if (motion_q.size() > q_length) {
+				if (motion_q.size() > params.q_length) {
 					motion_q.pop_front();
 				}
 
@@ -71,7 +71,6 @@ namespace c4 {
 		Params params;
 		std::vector<rectangle<int>> ignore;
 		
-		const int q_length = 50;
 		std::deque<MotionDetector::Motion> motion_q;
 		FramePtr prev = nullptr;
 		MotionDetector::Motion accMotion;
