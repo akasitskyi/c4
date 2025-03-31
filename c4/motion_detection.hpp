@@ -107,7 +107,7 @@ namespace c4 {
 
 		struct Params {
 			double maxScale = 1.05;
-			double maxAlpha = std::numbers::pi * 0.1;
+			double maxAlpha = 0.003; // radians
 
 			int blockSize = 32;
 			int maxShift = 16;
@@ -203,6 +203,9 @@ namespace c4 {
 
 			transform_inplace(dst, [rscale](const point<double>& p) { return p * rscale; });
 
+			const double minSinAlpha = std::sin(-params.maxAlpha);
+			const double maxSinAlpha = std::sin(params.maxAlpha);
+
 			double sumSinAlpha = 0;
 			sumWeight = 0;
 
@@ -221,7 +224,7 @@ namespace c4 {
 					const double sinAlpha = xp / (lA * lB);
 					const double weight = weights[i][j] * lA;
 
-					sumSinAlpha += sinAlpha * weight;
+					sumSinAlpha += std::clamp(sinAlpha, minSinAlpha, maxSinAlpha) * weight;
 					sumWeight += weight;
 				}
 			}
