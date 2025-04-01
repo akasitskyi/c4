@@ -35,10 +35,15 @@ namespace c4 {
 		typedef std::shared_ptr<Frame> FramePtr;
 
 		struct Params : public MotionDetector::Params {
-			int x_smooth = 50;
-			int y_smooth = 50;
-			int scale_smooth = 50;
+			int x_smooth = 25;
+			int y_smooth = 25;
+			int scale_smooth = 25;
 			int alpha_smooth = 50;
+
+			Params() {
+				blockSize = 32;
+				maxShift = 10; // For video stabilization, we usually don't need to search for large shifts
+			}
 		};
 
 		VideoStabilization(const Params &params, const std::vector<rectangle<int>> ignore = {})
