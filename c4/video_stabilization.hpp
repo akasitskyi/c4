@@ -53,16 +53,22 @@ namespace c4 {
 			if (prev) {
 				MotionDetector::Motion curMotion = MotionDetector::detect(*prev, *frame, params, ignore);
 				
+				const MotionDetector::Motion avgMotion = average();
+				const MotionDetector::Motion errMotion{ pavgMotion.shift - avgMotion.shift, pavgMotion.scale / avgMotion.scale, pavgMotion.alpha - avgMotion.alpha };
+				pavgMotion = avgMotion;
+
 				motion_q.push_back(curMotion);
 				if (motion_q.size() > q_length) {
 					motion_q.pop_front();
 				}
-
-				const MotionDetector::Motion avgMotion = average();
-
 				curMotion.shift -= avgMotion.shift;
 				curMotion.scale /= avgMotion.scale;
 				curMotion.alpha -= avgMotion.alpha;
+
+				// apply error correction for previous iteration
+				curMotion.shift += errMotion.shift;
+				curMotion.scale *= errMotion.scale;
+				curMotion.alpha += errMotion.alpha;
 
 				accMotion = accMotion.combine(curMotion);
 			}
@@ -79,6 +85,7 @@ namespace c4 {
 		std::deque<MotionDetector::Motion> motion_q;
 		FramePtr prev = nullptr;
 		MotionDetector::Motion accMotion;
+		MotionDetector::Motion pavgMotion;
 
 		MotionDetector::Motion average() const {
 			MotionDetector::Motion sum;
