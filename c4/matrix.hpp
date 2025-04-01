@@ -122,6 +122,14 @@ namespace c4 {
         int area() const {
             return height * width;
         }
+
+		int min() const {
+			return std::min(height, width);
+		}
+
+		int max() const {
+			return std::max(height, width);
+        }
     };
 
     inline bool operator==(const matrix_dimensions& a, const matrix_dimensions& b) {
