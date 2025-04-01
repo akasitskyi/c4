@@ -46,11 +46,11 @@ namespace c4 {
 			}
 		};
 
-		VideoStabilization(const Params &params, const std::vector<rectangle<int>> ignore = {})
-			: params(params), ignore(ignore) {
+		VideoStabilization(const Params &params)
+			: params(params){
 		}
 
-		MotionDetector::Motion process(FramePtr frame) {
+		MotionDetector::Motion process(FramePtr frame, const std::vector<rectangle<int>> ignore = {}) {
 			c4::scoped_timer timer("VideoStabilization::process()");
 
 			const int q_length = std::max(std::max(params.x_smooth, params.y_smooth), std::max(params.alpha_smooth, params.scale_smooth));
@@ -85,7 +85,6 @@ namespace c4 {
 
 	private:
 		Params params;
-		std::vector<rectangle<int>> ignore;
 		
 		std::deque<MotionDetector::Motion> motion_q;
 		FramePtr prev = nullptr;

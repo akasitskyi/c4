@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
 		}
 		params.x_smooth = 25;
 		params.y_smooth = 25;
-		c4::VideoStabilization vs(params, ignoreDown);
+		c4::VideoStabilization vs(params);
 		c4::matrix<uint8_t> image;
 
 		char buf[1024];
@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
 
 			c4::downscale_bilinear_nx(image, *frame, downscale);
 
-			c4::MotionDetector::Motion motion = vs.process(frame);
+			c4::MotionDetector::Motion motion = vs.process(frame, ignoreDown);
 			motion.shift = motion.shift * downscale;
 
 			c4::matrix<uint8_t> stabilized(image.dimensions());
