@@ -26,6 +26,7 @@
 #include <c4/range.hpp>
 
 #include <cstdio>
+#include <limits>
 #include <cstring>
 
 using namespace std;

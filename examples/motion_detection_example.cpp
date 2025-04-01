@@ -25,7 +25,6 @@
 #include <c4/jpeg.hpp>
 #include <c4/drawing.hpp>
 #include <c4/string.hpp>
-#include <c4/serialize.hpp>
 #include <c4/image_dumper.hpp>
 #include <c4/motion_detection.hpp>
 

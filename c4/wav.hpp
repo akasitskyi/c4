@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cstdint>
+#include <limits>
 #include <vector>
 #include <cstring>
 #include <memory>
@@ -532,14 +533,14 @@ inline void wav_s24_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) 
 }
 
 inline void wav_s32_to_f32(float* pOut, const int32_t* pIn, size_t sampleCount) {
-    constexpr float q = 1.f / -std::numeric_limits<int32_t>::min();
+    constexpr float q = -1.f / std::numeric_limits<int32_t>::min();
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = pIn[i] * q;
     }
 }
 
 inline void wav_s64_to_f32(float* pOut, const int64_t* pIn, size_t sampleCount) {
-    constexpr float q = 1.f / -std::numeric_limits<int64_t>::min();
+    constexpr float q = -1.f / std::numeric_limits<int64_t>::min();
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = pIn[i] * q;
     }
@@ -552,14 +553,14 @@ inline void wav_f64_to_f32(float* pOut, const double* pIn, size_t sampleCount) {
 }
 
 inline void wav_alaw_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
-    constexpr float q = 1.f / -std::numeric_limits<int16_t>::min();
+    constexpr float q = -1.f / std::numeric_limits<int16_t>::min();
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = detail::wav_alaw_to_s16(pIn[i]) * q;
     }
 }
 
 inline void wav_mulaw_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount) {
-    constexpr float q = 1.f / -std::numeric_limits<int16_t>::min();
+    constexpr float q = -1.f / std::numeric_limits<int16_t>::min();
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = detail::wav_mulaw_to_s16(pIn[i]) * q;
     }

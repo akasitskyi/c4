@@ -22,11 +22,12 @@
 
 #pragma once
 
+#include <atomic>
+#include <chrono>
 #include <string>
 #include <vector>
 #include <sstream>
 #include <ostream>
-#include <chrono>
 
 #ifdef ANDROID
 #include <android/log.h>
