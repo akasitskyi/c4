@@ -39,6 +39,7 @@ namespace c4 {
 			int y_smooth = 25;
 			int scale_smooth = 25;
 			int alpha_smooth = 50;
+			double scene_cut_threshold = 0.1;
 
 			Params() {
 				blockSize = 32;
@@ -52,34 +53,47 @@ namespace c4 {
 
 		MotionDetector::Motion process(FramePtr frame, const std::vector<rectangle<int>> ignore = {}) {
 			c4::scoped_timer timer("VideoStabilization::process()");
+			frameCount++;
 
 			const int q_length = std::max(std::max(params.x_smooth, params.y_smooth), std::max(params.alpha_smooth, params.scale_smooth));
 
-			if (prev) {
-				MotionDetector::Motion curMotion = MotionDetector::detect(*prev, *frame, params, ignore);
-				
-				const MotionDetector::Motion avgMotion = average();
-				const MotionDetector::Motion errMotion{ pavgMotion.shift - avgMotion.shift, pavgMotion.scale / avgMotion.scale, pavgMotion.alpha - avgMotion.alpha };
-				pavgMotion = avgMotion;
-
-				motion_q.push_back(curMotion);
-				if (motion_q.size() > q_length) {
-					motion_q.pop_front();
-				}
-				curMotion.shift -= avgMotion.shift;
-				curMotion.scale /= avgMotion.scale;
-				curMotion.alpha -= avgMotion.alpha;
-
-				// apply error correction for previous iteration
-				curMotion.shift += errMotion.shift;
-				curMotion.scale *= errMotion.scale;
-				curMotion.alpha += errMotion.alpha;
-
-				accMotion = accMotion.combine(curMotion);
+			if (!prev) {
+				prev = frame;
+				return accMotion;
 			}
 
-			prev = frame;
+			MotionDetector::Motion curMotion = MotionDetector::detect(*prev, *frame, params, ignore);
 
+			if (curMotion.confidence < params.scene_cut_threshold) {
+				LOGD << "Scene cut detected on frame " << frameCount << ", motion confidence = " << curMotion.confidence << ", resetting motion queue";
+				motion_q.clear();
+				accMotion = MotionDetector::Motion();
+				pavgMotion = MotionDetector::Motion();
+
+				prev = frame;
+				return accMotion;
+			}
+			
+			const MotionDetector::Motion avgMotion = average();
+			const MotionDetector::Motion errMotion{ pavgMotion.shift - avgMotion.shift, pavgMotion.scale / avgMotion.scale, pavgMotion.alpha - avgMotion.alpha };
+			pavgMotion = avgMotion;
+
+			motion_q.push_back(curMotion);
+			if (motion_q.size() > q_length) {
+				motion_q.pop_front();
+			}
+			curMotion.shift -= avgMotion.shift;
+			curMotion.scale /= avgMotion.scale;
+			curMotion.alpha -= avgMotion.alpha;
+
+			// apply error correction for previous iteration
+			curMotion.shift += errMotion.shift;
+			curMotion.scale *= errMotion.scale;
+			curMotion.alpha += errMotion.alpha;
+
+			accMotion = accMotion.combine(curMotion);
+
+			prev = frame;
 			return accMotion;
 		}
 
@@ -90,6 +104,7 @@ namespace c4 {
 		FramePtr prev = nullptr;
 		MotionDetector::Motion accMotion;
 		MotionDetector::Motion pavgMotion;
+		int frameCount = 0;
 
 		MotionDetector::Motion average() const {
 			MotionDetector::Motion sum;

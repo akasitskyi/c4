@@ -238,6 +238,7 @@ namespace c4 {
 			point<double> shift;
 			double scale = 1.0;
 			double alpha = 0.0;
+			double confidence = 0.0;
 
 			point<double> apply(const matrix_ref<uint8_t>& frame, const point<double>& p) const {
 				point<double> C = center(frame);
@@ -361,9 +362,12 @@ namespace c4 {
 					sumWeight += weights[i][j];
 				}
 			}
+
+			const double confidence = sumWeight / (shifts.height() * shifts.width());
+
 			const double EPS = 1E-6;
 			if(sumWeight < EPS){
-				return Motion{{0, 0}, 0, 0};
+				return Motion{{0, 0}, 0, 0, confidence};
 			}
 
 			const point<double> rshift = sumShift * (1. / sumWeight);
@@ -422,7 +426,7 @@ namespace c4 {
 
 			const double alpha = std::clamp(std::asin(sumSinAlpha / sumWeight), -params.maxAlpha, params.maxAlpha);
 
-			return { rshift, rscale, alpha };
+			return { rshift, rscale, alpha, confidence };
 		}
 
 		static void detect_local(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights, int blockSize, int maxShift) {
