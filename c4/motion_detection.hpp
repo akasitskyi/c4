@@ -269,7 +269,7 @@ namespace c4 {
 
 			// combine two motions: first apply this motion, then apply other motion
 			Motion combine(const Motion& other) const {
-				return { shift.rotate(other.alpha) * other.scale + other.shift, scale * other.scale, alpha + other.alpha };
+				return { shift.rotate(other.alpha) * other.scale + other.shift, scale * other.scale, alpha + other.alpha, std::min(confidence, other.confidence) };
 			}
 
 			double calc_fill_scale(int frameHeight, int frameWidth) const {

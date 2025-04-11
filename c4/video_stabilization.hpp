@@ -92,6 +92,7 @@ namespace c4 {
 			curMotion.alpha += errMotion.alpha;
 
 			accMotion = accMotion.combine(curMotion);
+			accMotion.confidence = curMotion.confidence;
 
 			prev = frame;
 			return accMotion;
