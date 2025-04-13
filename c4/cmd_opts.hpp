@@ -105,6 +105,10 @@ namespace c4 {
         std::vector<std::string> free_args_left;
         std::string arg0;
 
+        std::string package;
+        std::string version;
+		std::string vendor;
+
         void assert_unique(const std::string name) const {
             if (optional.count(name) || required.count(name) || multiple.count(name) || flags.count(name))
                 throw std::logic_error("Can't add multiple options with the same name: " + name);
@@ -123,6 +127,18 @@ namespace c4 {
 			add_flag("help", "Print this help message.");
         }
 
+		void set_package(const std::string& package) {
+			this->package = package;
+		}
+
+		void set_version(const std::string& version) {
+			this->version = version;
+		}
+
+		void set_vendor(const std::string& vendor) {
+			this->vendor = vendor;
+		}
+
 		void print_help() const {
 			std::cout << "Usage: " << arg0;
 			if (!explanations.empty()){
@@ -139,9 +155,20 @@ namespace c4 {
 				    std::cout << "  " << opt.first << "\t" << opt.second << std::endl;
 			    }
             }
-
-            exit(EXIT_SUCCESS);
 		}
+
+		void print_version() const {
+			if (!package.empty()) {
+			    std::cout << package << " version " << version;
+			} else {
+			    std::cout << "Version " << version;
+			}
+
+            if (!vendor.empty()) {
+				std::cout << " by " << vendor;
+            }
+			std::cout << std::endl;
+        }
 
         template<typename T, typename U>
         cmd_opt<T> add_optional(std::string name, const U& init, std::string explanation = "") {
@@ -189,6 +216,20 @@ namespace c4 {
         }
 
         void parse(const int argc, const char** argv) {
+            if (!version.empty()) {
+			    add_flag("version", "Print the version info of this application.");
+            }
+
+            if (argc == 2 && std::string(argv[1]) == "--help") {
+				print_help();
+                exit(EXIT_SUCCESS);
+			}
+
+			if (argc == 2 && std::string(argv[1]) == "--version" && !version.empty()) {
+				print_version();
+                exit(EXIT_SUCCESS);
+			}
+
             arg0 = argv[0];
 			int required_free_args_index = 0;
             for (int i = 1; i < argc;) {
