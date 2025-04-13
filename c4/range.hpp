@@ -23,8 +23,9 @@
 #pragma once
 
 #include <array>
-#include <vector>
+#include <deque>
 #include <string>
+#include <vector>
 #include <cassert>
 #include <cstddef>
 #include <type_traits>
@@ -207,6 +208,11 @@ namespace c4 {
 
         template<class T>
         explicit range(const std::vector<T>& v) : begin_(0), end_((int)v.size()) {
+            assert(fits_within<int>(v.size()));
+        }
+
+        template<class T>
+        explicit range(const std::deque<T>& v) : begin_(0), end_((int)v.size()) {
             assert(fits_within<int>(v.size()));
         }
 
