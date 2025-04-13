@@ -328,6 +328,49 @@ namespace c4 {
             return v;
         }
 
+        inline auto get_interpolate_1d(int i0, float x) const {
+			x = std::clamp(x, 0.f, width_ - 1.f);
+			const int j0 = int(x);
+			const float dj = x - j0;
+			const int j1 = std::min(j0 + 1, width_ - 1);
+
+			const T* p0 = ptr_ + i0 * stride_;
+
+            return p0[j0] * (1.f - dj) + p0[j1] * dj;
+        }
+
+        auto get_interpolate1(point<float> p) const {
+            if (p.y >= height_-1) [[unlikely]] {
+                return get_interpolate_1d(height_-1, p.x);
+            }
+            if (p.y <= 0.f) [[unlikely]] {
+                return get_interpolate_1d(0, p.x);
+            }
+
+			const int i0 = int(p.y);
+            const float di = p.y - i0;
+
+            const T* p0 = ptr_ + i0 * stride_;
+			const T* p1 = p0 + stride_;
+
+            if (p.x >= width_-1) [[unlikely]] {
+                return p0[width_-1] * (1.f - di) + p1[width_-1] * di;
+            }
+            if (p.x <= 0.f) [[unlikely]] {
+                return p0[0] * (1.f - di) + p1[0] * di;
+            }
+
+            const int j0 = int(p.x);
+			const float dj = p.x - j0;
+
+            const auto s0 = p0[j0] * (1.f - dj) + p0[j0+1] * dj;
+            const auto s1 = p1[j0] * (1.f - dj) + p1[j0+1] * dj;
+
+			auto v = s0 * (1.f - di) + s1 * di;
+
+            return v;
+        }
+
         matrix_ref<T> submatrix(const rectangle<int>& r) {
             assert(is_inside(r));
             return matrix_ref<T>(r.h, r.w, stride_, ptr_ + r.y * stride_ + r.x);
