@@ -251,20 +251,21 @@ namespace c4 {
 
 			template<typename T>
 			void apply(const matrix_ref<T>& src, matrix_ref<T>& dst) const {
-				c4::scoped_timer timer2("Motion::apply");
+				static c4::time_printer tp("Motion::apply", LOG_INFO);
+				c4::scoped_timer timer2(tp);
 				ASSERT_EQUAL(src.dimensions(), dst.dimensions());
 
-				const double sns = std::sin(alpha) * scale;
-				const double css = std::cos(alpha) * scale;
+				const float sns = std::sin(alpha) * scale;
+				const float css = std::cos(alpha) * scale;
 
-				const point<double> C = center(src);
-				const point<double> Cps = C + shift;
+				const point<float> C = center(src);
+				const point<float> Cps = C + point<float>(shift);
 
 				parallel_for(range(src.height()), [&src, &dst, C, css, sns, Cps](int y){
 					for (int x : c4::range(src.width())) {
-						c4::point<double> p = c4::point<double>(x, y) - C;
-						c4::point<double> prs(css * p.x - sns * p.y, sns * p.x + css * p.y);
-						c4::point<double> t = prs + Cps;
+						c4::point<float> p = c4::point<float>(x, y) - C;
+						c4::point<float> prs(css * p.x - sns * p.y, sns * p.x + css * p.y);
+						c4::point<float> t = prs + Cps;
 
 						dst[y][x] = src.get_interpolate(t);
 					}

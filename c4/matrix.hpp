@@ -312,16 +312,18 @@ namespace c4 {
 			p.y = std::clamp(p.y, 0.f, height_ - 1.f);
 			const int i0 = int(p.y);
 			const int j0 = int(p.x);
-			const double di = p.y - i0;
-			const double dj = p.x - j0;
+			const float di = p.y - i0;
+			const float dj = p.x - j0;
 			const int i1 = std::min(i0 + 1, height_ - 1);
 			const int j1 = std::min(j0 + 1, width_ - 1);
 
-			auto p0 = operator[](i0).data();
-			auto p1 = operator[](i1).data();
+			const T* p0 = ptr_ + i0 * stride_;
+			const T* p1 = ptr_ + i1 * stride_;
 
-			auto v = (p0[j0] * (1.f - dj) + p0[j1] * dj) * (1.f - di) +
-                     (p1[j0] * (1.f - dj) + p1[j1] * dj) * di;
+            const auto s0 = p0[j0] * (1.f - dj) + p0[j1] * dj;
+            const auto s1 = p1[j0] * (1.f - dj) + p1[j1] * dj;
+
+			auto v = s0 * (1.f - di) + s1 * di;
 
             return v;
         }
