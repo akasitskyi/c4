@@ -240,9 +240,13 @@ namespace c4 {
 			double alpha = 0.0;
 			double confidence = 0.0;
 
-			point<double> apply(const matrix_ref<uint8_t>& frame, const point<double>& p) const {
+			inline point<double> apply(const point<double>& p) const {
+				return p.rotate(alpha) * scale + shift;
+			}
+
+			inline point<double> apply(const matrix_ref<uint8_t>& frame, const point<double>& p) const {
 				point<double> C = center(frame);
-				return C + (p-C).rotate(alpha) * scale + shift;
+				return C + apply(p-C);
 			}
 
 			template<typename T>
@@ -272,11 +276,15 @@ namespace c4 {
 				return { shift.rotate(other.alpha) * other.scale + other.shift, scale * other.scale, alpha + other.alpha, std::min(confidence, other.confidence) };
 			}
 
-			double calc_fill_scale(int frameHeight, int frameWidth) const {
-				auto apply = [this](const point<double>& p){
-					return p.rotate(alpha) * scale + shift;
-				};
+			struct FrameFillInfo {
+				double x_min = 0;
+				double x_max = 0;
+				double y_min = 0;
+				double y_max = 0;
+				double scale = 1.;
+			};
 
+			FrameFillInfo calc_fill(int frameHeight, int frameWidth) const {
 				const double h2 = frameHeight * 0.5;
 				const double w2 = frameWidth * 0.5;
 
@@ -286,14 +294,17 @@ namespace c4 {
 				v.push_back(apply(point<double>(w2, h2)));
 				v.push_back(apply(point<double>(w2, -h2)));
 
-				double scale = 1;
+				FrameFillInfo ffi;
 
 				for (const point<double>& p : v) {
-					scale = std::max(scale, std::abs(p.x) / w2);
-					scale = std::max(scale, std::abs(p.y) / h2);
+					ffi.scale = std::max(ffi.scale, std::max(std::abs(p.x) / w2, std::abs(p.y) / h2));
+					ffi.x_min = std::min(ffi.x_min, p.x);
+					ffi.x_max = std::max(ffi.x_max, p.x);
+					ffi.y_min = std::min(ffi.y_min, p.y);
+					ffi.y_max = std::max(ffi.y_max, p.y);
 				}
 
-				return scale;
+				return ffi;
 			}
 		};
 
