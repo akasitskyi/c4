@@ -251,7 +251,7 @@ namespace c4 {
 
 			template<typename T>
 			void apply(const matrix_ref<T>& src, matrix_ref<T>& dst) const {
-				static c4::time_printer tp("Motion::apply", LOG_INFO);
+				static c4::time_printer tp("Motion::apply", LOG_DEBUG);
 				c4::scoped_timer timer2(tp);
 				ASSERT_EQUAL(src.dimensions(), dst.dimensions());
 
