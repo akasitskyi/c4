@@ -233,3 +233,9 @@ namespace c4 {
     };
 
 }; // namespace c4
+
+#define C4_CONCAT4MACRO_INNER(a, b) a ## b
+#define C4_CONCAT4MACRO(a, b) C4_CONCAT4MACRO_INNER(a, b)
+
+#define SCOPED_TIMER(NAME) c4::scoped_timer C4_CONCAT4MACRO(t, __LINE__)(NAME)
+#define STATIC_SCOPED_TIMER(NAME) static c4::time_printer C4_CONCAT4MACRO(tp, __LINE__)(NAME); c4::scoped_timer C4_CONCAT4MACRO(t, __LINE__)(C4_CONCAT4MACRO(tp, __LINE__))

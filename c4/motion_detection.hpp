@@ -251,8 +251,8 @@ namespace c4 {
 
 			template<typename T>
 			void apply(const matrix_ref<T>& src, matrix_ref<T>& dst) const {
-				static c4::time_printer tp("Motion::apply", LOG_DEBUG);
-				c4::scoped_timer timer2(tp);
+				STATIC_SCOPED_TIMER("Motion::apply");
+
 				ASSERT_EQUAL(src.dimensions(), dst.dimensions());
 
 				const float sns = std::sin(alpha) * scale;
@@ -335,7 +335,7 @@ namespace c4 {
 		}
 		
 		static Motion detect(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, const Params& params, const std::vector<rectangle<int>> ignore = {}) {
-			c4::scoped_timer timer("MotionDetector::detect");
+			STATIC_SCOPED_TIMER("MotionDetector::detect");
 
 			ASSERT_EQUAL(prev.height(), frame.height());
 			ASSERT_EQUAL(prev.width(), frame.width());
@@ -473,7 +473,7 @@ namespace c4 {
 		template<int block>
 		static void detect_local_impl(const matrix_ref<uint8_t>& prev, const matrix_ref<uint8_t>& frame, matrix<point<int>>& shifts, matrix<double>& weights, const int maxShift) {
 			using namespace motion_detail;
-			c4::scoped_timer timer("MotionDetector::detect_local_impl");
+			STATIC_SCOPED_TIMER("MotionDetector::detect_local_impl");
 
 			ASSERT_EQUAL(prev.height(), frame.height());
 			ASSERT_EQUAL(prev.width(), frame.width());

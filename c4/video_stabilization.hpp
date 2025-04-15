@@ -52,7 +52,7 @@ namespace c4 {
 		}
 
 		MotionDetector::Motion process(FramePtr frame, const std::vector<rectangle<int>> ignore = {}) {
-			c4::scoped_timer timer("VideoStabilization::process()");
+			STATIC_SCOPED_TIMER("VideoStabilization::process()");
 			frameCount++;
 
 			const int q_length = std::max(std::max(params.x_smooth, params.y_smooth), std::max(params.alpha_smooth, params.scale_smooth));
