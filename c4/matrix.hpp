@@ -307,27 +307,6 @@ namespace c4 {
             return clamp_get(int(p.y + 0.5f), int(p.x + 0.5f));
         }
 
-        auto get_interpolate(point<float> p) const {
-			p.x = std::clamp(p.x, 0.f, width_ - 1.f);
-			p.y = std::clamp(p.y, 0.f, height_ - 1.f);
-			const int i0 = int(p.y);
-			const int j0 = int(p.x);
-			const float di = p.y - i0;
-			const float dj = p.x - j0;
-			const int i1 = std::min(i0 + 1, height_ - 1);
-			const int j1 = std::min(j0 + 1, width_ - 1);
-
-			const T* p0 = ptr_ + i0 * stride_;
-			const T* p1 = ptr_ + i1 * stride_;
-
-            const auto s0 = p0[j0] * (1.f - dj) + p0[j1] * dj;
-            const auto s1 = p1[j0] * (1.f - dj) + p1[j1] * dj;
-
-			auto v = s0 * (1.f - di) + s1 * di;
-
-            return v;
-        }
-
         inline auto get_interpolate_1d(int i0, float x) const {
 			x = std::clamp(x, 0.f, width_ - 1.f);
 			const int j0 = int(x);
@@ -339,7 +318,7 @@ namespace c4 {
             return p0[j0] * (1.f - dj) + p0[j1] * dj;
         }
 
-        auto get_interpolate1(point<float> p) const {
+        auto get_interpolate(point<float> p) const {
             if (p.y >= height_-1) [[unlikely]] {
                 return get_interpolate_1d(height_-1, p.x);
             }

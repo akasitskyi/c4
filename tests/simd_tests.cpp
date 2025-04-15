@@ -527,6 +527,7 @@ void multitest_combine() {
     test_combine<uint16_t>();
     test_combine<int32_t>();
     test_combine<uint32_t>();
+    test_combine<float>();
 }
 
 template<class T>

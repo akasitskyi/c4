@@ -278,7 +278,7 @@ namespace c4 {
 					T* pdst = dst[y].data();
 					const int width = src.width();
 					for (int x = 0; x < width; x++) {
-						pdst[x] = src.get_interpolate1(t);
+						pdst[x] = src.get_interpolate(t);
 
 						t.x += css;
 						t.y += sns;

@@ -570,6 +570,15 @@ namespace c4 {
         }
 
         template<int i>
+        inline float get(float32x4 a) {
+#ifdef USE_ARM_NEON
+            return vgetq_lane_f32(a.v, i);
+#else
+            return _mm_extract_ps(a.v, i);
+#endif
+        }
+
+        template<int i>
         inline int32_t get(int32x4 a) {
 #ifdef USE_ARM_NEON
             return vgetq_lane_s32(a.v, i);
@@ -1572,6 +1581,16 @@ namespace c4 {
 #endif
         }
 
+        inline float32x2 load_half(const float* ptr) {
+#ifdef USE_ARM_NEON
+            float32x2_t t = vld1_f32(ptr);
+            return float32x4(vcombine_f32(t, t));
+#else
+            __m128 t = _mm_loadl_pi(_mm_setzero_ps(), (__m64 const*)ptr);
+            return { t };
+#endif
+        }
+
         // Extend half to a full register
         // The high 64 bits are undefined
         template<class T>
@@ -1593,6 +1612,21 @@ namespace c4 {
             __m128i a0 = _mm_srli_si128(_mm_slli_si128(a.v, 8), 8);
             __m128i b0 = _mm_slli_si128(b.v, 8);
             return _mm_or_si128(a0, b0);
+#endif
+        }
+
+        // Combine two halfs
+        inline float32x4 combine(float32x2 a, float32x2 b) {
+#ifdef USE_ARM_NEON
+            int8x16 a8 = reinterpret<int8x16>(extend(a));
+            int8x16 b8 = reinterpret<int8x16>(extend(b));
+            float32x2_t a8h = vget_low_f32(a.v);
+            float32x2_t b8h = vget_low_f32(b8.v);
+            float32x4 r = vcombine_f32(a8h, b8h);
+            return r;
+#else
+			int32x4 c = combine(int32x2(_mm_castps_si128(a.v)), int32x2(_mm_castps_si128(b.v)));
+            return _mm_castsi128_ps(c.v);
 #endif
         }
 
