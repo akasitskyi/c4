@@ -296,14 +296,14 @@ namespace c4 {
             return vector_ref<T>::create_const(width_, ptr_ + i * stride_);
         }
 
-        const T& clamp_get(int i, int j) const {
+        inline const T& clamp_get(int i, int j) const {
             i = std::clamp(i, 0, height_ - 1);
 			j = std::clamp(j, 0, width_ - 1);
 
-            return operator[](i)[j];
+            return ptr_[i * stride_ + j];
         }
 
-        const T& clamp_get(const point<float>& p) const {
+        inline const T& clamp_get(const point<float>& p) const {
             return clamp_get(int(p.y + 0.5f), int(p.x + 0.5f));
         }
 

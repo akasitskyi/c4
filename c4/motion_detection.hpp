@@ -286,6 +286,43 @@ namespace c4 {
 				});
 			}
 
+			template<typename T>
+			void apply_nn(const matrix_ref<T>& src, matrix_ref<T>& dst) const {
+				STATIC_SCOPED_TIMER("Motion::apply_nn");
+
+				ASSERT_EQUAL(src.dimensions(), dst.dimensions());
+
+				const float sns = std::sin(alpha) * scale;
+				const float css = std::cos(alpha) * scale;
+
+				const point<float> C = center(src);
+				const point<float> Cps = C + point<float>(shift);
+
+				parallel_for(range(src.height()), [&src, &dst, C, css, sns, Cps](int y){
+					// Optimized code is much harder to understand, so we keep the original commented out
+					//for (int x : c4::range(src.width())) {
+					//	c4::point<float> p = c4::point<float>(x, y) - C;
+					//	c4::point<float> prs(css * p.x - sns * p.y, sns * p.x + css * p.y);
+					//	c4::point<float> t = prs + Cps;
+
+					//	dst[y][x] = src.clamp_get(t);
+					//}
+					const float py = (float)y - C.y;
+
+					const c4::point<float> prs(-css * C.x - sns * py, -sns * C.x + css * py);
+					c4::point<float> t = prs + Cps;
+
+					T* pdst = dst[y].data();
+					const int width = src.width();
+					for (int x = 0; x < width; x++) {
+						pdst[x] = src.clamp_get(t);
+
+						t.x += css;
+						t.y += sns;
+					}
+				});
+			}
+
 			// combine two motions: first apply this motion, then apply other motion
 			Motion combine(const Motion& other) const {
 				return { shift.rotate(other.alpha) * other.scale + other.shift, scale * other.scale, alpha + other.alpha, std::min(confidence, other.confidence) };
